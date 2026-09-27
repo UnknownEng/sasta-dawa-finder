@@ -22,8 +22,11 @@
   <!-- Header -->
   <header class="site-header" role="banner">
     <div class="container">
-      <!-- Header Top Bar: Language Switcher -->
+      <!-- Header Top Bar: Language Switcher & Nearby Stores -->
       <div class="header-top-bar">
+        <button type="button" class="header-nearby-btn nearby-stores-toggle-btn" id="header-nearby-btn" aria-label="Find Nearby Stores">
+          <span aria-hidden="true">📍</span> <span data-i18n="find_nearby_stores_btn">Nearby Stores</span>
+        </button>
         <div class="lang-toggle-wrapper" role="group" aria-label="Select Language">
           <button type="button" id="lang-en-btn" class="lang-btn active" data-lang="en">English</button>
           <button type="button" id="lang-ur-btn" class="lang-btn" data-lang="ur">اردو</button>
@@ -107,6 +110,49 @@
           <button type="button" class="pill-btn" data-search="Glucophage">Glucophage</button>
           <button type="button" class="pill-btn" data-search="Concor">Concor</button>
         </div>
+
+        <!-- Quick Nearby Stores Banner on Home -->
+        <div class="home-nearby-banner">
+          <div class="home-nearby-info">
+            <span class="home-nearby-icon" aria-hidden="true">📍</span>
+            <div class="home-nearby-text">
+              <strong data-i18n="home_nearby_title">Looking for a Medical Store near you?</strong>
+              <span data-i18n="home_nearby_subtitle">Find 24/7 pharmacies across Pakistan with phone numbers and map directions.</span>
+            </div>
+          </div>
+          <button type="button" class="nearby-stores-toggle-btn home-nearby-btn" id="home-nearby-stores-btn">
+            <span aria-hidden="true">📍</span> <span data-i18n="find_nearby_stores_btn">Find Nearby Medical Stores</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Nearby Medical Stores Section (Accessible from both homepage & search results) -->
+      <section class="nearby-stores-section" id="nearby-stores-section" style="display: none;" aria-label="Nearby Medical Stores">
+        <div class="nearby-stores-header">
+          <div class="nearby-stores-title-group">
+            <h3 id="nearby-stores-title-el" data-i18n="nearby_stores_title">Nearby Medical Stores & Pharmacies</h3>
+            <p class="nearby-stores-subtext" id="nearby-stores-sub-el" data-i18n="nearby_stores_subtitle">Pharmacies near you where this medicine may be available:</p>
+          </div>
+          <button type="button" class="close-stores-btn" id="close-stores-btn" aria-label="Close nearby stores">✕</button>
+        </div>
+
+        <!-- Location Bar: Prompt / Manual Area Input -->
+        <div class="store-location-bar" id="store-location-bar">
+          <!-- Dynamic prompt / city input -->
+        </div>
+
+        <!-- Mandatory Stock Availability Disclaimer -->
+        <aside class="store-disclaimer-card" role="note" aria-label="Store Availability Disclaimer">
+          <span class="store-disclaimer-icon" aria-hidden="true">⚠️</span>
+          <span class="store-disclaimer-text" id="store-disclaimer-text" data-i18n="nearby_stores_disclaimer">
+            Store listings are based on Google Maps data and may not confirm real-time stock of this specific medicine. Please call ahead to confirm availability.
+          </span>
+        </aside>
+
+        <!-- Stores List Grid -->
+        <div class="stores-grid" id="stores-grid">
+          <!-- Populated dynamically via nearby_stores.js / app.js -->
+        </div>
       </section>
 
       <!-- Results View (Hidden until searched) -->
@@ -121,35 +167,6 @@
         <div id="savings-spotlight" class="savings-spotlight" style="display: none;">
           <!-- Populated dynamically -->
         </div>
-
-        <!-- Nearby Medical Stores Section (Toggled on request) -->
-        <section class="nearby-stores-section" id="nearby-stores-section" style="display: none;" aria-label="Nearby Medical Stores">
-          <div class="nearby-stores-header">
-            <div class="nearby-stores-title-group">
-              <h3 id="nearby-stores-title-el" data-i18n="nearby_stores_title">Nearby Medical Stores & Pharmacies</h3>
-              <p class="nearby-stores-subtext" id="nearby-stores-sub-el" data-i18n="nearby_stores_subtitle">Pharmacies near you where this medicine may be available:</p>
-            </div>
-            <button type="button" class="close-stores-btn" id="close-stores-btn" aria-label="Close nearby stores">✕</button>
-          </div>
-
-          <!-- Location Bar: Prompt / Manual Area Input -->
-          <div class="store-location-bar" id="store-location-bar">
-            <!-- Dynamic prompt / city input -->
-          </div>
-
-          <!-- Mandatory Stock Availability Disclaimer -->
-          <aside class="store-disclaimer-card" role="note" aria-label="Store Availability Disclaimer">
-            <span class="store-disclaimer-icon" aria-hidden="true">⚠️</span>
-            <span class="store-disclaimer-text" id="store-disclaimer-text" data-i18n="nearby_stores_disclaimer">
-              Store listings are based on Google Maps data and may not confirm real-time stock of this specific medicine. Please call ahead to confirm availability.
-            </span>
-          </aside>
-
-          <!-- Stores List Grid -->
-          <div class="stores-grid" id="stores-grid">
-            <!-- Populated dynamically via nearby_stores.js / app.js -->
-          </div>
-        </section>
 
         <!-- Alternatives Header & Toolbar -->
         <div class="alternatives-toolbar" id="alternatives-toolbar" style="display: none;">

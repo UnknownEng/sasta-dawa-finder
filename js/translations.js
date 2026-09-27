@@ -112,6 +112,8 @@
       manual_area_btn: 'Search Stores',
       stores_loading: 'Locating nearby medical stores...',
       no_stores_found: 'No medical stores found in this area. Try searching for a major city.',
+      home_nearby_title: 'Looking for a Medical Store near you?',
+      home_nearby_subtitle: 'Find 24/7 pharmacies across Pakistan with phone numbers and map directions.',
     },
     ur: {
       site_title: 'سستی دوا تلاش کار',
@@ -208,6 +210,8 @@
       manual_area_btn: 'سٹورز تلاش کریں',
       stores_loading: 'قریبی میڈیکل سٹورز تلاش کیے جا رہے ہیں...',
       no_stores_found: 'اس علاقے میں کوئی میڈیکل سٹور نہیں ملا۔ کسی بڑے شہر کا نام لکھ کر تلاش کریں۔',
+      home_nearby_title: 'کیا آپ قریبی میڈیکل سٹور تلاش کر رہے ہیں؟',
+      home_nearby_subtitle: 'پاکستان بھر میں اپنے قریبی میڈیکل سٹورز اور 24 گھنٹے کھلی فارمیسیز تلاش کریں۔',
     },
   };
 
