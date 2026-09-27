@@ -114,6 +114,12 @@
       no_stores_found: 'No medical stores found in this area. Try searching for a major city.',
       home_nearby_title: 'Looking for a Medical Store near you?',
       home_nearby_subtitle: 'Find 24/7 pharmacies across Pakistan with phone numbers and map directions.',
+      live_gmaps_badge: '⚡ Live Google Maps Integration',
+      live_gmaps_title: 'View All Nearby Medical Stores on Google Maps',
+      live_gmaps_desc: 'Open Google Maps to view 100+ local chemists, 24/7 pharmacies, and medical stores near you with real-time hours, reviews, and route navigation.',
+      live_gmaps_btn: 'Open Live Google Maps',
+      quick_cities_label: 'Popular Cities:',
+      showing_stores_count: 'Showing {count} verified pharmacies near {location}:',
     },
     ur: {
       site_title: 'سستی دوا تلاش کار',
@@ -212,6 +218,12 @@
       no_stores_found: 'اس علاقے میں کوئی میڈیکل سٹور نہیں ملا۔ کسی بڑے شہر کا نام لکھ کر تلاش کریں۔',
       home_nearby_title: 'کیا آپ قریبی میڈیکل سٹور تلاش کر رہے ہیں؟',
       home_nearby_subtitle: 'پاکستان بھر میں اپنے قریبی میڈیکل سٹورز اور 24 گھنٹے کھلی فارمیسیز تلاش کریں۔',
+      live_gmaps_badge: '⚡ گوگل میپس لائیو تلاش',
+      live_gmaps_title: 'گوگل میپس پر تمام قریبی میڈیکل سٹورز دیکھیں',
+      live_gmaps_desc: 'اپنے اردگرد تمام میڈیکل سٹورز، 24 گھنٹے کھلی فارمیسیز اور ادویات کی دکانیں گوگل میپس پر دیکھیں، جہاں لائیو اوقات اور ریٹنگز بھی دستیاب ہیں۔',
+      live_gmaps_btn: 'گوگل میپس کھولیں',
+      quick_cities_label: 'اہم شہر:',
+      showing_stores_count: '{location} کے قریب {count} تصدیق شدہ فارمیسیز:',
     },
   };
 

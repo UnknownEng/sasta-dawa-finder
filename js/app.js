@@ -812,6 +812,8 @@
    */
   function renderNearbyStoresLocationPrompt() {
     if (!storeLocationBar) return;
+    const popularCities = ['Karachi', 'Lahore', 'Islamabad', 'Rawalpindi', 'Faisalabad', 'Multan', 'Peshawar', 'Quetta', 'Hyderabad', 'Gujranwala', 'Sialkot', 'Abbottabad'];
+
     storeLocationBar.innerHTML = `
       <div class="location-prompt-box">
         <div class="location-prompt-content">
@@ -829,6 +831,17 @@
           </button>
         </div>
       </div>
+      <div class="store-quick-cities" style="margin-top: 0.75rem;">
+        <span class="store-quick-cities-label">${t('quick_cities_label')}</span>
+        <div class="store-city-chips-row">
+          ${popularCities
+            .map((c) => {
+              const isActive = c.toLowerCase() === (currentStoresQuery || '').toLowerCase();
+              return `<button type="button" class="store-city-chip ${isActive ? 'active' : ''}" data-city="${c}">${c}</button>`;
+            })
+            .join('')}
+        </div>
+      </div>
     `;
 
     const requestLocationBtn = document.getElementById('request-location-btn');
@@ -843,6 +856,19 @@
       });
     }
 
+    // Quick city chips listener
+    storeLocationBar.querySelectorAll('.store-city-chip').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const city = btn.getAttribute('data-city');
+        if (city) {
+          currentStoresQuery = city;
+          storeLocationBar.querySelectorAll('.store-city-chip').forEach((b) => b.classList.remove('active'));
+          btn.classList.add('active');
+          handleManualAreaSearch(city);
+        }
+      });
+    });
+
     // Pre-populate with default stores while user decides
     handleManualAreaSearch(currentStoresQuery);
   }
@@ -853,6 +879,8 @@
   function renderNearbyStoresDeniedFallback(msg) {
     if (!storeLocationBar) return;
     const alertMsg = msg || t('location_denied_msg');
+
+    const popularCities = ['Karachi', 'Lahore', 'Islamabad', 'Rawalpindi', 'Faisalabad', 'Multan', 'Peshawar', 'Quetta', 'Hyderabad', 'Gujranwala', 'Sialkot', 'Abbottabad'];
 
     storeLocationBar.innerHTML = `
       <div class="location-denied-box">
@@ -870,6 +898,17 @@
             ${t('manual_area_btn')}
           </button>
         </form>
+        <div class="store-quick-cities">
+          <span class="store-quick-cities-label">${t('quick_cities_label')}</span>
+          <div class="store-city-chips-row">
+            ${popularCities
+              .map((c) => {
+                const isActive = c.toLowerCase() === (currentStoresQuery || '').toLowerCase();
+                return `<button type="button" class="store-city-chip ${isActive ? 'active' : ''}" data-city="${c}">${c}</button>`;
+              })
+              .join('')}
+          </div>
+        </div>
       </div>
     `;
 
@@ -895,6 +934,20 @@
         }
       });
     }
+
+    // Quick city chips listener
+    storeLocationBar.querySelectorAll('.store-city-chip').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const city = btn.getAttribute('data-city');
+        if (city) {
+          currentStoresQuery = city;
+          if (manualInput) manualInput.value = city;
+          storeLocationBar.querySelectorAll('.store-city-chip').forEach((b) => b.classList.remove('active'));
+          btn.classList.add('active');
+          handleManualAreaSearch(city);
+        }
+      });
+    });
   }
 
   /**
@@ -935,8 +988,8 @@
    */
   function renderStoresFromCoordinates(lat, lng) {
     if (!window.SastaNearbyStores) return;
-    const stores = window.SastaNearbyStores.findStoresNearCoordinates(lat, lng, 6);
-    renderStoresList(stores);
+    const stores = window.SastaNearbyStores.findStoresNearCoordinates(lat, lng, 12);
+    renderStoresList(stores, { lat, lng });
   }
 
   /**
@@ -944,14 +997,45 @@
    */
   function handleManualAreaSearch(area) {
     if (!window.SastaNearbyStores) return;
-    const stores = window.SastaNearbyStores.findStoresByCityOrArea(area, 6);
-    renderStoresList(stores);
+    const stores = window.SastaNearbyStores.findStoresByCityOrArea(area, 12);
+    renderStoresList(stores, { query: area });
   }
 
   /**
-   * Renders store cards with call buttons (tel:) and directions buttons (Google Maps).
+   * Renders store cards with call buttons (tel:), directions buttons, and Live Google Maps integration.
    */
-  function renderStoresList(stores) {
+  function renderStoresList(stores, context = {}) {
+    // Generate live Google Maps search URL
+    let liveGmapsUrl = 'https://www.google.com/maps/search/pharmacy+medical+store+near+me/';
+    if (window.SastaNearbyStores && typeof window.SastaNearbyStores.getLiveGoogleMapsSearchUrl === 'function') {
+      if (context.lat && context.lng) {
+        liveGmapsUrl = window.SastaNearbyStores.getLiveGoogleMapsSearchUrl(context.lat, context.lng);
+      } else {
+        liveGmapsUrl = window.SastaNearbyStores.getLiveGoogleMapsSearchUrl(null, null, context.query || currentStoresQuery);
+      }
+    }
+
+    // Render Live Google Maps CTA banner
+    const liveGmapsContainer = document.getElementById('live-gmaps-container');
+    if (liveGmapsContainer) {
+      const activeLocation = context.query || (context.lat ? 'your current GPS location' : currentStoresQuery);
+      liveGmapsContainer.innerHTML = `
+        <div class="live-gmaps-banner">
+          <div class="live-gmaps-info">
+            <span class="live-gmaps-badge">${t('live_gmaps_badge')}</span>
+            <h4 class="live-gmaps-title">${t('live_gmaps_title')}</h4>
+            <p class="live-gmaps-desc">${t('live_gmaps_desc')}</p>
+          </div>
+          <a href="${escapeHtml(liveGmapsUrl)}" target="_blank" rel="noopener noreferrer" class="live-gmaps-btn" id="live-gmaps-btn" aria-label="${t('live_gmaps_btn')}">
+            <span aria-hidden="true">🗺️</span> <span>${t('live_gmaps_btn')}</span>
+          </a>
+        </div>
+        <div class="stores-meta-bar">
+          <span class="stores-count-tag">${t('showing_stores_count', { count: stores ? stores.length : 0, location: escapeHtml(activeLocation) })}</span>
+        </div>
+      `;
+    }
+
     if (!storesGrid) return;
     if (!stores || stores.length === 0) {
       storesGrid.innerHTML = `

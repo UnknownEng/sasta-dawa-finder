@@ -1408,6 +1408,56 @@ body {
   background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);
 }
 
+/* Quick City Selector Chips in Store Finder */
+.store-quick-cities {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.store-quick-cities-label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.store-city-chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.store-city-chip {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  padding: 0.35rem 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.store-city-chip:hover {
+  background: var(--mint-50);
+  border-color: var(--primary-teal);
+  color: var(--primary-teal-darker);
+  transform: translateY(-1px);
+}
+
+.store-city-chip.active {
+  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+  color: #ffffff;
+  border-color: #0f766e;
+  box-shadow: 0 2px 6px rgba(13, 148, 136, 0.25);
+}
+
 .location-success-badge {
   background: var(--success-bg);
   border: 1px solid var(--success-border);
@@ -1452,6 +1502,112 @@ body {
   line-height: 1;
   flex-shrink: 0;
   margin-top: 0.1rem;
+}
+
+/* Live Google Maps Action Banner (Instant Access to 100+ Live Stores) */
+.live-gmaps-container {
+  margin-bottom: 1.5rem;
+}
+
+.live-gmaps-banner {
+  background: linear-gradient(135deg, #070d18 0%, #0f243a 50%, #0f766e 100%);
+  color: #ffffff;
+  border-radius: var(--radius-lg);
+  padding: 1.35rem 1.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  box-shadow: 0 8px 24px -4px rgba(7, 13, 24, 0.25);
+  position: relative;
+  overflow: hidden;
+}
+
+.live-gmaps-banner::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -10%;
+  width: 250px;
+  height: 250px;
+  background: radial-gradient(circle, rgba(94, 234, 212, 0.18) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.live-gmaps-info {
+  flex: 1;
+  min-width: 260px;
+  position: relative;
+  z-index: 1;
+}
+
+.live-gmaps-badge {
+  display: inline-block;
+  background: rgba(52, 211, 153, 0.2);
+  color: #a7f3d0;
+  border: 1px solid rgba(52, 211, 153, 0.4);
+  padding: 0.2rem 0.65rem;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.45rem;
+}
+
+.live-gmaps-title {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+}
+
+.live-gmaps-desc {
+  font-size: 0.88rem;
+  color: #cbd5e1;
+  margin-top: 0.25rem;
+  line-height: 1.45;
+}
+
+.live-gmaps-btn {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff !important;
+  border-radius: var(--radius-full);
+  padding: 0.65rem 1.45rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+  min-height: 48px;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  position: relative;
+  z-index: 1;
+  cursor: pointer;
+}
+
+.live-gmaps-btn:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.45);
+}
+
+.stores-meta-bar {
+  margin-top: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stores-count-tag {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-secondary);
 }
 
 /* Stores List Grid */

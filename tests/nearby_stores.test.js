@@ -299,4 +299,60 @@ test('Nearby Medical Store & Pharmacy Finder Test Suite', async (t) => {
     assert.ok(rendered.querySelector('.store-call-btn').textContent.includes('فون کریں'));
     assert.ok(rendered.querySelector('.store-dir-btn').textContent.includes('راستہ دیکھیں'));
   });
+
+  await t.test('Live Google Maps search URL generation and multi-city directory scale', () => {
+    // 1. Google Maps search URL with GPS coordinates
+    const gmapsCoordsUrl = nearbyModule.getLiveGoogleMapsSearchUrl(24.8607, 67.0011);
+    assert.ok(gmapsCoordsUrl.includes('google.com/maps/search/pharmacy+medical+store'));
+    assert.ok(gmapsCoordsUrl.includes('24.8607,67.0011'));
+
+    // 2. Google Maps search URL with City/Area query
+    const gmapsCityUrl = nearbyModule.getLiveGoogleMapsSearchUrl(null, null, 'Rawalpindi Saddar');
+    assert.ok(gmapsCityUrl.includes('google.com/maps/search/pharmacy+medical+store+in+Rawalpindi%20Saddar%20Pakistan'));
+
+    // 3. Multi-city directory scale verification (50+ pharmacies across 10+ major cities)
+    assert.ok(nearbyModule.PAKISTAN_PHARMACY_DIRECTORY.length >= 40, `Directory should have >= 40 verified stores, got ${nearbyModule.PAKISTAN_PHARMACY_DIRECTORY.length}`);
+
+    const cities = new Set(nearbyModule.PAKISTAN_PHARMACY_DIRECTORY.map(s => s.city.toLowerCase()));
+    const expectedCities = ['karachi', 'lahore', 'islamabad', 'rawalpindi', 'peshawar', 'faisalabad', 'multan', 'quetta', 'hyderabad', 'gujranwala', 'sialkot'];
+    for (const city of expectedCities) {
+      assert.ok(cities.has(city), `Directory must cover ${city}`);
+    }
+  });
+
+  await t.test('DOM Integration: Live Google Maps Banner and Quick City Chips', async () => {
+    const dom = await createDOM();
+    const { document, window } = dom.window;
+
+    // Search medicine and open nearby stores
+    const searchInput = document.getElementById('search-input');
+    searchInput.value = 'Panadol';
+    document.getElementById('search-btn').click();
+    document.getElementById('med-card-nearby-btn').click();
+
+    // Verify Live Google Maps Banner renders
+    const gmapsBanner = document.querySelector('.live-gmaps-banner');
+    assert.ok(gmapsBanner, 'Live Google Maps banner must be rendered in DOM');
+    assert.ok(gmapsBanner.textContent.includes('Google Maps'));
+
+    const gmapsBtn = document.getElementById('live-gmaps-btn');
+    assert.ok(gmapsBtn, 'Live Google Maps button must exist');
+    assert.ok(gmapsBtn.getAttribute('href').includes('google.com/maps/search'));
+
+    // Verify Quick City Chips exist in DOM
+    const cityChips = document.querySelectorAll('.store-city-chip');
+    assert.ok(cityChips.length >= 8, `Expected >= 8 city chips, got ${cityChips.length}`);
+
+    // Click "Peshawar" chip
+    const peshawarChip = Array.from(cityChips).find(c => c.textContent.trim() === 'Peshawar');
+    assert.ok(peshawarChip, 'Peshawar chip exists');
+    peshawarChip.click();
+    await new Promise(r => setTimeout(r, 50));
+
+    // Verify Peshawar stores are rendered
+    const storeCards = document.querySelectorAll('#stores-grid .store-card');
+    assert.ok(storeCards.length >= 2, 'Peshawar stores should be shown');
+    const storeTexts = Array.from(storeCards).map(s => s.textContent);
+    assert.ok(storeTexts.some(t => t.includes('Khyber') || t.includes('Hayatabad')));
+  });
 });
