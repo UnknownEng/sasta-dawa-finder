@@ -1,0 +1,21 @@
+{
+  "name": "Sasta Dawa Finder - سستی دوا تلاش کار",
+  "short_name": "Sasta Dawa",
+  "description": "Find cheaper generic alternative medicines in Pakistan. Compare prices, see salts, and save money.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#059669",
+  "orientation": "portrait-primary",
+  "lang": "en",
+  "categories": ["medical", "health", "shopping", "utilities"],
+  "icons": [
+    {
+      "src": "./icons/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
