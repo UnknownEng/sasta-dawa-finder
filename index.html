@@ -110,20 +110,6 @@
           <button type="button" class="pill-btn" data-search="Glucophage">Glucophage</button>
           <button type="button" class="pill-btn" data-search="Concor">Concor</button>
         </div>
-
-        <!-- Quick Nearby Stores Banner on Home -->
-        <div class="home-nearby-banner">
-          <div class="home-nearby-info">
-            <span class="home-nearby-icon" aria-hidden="true">📍</span>
-            <div class="home-nearby-text">
-              <strong data-i18n="home_nearby_title">Looking for a Medical Store near you?</strong>
-              <span data-i18n="home_nearby_subtitle">Find 24/7 pharmacies across Pakistan with phone numbers and map directions.</span>
-            </div>
-          </div>
-          <button type="button" class="nearby-stores-toggle-btn home-nearby-btn" id="home-nearby-stores-btn">
-            <span aria-hidden="true">📍</span> <span data-i18n="find_nearby_stores_btn">Find Nearby Medical Stores</span>
-          </button>
-        </div>
       </section>
 
       <!-- Nearby Medical Stores Section (Accessible from both homepage & search results) -->
@@ -157,49 +143,57 @@
 
       <!-- Results View (Hidden until searched) -->
       <section id="results-view" class="results-section" aria-live="polite">
+        <div class="results-layout-grid">
 
-        <!-- Selected Medicine Card -->
-        <article class="medicine-card" id="selected-medicine-card">
-          <!-- Populated dynamically via app.js -->
-        </article>
+          <!-- Primary Column: Searched Medicine & Savings Spotlight (Sticky on Desktop) -->
+          <div class="results-primary-col">
+            <!-- Selected Medicine Card -->
+            <article class="medicine-card" id="selected-medicine-card">
+              <!-- Populated dynamically via app.js -->
+            </article>
 
-        <!-- Savings Spotlight Banner -->
-        <div id="savings-spotlight" class="savings-spotlight" style="display: none;">
-          <!-- Populated dynamically -->
-        </div>
-
-        <!-- Alternatives Header & Toolbar -->
-        <div class="alternatives-toolbar" id="alternatives-toolbar" style="display: none;">
-          <h3 id="alt-header-title-el">
-            <span data-i18n="alt_header_title">Cheaper Alternatives with the Same Active Ingredient</span>
-            <span class="badge-count" id="alternatives-count">0 brands</span>
-          </h3>
-          <div class="sort-wrapper">
-            <label for="sort-select" class="sort-label" data-i18n="sort_label">Show:</label>
-            <select id="sort-select" class="sort-select" aria-label="Sort alternative medicines">
-              <option value="price_asc" selected data-i18n="sort_cheapest">Cheapest First (Recommended)</option>
-              <option value="savings_desc" data-i18n="sort_savings">Highest Savings %</option>
-              <option value="price_desc" data-i18n="sort_price_desc">Highest Price First</option>
-              <option value="name_asc" data-i18n="sort_name">Brand Name (A to Z)</option>
-            </select>
+            <!-- Savings Spotlight Banner -->
+            <div id="savings-spotlight" class="savings-spotlight" style="display: none;">
+              <!-- Populated dynamically -->
+            </div>
           </div>
-        </div>
 
-        <!-- Alternatives List Container -->
-        <div id="alternatives-list" class="alternatives-list">
-          <!-- Populated dynamically via app.js -->
-        </div>
+          <!-- Secondary Column: Alternatives Toolbar & Generic Alternatives List -->
+          <div class="results-secondary-col">
+            <!-- Alternatives Header & Toolbar -->
+            <div class="alternatives-toolbar" id="alternatives-toolbar" style="display: none;">
+              <h3 id="alt-header-title-el">
+                <span data-i18n="alt_header_title">Cheaper Alternatives with the Same Active Ingredient</span>
+                <span class="badge-count" id="alternatives-count">0 brands</span>
+              </h3>
+              <div class="sort-wrapper">
+                <label for="sort-select" class="sort-label" data-i18n="sort_label">Show:</label>
+                <select id="sort-select" class="sort-select" aria-label="Sort alternative medicines">
+                  <option value="price_asc" selected data-i18n="sort_cheapest">Cheapest First (Recommended)</option>
+                  <option value="savings_desc" data-i18n="sort_savings">Highest Savings %</option>
+                  <option value="price_desc" data-i18n="sort_price_desc">Highest Price First</option>
+                  <option value="name_asc" data-i18n="sort_name">Brand Name (A to Z)</option>
+                </select>
+              </div>
+            </div>
 
-        <!-- Zero Alternatives State -->
-        <div id="zero-alternatives-card" class="zero-alternatives-card" style="display: none;">
-          <div class="zero-icon" aria-hidden="true">ℹ️</div>
-          <h3 class="zero-title" id="zero-title-el" data-i18n="zero_alt_title">No Cheaper Generic Alternatives Found</h3>
-          <p class="zero-desc" id="zero-alternatives-desc">
-            <!-- Dynamic explanation -->
-          </p>
-          <button type="button" class="pill-btn" id="zero-back-btn" data-i18n="zero_alt_btn">← Search Another Medicine</button>
-        </div>
+            <!-- Alternatives List Container -->
+            <div id="alternatives-list" class="alternatives-list">
+              <!-- Populated dynamically via app.js -->
+            </div>
 
+            <!-- Zero Alternatives State -->
+            <div id="zero-alternatives-card" class="zero-alternatives-card" style="display: none;">
+              <div class="zero-icon" aria-hidden="true">ℹ️</div>
+              <h3 class="zero-title" id="zero-title-el" data-i18n="zero_alt_title">No Cheaper Generic Alternatives Found</h3>
+              <p class="zero-desc" id="zero-alternatives-desc">
+                <!-- Dynamic explanation -->
+              </p>
+              <button type="button" class="pill-btn" id="zero-back-btn" data-i18n="zero_alt_btn">← Search Another Medicine</button>
+            </div>
+          </div>
+
+        </div>
       </section>
 
       <!-- No Results / Not Found Card -->

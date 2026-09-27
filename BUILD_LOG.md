@@ -283,3 +283,16 @@ This document records each step of the Build-Verify-Fix loop during development 
 - **Fix**: Fixed distance sorting comparison where distance of 0 km was treated as falsy (`0 || 99999`) by using `Number.isFinite()` checks in `js/nearby_stores.js`.
 - **Status**: PASS (76/76 tests passing).
 
+### Entry 23: UI Cleanup, Feature De-duplication & Desktop Full-Screen Layout
+- **Plan**:
+  1. Eliminate repeated features: remove the redundant `.home-nearby-banner` on the homepage and hide the duplicate `.spotlight-nearby-btn` on the savings card so only a single authoritative `#med-card-nearby-btn` is shown.
+  2. Optimize widescreen desktop layout: expand `.container` to `max-width: 1200px` to eliminate empty left/right void.
+  3. Implement a responsive two-column grid (`.results-layout-grid`) on desktop:
+     - Left column (`.results-primary-col`, sticky): Selected medicine card + savings spotlight banner stay pinned in view.
+     - Right column (`.results-secondary-col`): Alternatives toolbar + generic alternatives list for easy side-by-side comparison.
+  4. Expand explore/popular medicines grid to a balanced 4-column layout (`repeat(4, 1fr)`) and tips to 3 columns (`repeat(3, 1fr)`) spanning the full 1200px width.
+- **Build**: Updated `index.html` and `css/style.css` with responsive grid layouts, sticky primary column, full-width actions, and cleaner spacing.
+- **Self-check**: Executed full test suite (`npm test`). All 76 tests across 13 suites pass with 100% compliance.
+- **Fix**: None needed.
+- **Status**: PASS (76/76 tests passing).
+

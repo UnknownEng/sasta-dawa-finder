@@ -156,9 +156,9 @@ body {
 
 .container {
   width: 100%;
-  max-width: 960px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 0 1.25rem;
+  padding: 0 1.5rem;
 }
 
 /* ==========================================================================
@@ -723,6 +723,88 @@ body {
 }
 
 /* ==========================================================================
+   Two-Column Responsive Layout Grid (Desktop Side-by-Side Comparison)
+   ========================================================================== */
+
+.results-layout-grid {
+  display: grid;
+  grid-template-columns: minmax(350px, 4.2fr) minmax(460px, 5.8fr);
+  gap: 2rem;
+  align-items: start;
+}
+
+.results-primary-col {
+  position: sticky;
+  top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-width: 0;
+  z-index: 2;
+}
+
+.results-primary-col .medicine-card {
+  margin-bottom: 0;
+}
+
+.results-primary-col .savings-spotlight {
+  margin-bottom: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1.15rem;
+}
+
+.results-primary-col .spotlight-left {
+  min-width: 0;
+  width: 100%;
+}
+
+.results-primary-col .spotlight-right {
+  align-items: stretch;
+  width: 100%;
+}
+
+.results-primary-col .spotlight-badge {
+  text-align: center;
+  width: 100%;
+}
+
+.results-primary-col .spotlight-action-buttons {
+  width: 100%;
+}
+
+.results-primary-col .spotlight-action-buttons .whatsapp-share-btn {
+  width: 100%;
+  justify-content: center;
+}
+
+/* Remove redundant duplicate nearby store button inside savings spotlight */
+.spotlight-nearby-btn {
+  display: none !important;
+}
+
+.results-secondary-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+/* Tablet & Mobile Single-Column Fallback (< 900px) */
+@media (max-width: 900px) {
+  .results-layout-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .results-primary-col {
+    position: static;
+    gap: 1.5rem;
+  }
+}
+
+/* ==========================================================================
    Card Type 4: Selected Medicine Detail Card
    Clinical Authority Styling with Distinct Teal Accent
    ========================================================================== */
@@ -1118,6 +1200,15 @@ body {
   border-top: 1px solid var(--border-subtle);
   display: flex;
   justify-content: flex-end;
+}
+
+.results-primary-col .med-actions-footer {
+  justify-content: stretch;
+}
+
+.results-primary-col #med-card-nearby-btn {
+  width: 100%;
+  justify-content: center;
 }
 
 [dir="rtl"] .med-actions-footer {
@@ -1863,9 +1954,15 @@ body {
 
 .popular-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 1.15rem;
-  margin-bottom: 2.5rem;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.25rem;
+  margin-bottom: 2.75rem;
+}
+
+@media (max-width: 1024px) {
+  .popular-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 .popular-card {
@@ -1920,8 +2017,8 @@ body {
 /* Educational Tips Grid */
 .tips-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 1.25rem;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
 }
 
 .tip-card {
