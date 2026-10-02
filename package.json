@@ -19,5 +19,8 @@
   "license": "MIT",
   "devDependencies": {
     "jsdom": "^29.1.1"
+  },
+  "dependencies": {
+    "@vercel/analytics": "^2.0.1"
   }
 }
