@@ -1,0 +1,29 @@
+# robots.txt for Antigracity (https://antigracity.pk)
+# Technical SEO Policy: Unblock Googlebot and allow all legitimate search crawlers
+
+User-agent: Googlebot
+Allow: /
+Allow: /*.css$
+Allow: /*.js$
+Allow: /*.webp$
+Allow: /*.svg$
+Allow: /*.png$
+Allow: /*.ico$
+
+User-agent: Googlebot-Image
+Allow: /icons/
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: *
+Allow: /
+Disallow: /tests/
+Disallow: /node_modules/
+Disallow: /scripts/
+
+# Crawl Delay
+Crawl-delay: 1
+
+# XML Sitemap Location
+Sitemap: https://antigracity.pk/sitemap.xml

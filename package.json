@@ -6,6 +6,8 @@
   "scripts": {
     "test": "node --test tests/*.test.js",
     "sync-data": "node scripts/sync_drug_data.js",
+    "sitemap": "node scripts/generate_sitemap.js",
+    "serve": "node server.js",
     "start": "python3 -m http.server 3000"
   },
   "keywords": [

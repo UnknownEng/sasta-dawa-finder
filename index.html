@@ -3,12 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-  <title>Sasta Dawa Finder | سستی دوا تلاش کار - Medicine Price & Generic Alternative Finder Pakistan</title>
-  <meta name="description" content="Find cheaper, high-quality generic alternative medicines with identical ingredients in Pakistan. Save up to 70% on prescriptions. Made by Aeromaverick Technologies.">
+  <title>Antigracity | Sasta Dawa Finder - Medicine Price &amp; Generic Alternative Finder Pakistan</title>
+  <meta name="description" content="Antigracity - Search and compare medicine prices in Pakistan. Find cheaper, approved generic alternatives with identical active ingredients and save up to 70%.">
+  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+  <meta name="googlebot" content="index, follow">
+  <meta name="google-site-verification" content="google-site-verification-antigracity-pk-2026">
+  <link rel="canonical" href="https://antigracity.pk/">
   <meta name="theme-color" content="#059669">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Sasta Dawa">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
   <link rel="apple-touch-icon" href="icons/icon.svg">
   <link rel="manifest" href="manifest.json">
@@ -16,30 +21,138 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Nastaliq+Urdu:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
+
+  <!-- Open Graph & Social Sharing Metadata -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Antigracity">
+  <meta property="og:title" content="Antigracity | Sasta Dawa Finder - Medicine Price &amp; Generic Alternative Finder">
+  <meta property="og:description" content="Find cheaper, high-quality generic alternative medicines with identical ingredients in Pakistan. Save up to 70% on prescriptions.">
+  <meta property="og:url" content="https://antigracity.pk/">
+  <meta property="og:image" content="https://antigracity.pk/icons/icon-512.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Antigracity | Sasta Dawa Finder Pakistan">
+  <meta name="twitter:description" content="Compare medicine prices and find cheaper generic alternatives in Pakistan.">
+  <meta name="twitter:image" content="https://antigracity.pk/icons/icon-512.png">
+
+  <!-- Schema.org Structured Data: MedicalWebPage & Organization -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "MedicalWebPage",
+    "name": "Antigracity - Pakistan Medicine Price & Generic Alternative Finder",
+    "url": "https://antigracity.pk/",
+    "description": "Bilingual web portal for comparing pharmaceutical retail prices and finding bioequivalent generic alternatives in Pakistan.",
+    "inLanguage": ["en", "ur"],
+    "publisher": {
+      "@type": "Organization",
+      "name": "Aeromaverick Technologies",
+      "url": "https://antigracity.pk",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://antigracity.pk/icons/icon.svg",
+        "width": 512,
+        "height": 512
+      },
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "telephone": "+92-21-111-234-56",
+        "contactType": "customer service",
+        "email": "support@antigracity.pk",
+        "areaServed": "PK",
+        "availableLanguage": ["English", "Urdu"]
+      }
+    }
+  }
+  </script>
+
+  <!-- Schema.org FAQPage Schema -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What is Antigracity (Sasta Dawa Finder)?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Antigracity is a free, transparent medicine price comparison and generic alternative finder for Pakistan. It helps patients and caregivers identify affordable, DRAP-approved medications containing the exact same active pharmaceutical ingredient (salt formula) as expensive brands."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Are generic medicine alternatives just as effective as branded medicines?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. Approved generic alternatives in Pakistan share the identical active chemical ingredient, dosage form, and strength as their branded counterparts. They produce the same therapeutic effect while costing up to 40% to 70% less."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How is the unit price calculated?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Unit price is calculated by dividing the maximum retail pack price in Pakistani Rupees (PKR) by the total number of tablets, capsules, or milliliters in the pack, allowing accurate price-per-pill comparisons regardless of differing box sizes."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How can I locate nearby pharmacies with this medicine?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "You can tap the Nearby Stores button to detect nearby pharmacies in Karachi, Lahore, Rawalpindi, and other major Pakistani cities, obtain directions via Google Maps, or call them directly to verify stock."
+        }
+      }
+    ]
+  }
+  </script>
 </head>
 <body>
+
+  <!-- Toast Notification Container for Success and Error messages -->
+  <div id="toast-container" class="toast-container" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <!-- Header -->
   <header class="site-header" role="banner">
     <div class="container">
-      <!-- Header Top Bar: Language Switcher & Nearby Stores -->
+      <!-- Header Top Bar: Contact Links, Nearby Stores, Language Switcher & Mobile Menu Toggle -->
       <div class="header-top-bar">
-        <button type="button" class="header-nearby-btn nearby-stores-toggle-btn" id="header-nearby-btn" aria-label="Find Nearby Stores">
-          <span aria-hidden="true">📍</span> <span data-i18n="find_nearby_stores_btn">Nearby Stores</span>
-        </button>
-        <div class="lang-toggle-wrapper" role="group" aria-label="Select Language">
-          <button type="button" id="lang-en-btn" class="lang-btn active" data-lang="en">English</button>
-          <button type="button" id="lang-ur-btn" class="lang-btn" data-lang="ur">اردو</button>
+        <div class="header-contact-group">
+          <a href="tel:+922111123456" class="header-contact-link header-tel-link" aria-label="Helpline: +92 21 111 234 56">
+            <span aria-hidden="true">📞</span> <span class="contact-text">+92 (21) 111-234-56</span>
+          </a>
+          <a href="mailto:support@antigracity.pk" class="header-contact-link header-email-link" aria-label="Email Support: support@antigracity.pk">
+            <span aria-hidden="true">✉️</span> <span class="contact-text">support@antigracity.pk</span>
+          </a>
+        </div>
+
+        <div class="header-controls-group">
+          <button type="button" class="header-nearby-btn nearby-stores-toggle-btn" id="header-nearby-btn" aria-label="Find Nearby Stores">
+            <span aria-hidden="true">📍</span> <span data-i18n="find_nearby_stores_btn">Nearby Stores</span>
+          </button>
+          <div class="lang-toggle-wrapper" role="group" aria-label="Select Language">
+            <button type="button" id="lang-en-btn" class="lang-btn active" data-lang="en">English</button>
+            <button type="button" id="lang-ur-btn" class="lang-btn" data-lang="ur">اردو</button>
+          </div>
+          <!-- Mobile Menu Hamburger Button -->
+          <button type="button" class="mobile-menu-toggle" id="mobile-menu-toggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="mobile-nav-drawer">
+            <span class="hamburger-bar" aria-hidden="true"></span>
+            <span class="hamburger-bar" aria-hidden="true"></span>
+            <span class="hamburger-bar" aria-hidden="true"></span>
+          </button>
         </div>
       </div>
 
+      <!-- Header Content & Clickable Logo -->
       <div class="header-content">
-        <div class="logo-wrapper">
-          <div class="logo-icon" aria-hidden="true">💊</div>
-          <h1 class="site-title" id="site-title-el">
-            Sasta Dawa Finder <span class="site-title-urdu" dir="rtl">سستی دوا</span>
-          </h1>
-        </div>
+        <a href="/" class="logo-link" id="site-logo-link" aria-label="Antigracity - Sasta Dawa Finder Home">
+          <div class="logo-wrapper">
+            <div class="logo-icon" aria-hidden="true">💊</div>
+            <h1 class="site-title" id="site-title-el">
+              Antigracity <span class="site-title-divider">|</span> Sasta Dawa Finder <span class="site-title-urdu" dir="rtl">سستی دوا</span>
+            </h1>
+          </div>
+        </a>
         <p class="site-tagline" id="site-tagline-el" data-i18n="site_tagline">
           Find cheaper, high-quality alternatives for expensive medicines in Pakistan.
         </p>
@@ -47,15 +160,66 @@
           🇵🇰 Pakistan Medicine Price Guide
         </div>
       </div>
+
+      <!-- Desktop Navigation Bar -->
+      <nav class="desktop-nav-bar" aria-label="Primary Navigation">
+        <ul class="desktop-nav-list">
+          <li><a href="#search-section" class="desktop-nav-link" data-i18n="nav_search">Find Medicines</a></li>
+          <li><a href="#categories-section" class="desktop-nav-link" data-i18n="nav_categories">Browse Categories</a></li>
+          <li><a href="#tips-section" class="desktop-nav-link" data-i18n="nav_tips">How to Save</a></li>
+          <li><a href="#nearby-stores-section" class="desktop-nav-link nearby-stores-toggle-btn" data-i18n="nav_nearby">Nearby Pharmacies</a></li>
+          <li><a href="tel:+922111123456" class="desktop-nav-link"><span aria-hidden="true">📞</span> Helpline</a></li>
+        </ul>
+      </nav>
     </div>
   </header>
+
+  <!-- Mobile Navigation Drawer & Backdrop -->
+  <div id="mobile-nav-backdrop" class="mobile-nav-backdrop" hidden></div>
+  <nav id="mobile-nav-drawer" class="mobile-nav-drawer" aria-label="Mobile Navigation Menu" hidden>
+    <div class="mobile-drawer-header">
+      <div class="drawer-brand">
+        <span class="drawer-logo-icon" aria-hidden="true">💊</span>
+        <span class="drawer-title">Antigracity</span>
+      </div>
+      <button type="button" class="drawer-close-btn" id="drawer-close-btn" aria-label="Close navigation menu">✕</button>
+    </div>
+    <ul class="mobile-nav-list">
+      <li><a href="#search-section" class="mobile-nav-link" id="mobile-link-search"><span aria-hidden="true">🔍</span> <span data-i18n="nav_search">Find Medicines</span></a></li>
+      <li><a href="#categories-section" class="mobile-nav-link" id="mobile-link-categories"><span aria-hidden="true">🩹</span> <span data-i18n="nav_categories">Browse Categories</span></a></li>
+      <li><a href="#tips-section" class="mobile-nav-link" id="mobile-link-tips"><span aria-hidden="true">💡</span> <span data-i18n="nav_tips">How to Save</span></a></li>
+      <li><a href="#nearby-stores-section" class="mobile-nav-link nearby-stores-toggle-btn" id="mobile-link-stores"><span aria-hidden="true">📍</span> <span data-i18n="nav_nearby">Nearby Pharmacies</span></a></li>
+    </ul>
+    <div class="mobile-drawer-contact">
+      <div class="drawer-contact-title">Direct Contact</div>
+      <a href="tel:+922111123456" class="drawer-contact-link"><span aria-hidden="true">📞</span> +92 (21) 111-234-56</a>
+      <a href="mailto:support@antigracity.pk" class="drawer-contact-link"><span aria-hidden="true">✉️</span> support@antigracity.pk</a>
+    </div>
+  </nav>
+
+  <!-- Breadcrumb Navigation for SEO & a11y -->
+  <nav class="breadcrumb-nav" aria-label="Breadcrumb">
+    <div class="container">
+      <ol class="breadcrumb-list" itemscope itemtype="https://schema.org/BreadcrumbList">
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+          <a href="/" itemprop="item" class="breadcrumb-link"><span itemprop="name">Home</span></a>
+          <meta itemprop="position" content="1" />
+        </li>
+        <li class="breadcrumb-separator" aria-hidden="true">/</li>
+        <li class="breadcrumb-item active" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+          <span itemprop="name" id="breadcrumb-current-label">Pakistan Medicine Price &amp; Generic Guide</span>
+          <meta itemprop="position" content="2" />
+        </li>
+      </ol>
+    </div>
+  </nav>
 
   <!-- Main Content -->
   <main class="main-content" role="main">
     <div class="container">
 
       <!-- Mandatory Safety & Medical Disclaimer -->
-      <aside class="disclaimer-card" role="note" aria-label="Medical Disclaimer">
+      <aside class="disclaimer-card" id="disclaimer-section" role="note" aria-label="Medical Disclaimer">
         <span class="disclaimer-icon" aria-hidden="true">⚠️</span>
         <div class="disclaimer-text" id="disclaimer-text-el">
           <strong data-i18n="disclaimer_label">Important Notice:</strong> <span data-i18n="disclaimer_text">Prices and information are approximate and for general awareness only. Always confirm with a licensed pharmacist or doctor before switching medicines.</span>
@@ -63,7 +227,7 @@
       </aside>
 
       <!-- Category Filter & Priority Navigation -->
-      <nav class="category-filter-section" aria-label="Medicine Categories">
+      <nav class="category-filter-section" id="categories-section" aria-label="Medicine Categories">
         <span class="category-bar-label" id="categories-label-el" data-i18n="categories_title">Browse by Health Need:</span>
         <div class="category-pills-row" id="category-pills-container">
           <!-- Populated dynamically via JS -->
@@ -71,7 +235,7 @@
       </nav>
 
       <!-- Search Section -->
-      <section class="search-section" aria-label="Medicine Search">
+      <section class="search-section" id="search-section" aria-label="Medicine Search">
         <div class="search-box-wrapper">
           <form id="search-form" action="#" onsubmit="return false;">
             <div class="search-input-group">
@@ -80,7 +244,7 @@
                 type="text"
                 id="search-input"
                 class="search-input"
-                placeholder="Type medicine name (e.g. Panadol, Risek, Augmentin, Rivotril)..."
+                placeholder="Search 300+ medicines by brand (e.g. Panadol, Risek, Augmentin) or formula..."
                 autocomplete="off"
                 aria-label="Search medicine name or generic salt"
                 aria-autocomplete="list"
@@ -116,7 +280,7 @@
       <section class="nearby-stores-section" id="nearby-stores-section" style="display: none;" aria-label="Nearby Medical Stores">
         <div class="nearby-stores-header">
           <div class="nearby-stores-title-group">
-            <h3 id="nearby-stores-title-el" data-i18n="nearby_stores_title">Nearby Medical Stores & Pharmacies</h3>
+            <h3 id="nearby-stores-title-el" data-i18n="nearby_stores_title">Nearby Medical Stores &amp; Pharmacies</h3>
             <p class="nearby-stores-subtext" id="nearby-stores-sub-el" data-i18n="nearby_stores_subtitle">Pharmacies near you where this medicine may be available:</p>
           </div>
           <button type="button" class="close-stores-btn" id="close-stores-btn" aria-label="Close nearby stores">✕</button>
@@ -225,19 +389,21 @@
           <!-- Populated dynamically -->
         </div>
 
-        <h2 class="section-title" id="tips-title-el" style="margin-top: 2rem;" data-i18n="tips_title">3 Simple Ways to Save on Medicines in Pakistan</h2>
-        <div class="tips-grid">
-          <div class="tip-card">
-            <h4><span aria-hidden="true">🔬</span> <span data-i18n="tip_salt_title">1. Same Ingredient = Same Effect</span></h4>
-            <p data-i18n="tip_salt_desc">Medicine brands approved in Pakistan with the same active ingredient work the exact same way. You are often paying extra only for the brand name.</p>
-          </div>
-          <div class="tip-card">
-            <h4><span aria-hidden="true">🏷️</span> <span data-i18n="tip_unit_title">2. Compare Price per Pill</span></h4>
-            <p data-i18n="tip_unit_desc">Always check price per tablet or capsule, not the box price. Different boxes have 10, 20, 30, or 100 pills.</p>
-          </div>
-          <div class="tip-card">
-            <h4><span aria-hidden="true">👨‍⚕️</span> <span data-i18n="tip_pharmacist_title">3. Ask Your Pharmacist</span></h4>
-            <p data-i18n="tip_pharmacist_desc">Simply ask your pharmacist: "Is there a reputable, cheaper local brand with this exact same formula?"</p>
+        <div id="tips-section">
+          <h2 class="section-title" id="tips-title-el" style="margin-top: 2rem;" data-i18n="tips_title">3 Simple Ways to Save on Medicines in Pakistan</h2>
+          <div class="tips-grid">
+            <div class="tip-card">
+              <h4><span aria-hidden="true">🔬</span> <span data-i18n="tip_salt_title">1. Same Ingredient = Same Effect</span></h4>
+              <p data-i18n="tip_salt_desc">Medicine brands approved in Pakistan with the same active ingredient work the exact same way. You are often paying extra only for the brand name.</p>
+            </div>
+            <div class="tip-card">
+              <h4><span aria-hidden="true">🏷️</span> <span data-i18n="tip_unit_title">2. Compare Price per Pill</span></h4>
+              <p data-i18n="tip_unit_desc">Always check price per tablet or capsule, not the box price. Different boxes have 10, 20, 30, or 100 pills.</p>
+            </div>
+            <div class="tip-card">
+              <h4><span aria-hidden="true">👨‍⚕️</span> <span data-i18n="tip_pharmacist_title">3. Ask Your Pharmacist</span></h4>
+              <p data-i18n="tip_pharmacist_desc">Simply ask your pharmacist: "Is there a reputable, cheaper local brand with this exact same formula?"</p>
+            </div>
           </div>
         </div>
       </section>
@@ -245,9 +411,38 @@
     </div>
   </main>
 
-  <!-- Footer with visually distinct Medical Disclaimer & Aeromaverick Technologies Branding -->
+  <!-- Footer with Navigation Grid, Medical Disclaimer, Branding & Dynamic Copyright -->
   <footer class="site-footer" role="contentinfo">
     <div class="container footer-inner">
+
+      <!-- Navigation & Links in Footer -->
+      <nav class="footer-nav-grid" aria-label="Footer Navigation">
+        <div class="footer-col">
+          <h3 class="footer-col-title">Quick Navigation</h3>
+          <ul class="footer-links-list">
+            <li><a href="/" class="footer-link">Home (Medicine Search)</a></li>
+            <li><a href="#categories-section" class="footer-link">Browse Categories</a></li>
+            <li><a href="#tips-section" class="footer-link">How to Save on Medicines</a></li>
+            <li><a href="#nearby-stores-section" class="footer-link nearby-stores-toggle-btn">Nearby Pharmacies</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h3 class="footer-col-title">Customer Support</h3>
+          <ul class="footer-links-list">
+            <li><a href="tel:+922111123456" class="footer-link footer-tel-link"><span aria-hidden="true">📞</span> +92 (21) 111-234-56</a></li>
+            <li><a href="mailto:support@antigracity.pk" class="footer-link footer-email-link"><span aria-hidden="true">✉️</span> support@antigracity.pk</a></li>
+            <li><span class="footer-text-muted">Karachi, Lahore &amp; Islamabad, Pakistan</span></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h3 class="footer-col-title">Legal &amp; Privacy</h3>
+          <ul class="footer-links-list">
+            <li><a href="#disclaimer-section" class="footer-link">Medical Disclaimer</a></li>
+            <li><a href="404.html" class="footer-link">Sitemap &amp; Directory</a></li>
+            <li><a href="#disclaimer-section" class="footer-link">Terms &amp; Disclaimers</a></li>
+          </ul>
+        </div>
+      </nav>
 
       <!-- Distinct Medical Disclaimer Box -->
       <div class="footer-disclaimer-card" aria-label="Medical Disclaimer">

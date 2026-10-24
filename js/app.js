@@ -163,9 +163,9 @@
     const siteTitleEl = document.getElementById('site-title-el');
     if (siteTitleEl) {
       if (isUr) {
-        siteTitleEl.innerHTML = `سستی دوا تلاش کار <span class="site-title-urdu">پاکستان</span>`;
+        siteTitleEl.innerHTML = `اینٹی گریسیٹی <span class="site-title-divider">|</span> سستی دوا تلاش کار <span class="site-title-urdu">پاکستان</span>`;
       } else {
-        siteTitleEl.innerHTML = `Sasta Dawa Finder <span class="site-title-urdu" dir="rtl">سستی دوا</span>`;
+        siteTitleEl.innerHTML = `Antigracity <span class="site-title-divider">|</span> Sasta Dawa Finder <span class="site-title-urdu" dir="rtl">سستی دوا</span>`;
       }
     }
 
@@ -269,9 +269,126 @@
   }
 
   /**
+   * Accessible Toast Notification helper (Success and Error messages)
+   */
+  function showToast(message, type = 'success') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = `toast-message toast-${type}`;
+    const icon = type === 'success' ? '✓' : '⚠️';
+    toast.innerHTML = `
+      <span class="toast-icon" aria-hidden="true">${icon}</span>
+      <div class="toast-content">${escapeHtml(message)}</div>
+      <button type="button" class="toast-close-btn" aria-label="Dismiss notification">✕</button>
+    `;
+    const closeBtn = toast.querySelector('.toast-close-btn');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => toast.remove());
+    }
+    container.appendChild(toast);
+    setTimeout(() => {
+      if (toast.parentNode) {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-10px)';
+        setTimeout(() => toast.remove(), 250);
+      }
+    }, 4000);
+  }
+
+  function showSuccessMessage(msg) {
+    showToast(msg, 'success');
+  }
+
+  function showErrorMessage(msg) {
+    showToast(msg, 'error');
+  }
+
+  /**
    * Setup UI Event Listeners.
    */
   function setupEventListeners() {
+    // Clickable Logo (Fix 17)
+    const siteLogoLink = document.getElementById('site-logo-link');
+    if (siteLogoLink) {
+      siteLogoLink.addEventListener('click', (e) => {
+        const isHomePage = window.location.pathname === '/' || window.location.pathname.endsWith('index.html');
+        if (isHomePage) {
+          e.preventDefault();
+          searchInput.value = '';
+          if (clearBtn) clearBtn.style.display = 'none';
+          closeAutocomplete();
+          showExploreView();
+          window.location.hash = '';
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          showSuccessMessage('Returned to Medicine Finder Home.');
+        }
+      });
+    }
+
+    // Mobile Menu Toggle & Navigation Drawer (Fix 3 & Fix 15)
+    const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+    const mobileNavDrawer = document.getElementById('mobile-nav-drawer');
+    const mobileNavBackdrop = document.getElementById('mobile-nav-backdrop');
+    const drawerCloseBtn = document.getElementById('drawer-close-btn');
+
+    function openMobileMenu() {
+      if (!mobileNavDrawer) return;
+      mobileNavDrawer.removeAttribute('hidden');
+      if (mobileNavBackdrop) mobileNavBackdrop.removeAttribute('hidden');
+      requestAnimationFrame(() => {
+        mobileNavDrawer.classList.add('active');
+        if (mobileNavBackdrop) mobileNavBackdrop.classList.add('active');
+      });
+      if (mobileMenuToggle) {
+        mobileMenuToggle.setAttribute('aria-expanded', 'true');
+      }
+    }
+
+    function closeMobileMenu() {
+      if (!mobileNavDrawer) return;
+      mobileNavDrawer.classList.remove('active');
+      if (mobileNavBackdrop) mobileNavBackdrop.classList.remove('active');
+      if (mobileMenuToggle) {
+        mobileMenuToggle.setAttribute('aria-expanded', 'false');
+      }
+      setTimeout(() => {
+        mobileNavDrawer.setAttribute('hidden', '');
+        if (mobileNavBackdrop) mobileNavBackdrop.setAttribute('hidden', '');
+      }, 300);
+    }
+
+    if (mobileMenuToggle) {
+      mobileMenuToggle.addEventListener('click', () => {
+        const isOpen = mobileMenuToggle.getAttribute('aria-expanded') === 'true';
+        if (isOpen) {
+          closeMobileMenu();
+        } else {
+          openMobileMenu();
+        }
+      });
+    }
+
+    if (drawerCloseBtn) {
+      drawerCloseBtn.addEventListener('click', closeMobileMenu);
+    }
+
+    if (mobileNavBackdrop) {
+      mobileNavBackdrop.addEventListener('click', closeMobileMenu);
+    }
+
+    document.querySelectorAll('.mobile-nav-link').forEach((link) => {
+      link.addEventListener('click', () => {
+        closeMobileMenu();
+      });
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && mobileMenuToggle && mobileMenuToggle.getAttribute('aria-expanded') === 'true') {
+        closeMobileMenu();
+      }
+    });
+
     // Language Switch Buttons
     if (langEnBtn) {
       langEnBtn.addEventListener('click', () => switchLanguage('en'));
@@ -564,6 +681,11 @@
 
     if (updateHash) {
       window.location.hash = `med=${encodeURIComponent(med.id)}`;
+    }
+
+    const breadcrumbCurrentLabel = document.getElementById('breadcrumb-current-label');
+    if (breadcrumbCurrentLabel) {
+      breadcrumbCurrentLabel.textContent = `${med.brand_name} (${med.strength || ''}) - Price & Alternatives`;
     }
 
     renderSelectedMedicine(med);
@@ -1104,6 +1226,7 @@
         ? t('no_results_desc', { query: escapeHtml(query) })
         : t('no_results_desc', { query: '' });
     }
+    showErrorMessage(`No medicine found matching "${query || 'search'}".`);
   }
 
   function showExploreView() {
@@ -1112,6 +1235,10 @@
     exploreView.style.display = 'block';
     closeNearbyStoresSection();
     currentMedicine = null;
+    const breadcrumbCurrentLabel = document.getElementById('breadcrumb-current-label');
+    if (breadcrumbCurrentLabel) {
+      breadcrumbCurrentLabel.textContent = 'Pakistan Medicine Price & Generic Guide';
+    }
   }
 
   // Expose for testing & external programmatic use
@@ -1130,6 +1257,8 @@
     handleRequestLocation,
     handleManualAreaSearch,
     renderStoresList,
+    showSuccessMessage,
+    showErrorMessage,
   };
 
   // Initialize and expose promise
