@@ -2196,6 +2196,7 @@ body {
   transform: translateY(-2px);
 }
 
+.tip-card h3,
 .tip-card h4 {
   font-family: var(--font-display);
   font-size: 1rem;
@@ -2770,18 +2771,29 @@ body {
   padding: 0;
 }
 
+.breadcrumb-link,
 .breadcrumb-item a {
-  color: var(--secondary);
+  color: #0369A1;
   text-decoration: none;
 }
 
+.breadcrumb-link:hover,
 .breadcrumb-item a:hover {
   text-decoration: underline;
 }
 
-.breadcrumb-item.active {
-  color: var(--text-muted);
+.breadcrumb-link {
+  color: #0369A1;
+}
+
+.breadcrumb-item.active,
+#breadcrumb-current-label {
+  color: #475569;
   font-weight: 500;
+}
+
+#breadcrumb-current-label {
+  color: #475569;
 }
 
 .breadcrumb-separator {
@@ -2887,7 +2899,7 @@ body {
 .footer-col-title {
   font-size: 1.05rem;
   font-weight: 700;
-  color: var(--navy-900);
+  color: #F1F5F9;
   margin-bottom: 0.85rem;
 }
 
@@ -2901,7 +2913,7 @@ body {
 }
 
 .footer-link {
-  color: var(--text-secondary);
+  color: #CBD5E1;
   text-decoration: none;
   font-size: 0.92rem;
   transition: color 0.2s ease;
@@ -2919,7 +2931,7 @@ body {
 
 .footer-text-muted {
   font-size: 0.85rem;
-  color: var(--text-muted);
+  color: #94A3B8;
 }
 
 /* 404 Error Page Styling */
