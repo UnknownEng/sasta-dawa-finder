@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+  <title>Sasta Dawa Finder | سستی دوا تلاش کار - Medicine Price &amp; Generic Alternative Finder Pakistan</title>
+  <meta name="description" content="Sasta Dawa Finder - Search and compare medicine prices in Pakistan. Find cheaper, approved generic alternatives with identical active ingredients and save up to 70%.">
+  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+  <meta name="googlebot" content="index, follow">
+  <meta name="google-site-verification" content="google-site-verification-sastadawafinder-pk-2026">
+  <link rel="canonical" href="https://sastadawafinder.pk/">
+  <meta name="theme-color" content="#059669">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Sasta Dawa">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <link rel="apple-touch-icon" href="icons/icon.svg">
+  <link rel="manifest" href="manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Nastaliq+Urdu:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+
+  <!-- Open Graph & Social Sharing Metadata -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Sasta Dawa Finder">
+  <meta property="og:title" content="Sasta Dawa Finder - Medicine Price &amp; Generic Alternative Finder">
+  <meta property="og:description" content="Find cheaper, high-quality generic alternative medicines with identical ingredients in Pakistan. Save up to 70% on prescriptions.">
+  <meta property="og:url" content="https://sastadawafinder.pk/">
+  <meta property="og:image" content="https://sastadawafinder.pk/icons/icon-512.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Sasta Dawa Finder Pakistan">
+  <meta name="twitter:description" content="Compare medicine prices and find cheaper generic alternatives in Pakistan.">
+  <meta name="twitter:image" content="https://sastadawafinder.pk/icons/icon-512.png">
+
+  <!-- Schema.org Structured Data: MedicalWebPage & Organization -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "MedicalWebPage",
+    "name": "Sasta Dawa Finder - Pakistan Medicine Price & Generic Alternative Finder",
+    "url": "https://sastadawafinder.pk/",
+    "description": "Bilingual web portal for comparing pharmaceutical retail prices and finding bioequivalent generic alternatives in Pakistan.",
+    "inLanguage": ["en", "ur"],
+    "publisher": {
+      "@type": "Organization",
+      "name": "Maverick Tech Ventures",
+      "url": "https://sastadawafinder.pk",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://sastadawafinder.pk/icons/icon.svg",
+        "width": 512,
+        "height": 512
+      },
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "telephone": "+923273202419",
+        "contactType": "customer service",
+        "email": "ahmedmansoorrind1210@gmail.com",
+        "areaServed": "PK",
+        "availableLanguage": ["English", "Urdu"]
+      }
+    }
+  }
+  </script>
+
+  <!-- Schema.org FAQPage Schema -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What is Sasta Dawa Finder?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Sasta Dawa Finder is a free, transparent medicine price comparison and generic alternative finder for Pakistan. It helps patients and caregivers identify affordable, DRAP-approved medications containing the exact same active pharmaceutical ingredient (salt formula) as expensive brands."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Are generic medicine alternatives just as effective as branded medicines?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. Approved generic alternatives in Pakistan share the identical active chemical ingredient, dosage form, and strength as their branded counterparts. They produce the same therapeutic effect while costing up to 40% to 70% less."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How is the unit price calculated?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Unit price is calculated by dividing the maximum retail pack price in Pakistani Rupees (PKR) by the total number of tablets, capsules, or milliliters in the pack, allowing accurate price-per-pill comparisons regardless of differing box sizes."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How can I locate nearby pharmacies with this medicine?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "You can tap the Nearby Stores button to detect nearby pharmacies in Karachi, Lahore, Rawalpindi, and other major Pakistani cities, obtain directions via Google Maps, or call them directly to verify stock."
+        }
+      }
+    ]
+  }
+  </script>
+</head>
+<body>
+
+  <!-- Toast Notification Container for Success and Error messages -->
+  <div id="toast-container" class="toast-container" role="status" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Header -->
+  <header class="site-header" role="banner">
+    <div class="container">
+      <!-- Header Top Bar: Contact Links, Nearby Stores, Language Switcher & Mobile Menu Toggle -->
+      <div class="header-top-bar">
+        <div class="header-contact-group">
+          <a href="tel:+923273202419" class="header-contact-link header-tel-link" aria-label="Helpline: +92 327 3202419">
+            <span aria-hidden="true">📞</span> <span class="contact-text">+92 327 3202419</span>
+          </a>
+          <a href="mailto:ahmedmansoorrind1210@gmail.com" class="header-contact-link header-email-link" aria-label="Email Support: ahmedmansoorrind1210@gmail.com">
+            <span aria-hidden="true">✉️</span> <span class="contact-text">ahmedmansoorrind1210@gmail.com</span>
+          </a>
+        </div>
+
+        <div class="header-controls-group">
+          <button type="button" class="header-nearby-btn nearby-stores-toggle-btn" id="header-nearby-btn" aria-label="Find Nearby Medical Stores">
+            <span aria-hidden="true">📍</span> <span data-i18n="find_nearby_stores_btn">Find Nearby Medical Stores</span>
+          </button>
+          <div class="lang-toggle-wrapper" role="group" aria-label="Select Language">
+            <button type="button" id="lang-en-btn" class="lang-btn active" data-lang="en">English</button>
+            <button type="button" id="lang-ur-btn" class="lang-btn" data-lang="ur">اردو</button>
+          </div>
+          <!-- Mobile Menu Hamburger Button -->
+          <button type="button" class="mobile-menu-toggle" id="mobile-menu-toggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="mobile-nav-drawer">
+            <span class="hamburger-bar" aria-hidden="true"></span>
+            <span class="hamburger-bar" aria-hidden="true"></span>
+            <span class="hamburger-bar" aria-hidden="true"></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Header Content & Clickable Logo -->
+      <div class="header-content">
+        <a href="/" class="logo-link" id="site-logo-link" aria-label="Sasta Dawa Finder Home">
+          <div class="logo-wrapper">
+            <div class="logo-icon" aria-hidden="true">💊</div>
+            <h1 class="site-title" id="site-title-el">
+              Sasta Dawa Finder <span class="site-title-urdu" dir="rtl">سستی دوا</span>
+            </h1>
+          </div>
+        </a>
+        <p class="site-tagline" id="site-tagline-el" data-i18n="site_tagline">
+          Find cheaper, high-quality alternatives for expensive medicines in Pakistan.
+        </p>
+        <div class="badge-country" id="badge-country-el" data-i18n="badge_country">
+          🇵🇰 Pakistan Medicine Price Guide
+        </div>
+      </div>
+
+      <!-- Desktop Navigation Bar -->
+      <nav class="desktop-nav-bar" aria-label="Primary Navigation">
+        <ul class="desktop-nav-list">
+          <li><a href="#search-section" class="desktop-nav-link" data-i18n="nav_search">Find Medicines</a></li>
+          <li><a href="#categories-section" class="desktop-nav-link" data-i18n="nav_categories">Browse Categories</a></li>
+          <li><a href="#tips-section" class="desktop-nav-link" data-i18n="nav_tips">How to Save</a></li>
+          <li><a href="#nearby-stores-section" class="desktop-nav-link nearby-stores-toggle-btn" data-i18n="nav_nearby">Nearby Pharmacies</a></li>
+          <li><a href="tel:+923273202419" class="desktop-nav-link"><span aria-hidden="true">📞</span> Helpline</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Mobile Navigation Drawer & Backdrop -->
+  <div id="mobile-nav-backdrop" class="mobile-nav-backdrop" hidden></div>
+  <nav id="mobile-nav-drawer" class="mobile-nav-drawer" aria-label="Mobile Navigation Menu" hidden>
+    <div class="mobile-drawer-header">
+      <div class="drawer-brand">
+        <span class="drawer-logo-icon" aria-hidden="true">💊</span>
+        <span class="drawer-title">Sasta Dawa Finder</span>
+      </div>
+      <button type="button" class="drawer-close-btn" id="drawer-close-btn" aria-label="Close navigation menu">✕</button>
+    </div>
+    <ul class="mobile-nav-list">
+      <li><a href="#search-section" class="mobile-nav-link" id="mobile-link-search"><span aria-hidden="true">🔍</span> <span data-i18n="nav_search">Find Medicines</span></a></li>
+      <li><a href="#categories-section" class="mobile-nav-link" id="mobile-link-categories"><span aria-hidden="true">🩹</span> <span data-i18n="nav_categories">Browse Categories</span></a></li>
+      <li><a href="#tips-section" class="mobile-nav-link" id="mobile-link-tips"><span aria-hidden="true">💡</span> <span data-i18n="nav_tips">How to Save</span></a></li>
+      <li><a href="#nearby-stores-section" class="mobile-nav-link nearby-stores-toggle-btn" id="mobile-link-stores"><span aria-hidden="true">📍</span> <span data-i18n="nav_nearby">Nearby Pharmacies</span></a></li>
+    </ul>
+    <div class="mobile-drawer-contact">
+      <div class="drawer-contact-title">Direct Contact</div>
+      <a href="tel:+923273202419" class="drawer-contact-link"><span aria-hidden="true">📞</span> +92 327 3202419</a>
+      <a href="mailto:ahmedmansoorrind1210@gmail.com" class="drawer-contact-link"><span aria-hidden="true">✉️</span> ahmedmansoorrind1210@gmail.com</a>
+    </div>
+  </nav>
+
+  <!-- Breadcrumb Navigation for SEO & a11y -->
+  <nav class="breadcrumb-nav" aria-label="Breadcrumb">
+    <div class="container">
+      <ol class="breadcrumb-list" itemscope itemtype="https://schema.org/BreadcrumbList">
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+          <a href="/" itemprop="item" class="breadcrumb-link"><span itemprop="name">Home</span></a>
+          <meta itemprop="position" content="1" />
+        </li>
+        <li class="breadcrumb-separator" aria-hidden="true">/</li>
+        <li class="breadcrumb-item active" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+          <span itemprop="name" id="breadcrumb-current-label">Pakistan Medicine Price &amp; Generic Guide</span>
+          <meta itemprop="position" content="2" />
+        </li>
+      </ol>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content" role="main">
+    <div class="container">
+
+      <!-- Mandatory Safety & Medical Disclaimer -->
+      <aside class="disclaimer-card" id="disclaimer-section" role="note" aria-label="Medical Disclaimer">
+        <span class="disclaimer-icon" aria-hidden="true">⚠️</span>
+        <div class="disclaimer-text" id="disclaimer-text-el">
+          <strong data-i18n="disclaimer_label">Important Notice:</strong> <span data-i18n="disclaimer_text">Prices and information are approximate and for general awareness only. Always confirm with a licensed pharmacist or doctor before switching medicines.</span>
+        </div>
+      </aside>
+
+      <!-- Category Filter & Priority Navigation -->
+      <nav class="category-filter-section" id="categories-section" aria-label="Medicine Categories">
+        <span class="category-bar-label" id="categories-label-el" data-i18n="categories_title">Browse by Health Need:</span>
+        <div class="category-pills-row" id="category-pills-container">
+          <!-- Populated dynamically via JS -->
+        </div>
+      </nav>
+
+      <!-- Search Section -->
+      <section class="search-section" id="search-section" aria-label="Medicine Search">
+        <div class="search-box-wrapper">
+          <form id="search-form" action="#" onsubmit="return false;">
+            <div class="search-input-group">
+              <span class="search-icon-left" aria-hidden="true">🔍</span>
+              <input
+                type="text"
+                id="search-input"
+                class="search-input"
+                role="combobox"
+                placeholder="Search 300+ medicines by brand (e.g. Panadol, Risek, Augmentin) or formula..."
+                autocomplete="off"
+                aria-label="Search medicine name or generic salt"
+                aria-autocomplete="list"
+                aria-controls="autocomplete-list"
+                aria-expanded="false"
+              />
+              <div class="search-actions">
+                <button type="button" id="clear-btn" class="clear-btn" aria-label="Clear search input">✕</button>
+                <button type="button" id="search-btn" class="search-btn" data-i18n="search_button">Search</button>
+              </div>
+            </div>
+          </form>
+
+          <!-- Autocomplete Dropdown -->
+          <div id="autocomplete-list" class="autocomplete-dropdown" role="listbox"></div>
+        </div>
+
+        <!-- Quick Search Pills -->
+        <div class="quick-pills-section">
+          <span class="quick-pills-label" id="popular-searches-label" data-i18n="popular_searches">Quick Examples:</span>
+          <button type="button" class="pill-btn" data-search="Panadol">Panadol</button>
+          <button type="button" class="pill-btn" data-search="Rivotril">Rivotril</button>
+          <button type="button" class="pill-btn" data-search="Novalgin">Novalgin</button>
+          <button type="button" class="pill-btn" data-search="Risek">Risek</button>
+          <button type="button" class="pill-btn" data-search="Augmentin">Augmentin</button>
+          <button type="button" class="pill-btn" data-search="Brufen">Brufen</button>
+          <button type="button" class="pill-btn" data-search="Glucophage">Glucophage</button>
+          <button type="button" class="pill-btn" data-search="Concor">Concor</button>
+        </div>
+      </section>
+
+      <!-- Nearby Medical Stores Section (Accessible from both homepage & search results) -->
+      <section class="nearby-stores-section" id="nearby-stores-section" style="display: none;" aria-label="Nearby Medical Stores">
+        <div class="nearby-stores-header">
+          <div class="nearby-stores-title-group">
+            <h3 id="nearby-stores-title-el" data-i18n="nearby_stores_title">Nearby Medical Stores &amp; Pharmacies</h3>
+            <p class="nearby-stores-subtext" id="nearby-stores-sub-el" data-i18n="nearby_stores_subtitle">Pharmacies near you where this medicine may be available:</p>
+          </div>
+          <button type="button" class="close-stores-btn" id="close-stores-btn" aria-label="Close nearby stores">✕</button>
+        </div>
+
+        <!-- Location Bar: Prompt / Manual Area Input -->
+        <div class="store-location-bar" id="store-location-bar">
+          <!-- Dynamic prompt / city input -->
+        </div>
+
+        <!-- Mandatory Stock Availability Disclaimer -->
+        <aside class="store-disclaimer-card" role="note" aria-label="Store Availability Disclaimer">
+          <span class="store-disclaimer-icon" aria-hidden="true">⚠️</span>
+          <span class="store-disclaimer-text" id="store-disclaimer-text" data-i18n="nearby_stores_disclaimer">
+            Store listings are based on Google Maps data and may not confirm real-time stock of this specific medicine. Please call ahead to confirm availability.
+          </span>
+        </aside>
+
+        <!-- Live Google Maps Action Container -->
+        <div id="live-gmaps-container" class="live-gmaps-container"></div>
+
+        <!-- Stores List Grid -->
+        <div class="stores-grid" id="stores-grid">
+          <!-- Populated dynamically via nearby_stores.js / app.js -->
+        </div>
+      </section>
+
+      <!-- Results View (Hidden until searched) -->
+      <section id="results-view" class="results-section" aria-live="polite">
+        <div class="results-layout-grid">
+
+          <!-- Primary Column: Searched Medicine & Savings Spotlight (Sticky on Desktop) -->
+          <div class="results-primary-col">
+            <!-- Selected Medicine Card -->
+            <article class="medicine-card" id="selected-medicine-card">
+              <!-- Populated dynamically via app.js -->
+            </article>
+
+            <!-- Savings Spotlight Banner -->
+            <div id="savings-spotlight" class="savings-spotlight" style="display: none;">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+
+          <!-- Secondary Column: Alternatives Toolbar & Generic Alternatives List -->
+          <div class="results-secondary-col">
+            <!-- Alternatives Header & Toolbar -->
+            <div class="alternatives-toolbar" id="alternatives-toolbar" style="display: none;">
+              <h3 id="alt-header-title-el">
+                <span data-i18n="alt_header_title">Cheaper Alternatives with the Same Active Ingredient</span>
+                <span class="badge-count" id="alternatives-count">0 brands</span>
+              </h3>
+              <div class="sort-wrapper">
+                <label for="sort-select" class="sort-label" data-i18n="sort_label">Show:</label>
+                <select id="sort-select" class="sort-select" aria-label="Sort alternative medicines">
+                  <option value="price_asc" selected data-i18n="sort_cheapest">Cheapest First (Recommended)</option>
+                  <option value="savings_desc" data-i18n="sort_savings">Highest Savings %</option>
+                  <option value="price_desc" data-i18n="sort_price_desc">Highest Price First</option>
+                  <option value="name_asc" data-i18n="sort_name">Brand Name (A to Z)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Alternatives List Container -->
+            <div id="alternatives-list" class="alternatives-list">
+              <!-- Populated dynamically via app.js -->
+            </div>
+
+            <!-- Zero Alternatives State -->
+            <div id="zero-alternatives-card" class="zero-alternatives-card" style="display: none;">
+              <div class="zero-icon" aria-hidden="true">ℹ️</div>
+              <h3 class="zero-title" id="zero-title-el" data-i18n="zero_alt_title">No Cheaper Generic Alternatives Found</h3>
+              <p class="zero-desc" id="zero-alternatives-desc">
+                <!-- Dynamic explanation -->
+              </p>
+              <button type="button" class="pill-btn" id="zero-back-btn" data-i18n="zero_alt_btn">← Search Another Medicine</button>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- No Results / Not Found Card -->
+      <section id="no-results-view" class="no-results-card" style="display: none;">
+        <div class="no-results-illustration" aria-hidden="true">
+          <div class="no-results-icon-bubble">
+            <span class="no-results-icon">🔎</span>
+          </div>
+        </div>
+        <h3 class="no-results-title" id="no-results-title-el" data-i18n="no_results_title">No Medicine Found</h3>
+        <p class="no-results-desc" id="no-results-query-msg">
+          <!-- Dynamic query message -->
+        </p>
+        <div class="no-results-action">
+          <button type="button" class="pill-btn btn-prominent-reset" id="no-results-reset-btn" data-i18n="no_results_btn">View Common Medicines</button>
+        </div>
+      </section>
+
+      <!-- Initial State: Explore / Popular Medicines -->
+      <section id="explore-view" class="explore-section">
+        <h2 class="section-title" id="explore-title-el" data-i18n="explore_title">Common Everyday Medicines in Pakistan</h2>
+        <p class="section-subtitle" id="explore-subtitle-el" data-i18n="explore_subtitle">
+          Tap any common medicine below to see its main ingredient and find cheaper alternatives:
+        </p>
+        <div class="popular-grid" id="popular-medicines-grid">
+          <!-- Populated dynamically -->
+        </div>
+
+        <div id="tips-section">
+          <h2 class="section-title" id="tips-title-el" style="margin-top: 2rem;" data-i18n="tips_title">3 Simple Ways to Save on Medicines in Pakistan</h2>
+          <div class="tips-grid">
+            <div class="tip-card">
+              <h3><span aria-hidden="true">🔬</span> <span data-i18n="tip_salt_title">1. Same Ingredient = Same Effect</span></h3>
+              <p data-i18n="tip_salt_desc">Medicine brands approved in Pakistan with the same active ingredient work the exact same way. You are often paying extra only for the brand name.</p>
+            </div>
+            <div class="tip-card">
+              <h3><span aria-hidden="true">🏷️</span> <span data-i18n="tip_unit_title">2. Compare Price per Pill</span></h3>
+              <p data-i18n="tip_unit_desc">Always check price per tablet or capsule, not the box price. Different boxes have 10, 20, 30, or 100 pills.</p>
+            </div>
+            <div class="tip-card">
+              <h3><span aria-hidden="true">👨‍⚕️</span> <span data-i18n="tip_pharmacist_title">3. Ask Your Pharmacist</span></h3>
+              <p data-i18n="tip_pharmacist_desc">Simply ask your pharmacist: "Is there a reputable, cheaper local brand with this exact same formula?"</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Footer with Navigation Grid, Medical Disclaimer, Branding & Dynamic Copyright -->
+  <footer class="site-footer" role="contentinfo">
+    <div class="container footer-inner">
+
+      <!-- Navigation & Links in Footer -->
+      <nav class="footer-nav-grid" aria-label="Footer Navigation">
+        <div class="footer-col">
+          <h3 class="footer-col-title">Quick Navigation</h3>
+          <ul class="footer-links-list">
+            <li><a href="/" class="footer-link">Home (Medicine Search)</a></li>
+            <li><a href="#categories-section" class="footer-link">Browse Categories</a></li>
+            <li><a href="#tips-section" class="footer-link">How to Save on Medicines</a></li>
+            <li><a href="#nearby-stores-section" class="footer-link nearby-stores-toggle-btn">Nearby Pharmacies</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h3 class="footer-col-title">Customer Support</h3>
+          <ul class="footer-links-list">
+            <li><a href="tel:+923273202419" class="footer-link footer-tel-link"><span aria-hidden="true">📞</span> +92 327 3202419</a></li>
+            <li><a href="mailto:ahmedmansoorrind1210@gmail.com" class="footer-link footer-email-link"><span aria-hidden="true">✉️</span> ahmedmansoorrind1210@gmail.com</a></li>
+            <li><span class="footer-text-muted">Karachi, Lahore &amp; Islamabad, Pakistan</span></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h3 class="footer-col-title">Legal &amp; Privacy</h3>
+          <ul class="footer-links-list">
+            <li><a href="#disclaimer-section" class="footer-link">Medical Disclaimer</a></li>
+            <li><a href="404.html" class="footer-link">Sitemap &amp; Directory</a></li>
+            <li><a href="#disclaimer-section" class="footer-link">Terms &amp; Disclaimers</a></li>
+          </ul>
+        </div>
+      </nav>
+
+      <!-- Distinct Medical Disclaimer Box -->
+      <div class="footer-disclaimer-card" aria-label="Medical Disclaimer">
+        <div class="footer-disclaimer-header">
+          <span aria-hidden="true">⚠️</span>
+          <strong data-i18n="footer_disclaimer_title">Medical Disclaimer</strong>
+        </div>
+        <p class="footer-disclaimer-text" id="footer-disclaimer-el" data-i18n="footer_disclaimer">
+          Prices and information are approximate and for general awareness only. Always confirm with a licensed pharmacist or doctor before switching medicines.
+        </p>
+      </div>
+
+      <!-- Distinct Branding & Developer Credit -->
+      <div class="footer-branding-card">
+        <div class="brand-line">
+          <span class="brand-sparkle" aria-hidden="true">✨</span>
+          <span class="brand-text" data-i18n="footer_branding">Made by Maverick Tech Ventures</span>
+        </div>
+        <p class="brand-subtext" data-i18n="footer_mission">
+          Empowering everyday people in Pakistan to find affordable healthcare choices.
+        </p>
+      </div>
+
+      <!-- Copyright Notice with auto-updating year -->
+      <div class="footer-copyright-row">
+        <span>&copy; <span id="copyright-year">2026</span> Maverick Tech Ventures. <span data-i18n="footer_copyright">All rights reserved.</span></span>
+      </div>
+
+    </div>
+  </footer>
+
+  <!-- Scripts: Configuration -> Embedded data -> Translations -> Nearby Stores -> Search Engine -> Data Loader -> Main App -->
+  <script src="config.js" onerror="/* config.js optional */"></script>
+  <script src="js/medicines_data_embed.js"></script>
+  <script src="js/translations.js"></script>
+  <script src="js/nearby_stores.js"></script>
+  <script src="js/search.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
