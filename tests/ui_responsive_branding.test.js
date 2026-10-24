@@ -40,18 +40,18 @@ test('UI Plain Language, Branding & Responsiveness Suite', async (t) => {
     const dom = await createDOM();
     const { document } = dom.window;
 
-    // 1. Branding text: "Made by Aeromaverick Technologies"
+    // 1. Branding text: "Made by Maverick Tech Ventures"
     const brandingCard = document.querySelector('.footer-branding-card');
     assert.ok(brandingCard, 'Footer branding card exists');
     assert.ok(
-      brandingCard.textContent.includes('Made by Aeromaverick Technologies'),
-      'Must contain "Made by Aeromaverick Technologies"'
+      brandingCard.textContent.includes('Made by Maverick Tech Ventures'),
+      'Must contain "Made by Maverick Tech Ventures"'
     );
 
-    // 2. Copyright notice: "© [YEAR] Aeromaverick Technologies. All rights reserved."
+    // 2. Copyright notice: "© [YEAR] Maverick Tech Ventures. All rights reserved."
     const copyrightRow = document.querySelector('.footer-copyright-row');
     assert.ok(copyrightRow, 'Footer copyright row exists');
-    assert.ok(copyrightRow.textContent.includes('Aeromaverick Technologies'));
+    assert.ok(copyrightRow.textContent.includes('Maverick Tech Ventures'));
     assert.ok(copyrightRow.textContent.includes('All rights reserved.'));
 
     const currentYear = new Date().getFullYear().toString();

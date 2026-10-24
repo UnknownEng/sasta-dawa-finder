@@ -1,9 +1,9 @@
-# Project Memory & Decision Log (MEMORY.md) — Antigracity
+# Project Memory & Decision Log (MEMORY.md) — Sasta Dawa Finder
 
 ## 1. Project Context & Mission
-- **Project Name**: Antigracity (incorporating Sasta Dawa Finder / سستی دوا تلاش کار)
+- **Project Name**: Sasta Dawa Finder (سستی دوا تلاش کار)
 - **Domain**: Pharmaceutical Pricing, Generic Substitution & Healthcare Directory in Pakistan
-- **Core Goal**: Provide an accessible, transparent, and ultra-fast bilingual platform for finding affordable generic medicines and nearby pharmacies, backed by rigorous technical SEO and modern web engineering standards.
+- **Core Goal**: Provide an accessible, transparent, and ultra-fast bilingual platform for finding affordable generic medicines and nearby pharmacies, backed by rigorous technical SEO and modern web engineering standards. Made by Maverick Tech Ventures.
 
 ---
 
@@ -54,7 +54,7 @@
   2. *Broken links*: audited and verified all active routes and protocol links.
   3. *Mobile menu*: implemented hamburger button, slide-in drawer, overlay, and keyboard dismiss.
   4. *Favicon*: generated multi-resolution `favicon.ico`, `icons/favicon.ico`, and WebP favicons.
-  5. *Page titles*: updated to include "Antigracity" and primary search keyword within 60 chars.
+  5. *Page titles*: updated to include "Sasta Dawa Finder" and primary search keyword within 60 chars.
   6. *Meta descriptions*: added 140–160 character keyword-rich descriptions.
   7. *Footer links*: built `.footer-nav-grid` with structured links to search, categories, tips, and legal.
   8. *Custom 404 page*: authored standalone `404.html` with breadcrumbs and `noindex`.
@@ -67,14 +67,14 @@
   15. *Unused navigation*: cleaned header and mobile drawer navigation.
   16. *Mobile overflow*: constrained container widths and card paddings.
   17. *Clickable logo*: wrapped in `#site-logo-link` with home reset action.
-  18. *Clickable phone*: implemented active `tel:+922111123456` links.
-  19. *Clickable email*: implemented active `mailto:support@antigracity.pk` links.
+  18. *Clickable phone*: implemented active `tel:+923273202419` links.
+  19. *Clickable email*: implemented active `mailto:ahmedmansoorrind1210@gmail.com` links.
   20. *Mobile optimization*: verified >= 44px touch targets and viewport scaling.
 - **Turn 3 (Part 3 Technical SEO & Performance)**:
   1. Built `server.js` with SSR capability and pre-rendered semantic HTML.
   2. Created `SEARCH_CONSOLE.md` and added Google Search Console verification meta tag.
   3. Implemented proper `noindex, follow` on 404 page and `index, follow` on home.
-  4. Added canonical links (`https://antigracity.pk/` and `https://antigracity.pk/404.html`).
+  4. Added canonical links (`https://sastadawafinder.pk/` and `https://sastadawafinder.pk/404.html`).
   5. Verified exactly one `<h1>` per page.
   6. Added breadcrumb navigation and Schema.org `BreadcrumbList`.
   7. Added descriptive alt text on all images.

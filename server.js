@@ -1,5 +1,5 @@
 /**
- * Antigracity - Production SSR & Static Web Server
+ * Sasta Dawa Finder - Production SSR & Static Web Server
  * High-performance server with server-side rendering, strict HTTP status codes,
  * proper 404 handling, asset caching, and SEO crawler headers.
  */
@@ -129,7 +129,7 @@ const server = http.createServer((req, res) => {
 
 if (require.main === module) {
   server.listen(PORT, () => {
-    console.log(`Antigracity SSR & Static Server running at http://localhost:${PORT}`);
+    console.log(`Sasta Dawa Finder SSR & Static Server running at http://localhost:${PORT}`);
   });
 }
 

@@ -26,7 +26,7 @@ This document records each step of the Build-Verify-Fix loop during development 
 - [x] Tested layout at phone, tablet, laptop, and desktop widths
 - [x] Verified instant search suggestions with no lag
 - [x] Checked color contrast and non-color-reliant meaning cues
-- [x] Added footer branding ("Made by Aeromaverick Technologies")
+- [x] Added footer branding ("Made by Maverick Tech Ventures")
 - [x] Added copyright notice with year
 - [x] Kept disclaimer and copyright visually separate and both clearly readable
 - [x] Final full run-through as a simulated non-technical user, mobile + desktop
@@ -188,11 +188,11 @@ This document records each step of the Build-Verify-Fix loop during development 
 - **Status**: PASS.
 
 ### Entry 15: Footer Branding & Dynamic Copyright Notice
-- **Plan**: Add required footer credit "Made by Aeromaverick Technologies", dynamic copyright "© 2026 Aeromaverick Technologies. All rights reserved.", and keep them visually separated from the medical disclaimer.
+- **Plan**: Add required footer credit "Made by Maverick Tech Ventures", dynamic copyright "© 2026 Maverick Tech Ventures. All rights reserved.", and keep them visually separated from the medical disclaimer.
 - **Build**: Created `.footer-disclaimer-card`, `.footer-branding-card`, and `.footer-copyright-row` in `index.html` and `css/style.css`. Added dynamic year script in `js/app.js`.
 - **Self-check**: Executed `tests/ui_responsive_branding.test.js`:
-  1. Verified "Made by Aeromaverick Technologies" exists.
-  2. Verified "© [Current Year] Aeromaverick Technologies. All rights reserved." auto-updates dynamically.
+  1. Verified "Made by Maverick Tech Ventures" exists.
+  2. Verified "© [Current Year] Maverick Tech Ventures. All rights reserved." auto-updates dynamically.
   3. Verified medical disclaimer and copyright row are separate DOM sibling cards.
 - **Fix**: None needed.
 - **Status**: PASS.

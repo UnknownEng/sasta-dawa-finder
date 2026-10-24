@@ -100,7 +100,7 @@ npm test
 - `tests/sync_drug_data.test.js`: Verifies offline DRAP data ingestion, normalization, and validation pipeline.
 - `tests/urdu_mode.test.js`: Validates English/Urdu bilingual switching, RTL layout, and natural Urdu phrasing.
 - `tests/ui_dom.test.js`: Tests DOM rendering, zero-alternatives card, mobile viewport configuration, XSS prevention, and simulates 5 realistic end-to-end user journeys.
-- `tests/ui_responsive_branding.test.js`: Verifies plain-language UI without jargon, footer branding ("Made by Aeromaverick Technologies"), auto-updating copyright notice, and non-color-reliant savings cues.
+- `tests/ui_responsive_branding.test.js`: Verifies plain-language UI without jargon, footer branding ("Made by Maverick Tech Ventures"), auto-updating copyright notice, and non-color-reliant savings cues.
 
 ---
 
@@ -108,7 +108,7 @@ npm test
 
 ```
 medicine/
-├── index.html                   # Mobile-first SPA entrypoint with plain language & Aeromaverick branding
+├── index.html                   # Mobile-first SPA entrypoint with plain language & Maverick Tech Ventures branding
 ├── manifest.json                # PWA Web App Manifest for mobile installation
 ├── sw.js                        # Offline Service Worker with stale-while-revalidate caching
 ├── icons/

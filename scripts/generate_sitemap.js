@@ -1,12 +1,12 @@
 /**
- * Sitemap Generator for Antigracity (https://antigracity.pk)
+ * Sitemap Generator for Sasta Dawa Finder (https://sastadawafinder.pk)
  * Generates standards-compliant XML sitemap indexing core routes and top medicine queries.
  */
 
 const fs = require('fs');
 const path = require('path');
 
-const BASE_URL = 'https://antigracity.pk';
+const BASE_URL = 'https://sastadawafinder.pk';
 const TODAY = new Date().toISOString().split('T')[0];
 
 function generateSitemap() {

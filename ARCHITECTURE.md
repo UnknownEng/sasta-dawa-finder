@@ -1,8 +1,8 @@
-# Technical Architecture — Antigracity
+# Technical Architecture — Sasta Dawa Finder
 
 ## 1. High-Level System Overview
 
-Antigracity is architected as an ultra-fast, hybrid web platform that combines server-side rendered (SSR) / pre-rendered static assets with a dynamic, progressive client-side engine. This dual-architecture guarantees that search engine bots (Googlebot, Bingbot) receive complete semantic HTML for indexing, while users enjoy single-page application (SPA) responsiveness, offline PWA capabilities, and sub-second page loads.
+Sasta Dawa Finder is architected as an ultra-fast, hybrid web platform that combines server-side rendered (SSR) / pre-rendered static assets with a dynamic, progressive client-side engine. This dual-architecture guarantees that search engine bots (Googlebot, Bingbot) receive complete semantic HTML for indexing, while users enjoy single-page application (SPA) responsiveness, offline PWA capabilities, and sub-second page loads. Made by Maverick Tech Ventures.
 
 ```mermaid
 flowchart TD

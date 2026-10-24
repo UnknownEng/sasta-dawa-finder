@@ -1,4 +1,4 @@
-# Design System & UI Guidelines (DESIGN.md) — Antigracity
+# Design System & UI Guidelines (DESIGN.md) — Sasta Dawa Finder
 
 ## 1. Brand Identity & Design Principles
 - **Clarity & Trust**: Medical decisions require utmost clarity, high legibility, and objective presentation without aggressive marketing distractions.
@@ -72,7 +72,7 @@
 ## 5. UI Component Guidelines
 
 ### 5.1 Global Header & Navigation
-- **Clickable Logo**: Links to root (`/`). Displays the brand icon and title "Antigracity" with accessible home navigation.
+- **Clickable Logo**: Links to root (`/`). Displays the brand icon and title "Sasta Dawa Finder" with accessible home navigation.
 - **Mobile Menu (Hamburger)**:
   - Appears on viewports < 768px.
   - Slide-in responsive drawer or expandable overlay.
@@ -96,10 +96,11 @@
 - Explicit comparison of unit price (per tablet) and total pack price.
 
 ### 5.5 Footer & Contact Elements
-- Clickable telephone link: `tel:+92XXXXXXXXXX` with clear call icon.
-- Clickable email link: `mailto:support@antigracity.pk`.
+- Clickable telephone link: `tel:+923273202419` (+92 327 3202419) with clear call icon.
+- Clickable email link: `mailto:ahmedmansoorrind1210@gmail.com`.
 - Valid footer links (Home, Categories, Disclaimers, Privacy Policy, Terms).
-- Dynamic current year copyright (`© <Dynamic Year> Antigracity. All rights reserved.`).
+- Developer credit: "Made by Maverick Tech Ventures".
+- Dynamic current year copyright (`© <Dynamic Year> Maverick Tech Ventures. All rights reserved.`).
 
 ### 5.6 404 Error Page
 - Clear, empathetic error message indicating the page was not found.

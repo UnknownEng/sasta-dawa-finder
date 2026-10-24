@@ -1,7 +1,7 @@
-# Product Requirements Document (PRD) — Antigracity
+# Product Requirements Document (PRD) — Sasta Dawa Finder
 
 ## 1. Project Overview & Vision
-**Antigracity** (incorporating Sasta Dawa Finder / سستی دوا تلاش کار) is a modern, high-performance, mobile-first web platform designed to empower healthcare consumers, patients, caregivers, and pharmacists across Pakistan. The platform provides instant access to verified medicine pricing, active pharmaceutical ingredients (salt formulas), cheaper generic alternatives, and local pharmacy directories, while adhering to the highest standards of technical SEO, accessibility (a11y), and web performance.
+**Sasta Dawa Finder** (سستی دوا تلاش کار) is a modern, high-performance, mobile-first web platform designed to empower healthcare consumers, patients, caregivers, and pharmacists across Pakistan. The platform provides instant access to verified medicine pricing, active pharmaceutical ingredients (salt formulas), cheaper generic alternatives, and local pharmacy directories, while adhering to the highest standards of technical SEO, accessibility (a11y), and web performance. Made by Maverick Tech Ventures.
 
 ---
 

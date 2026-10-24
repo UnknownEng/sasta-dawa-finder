@@ -1,5 +1,5 @@
 /**
- * Sasta Dawa Finder - Application Controller with Plain Language & Aeromaverick Branding
+ * Sasta Dawa Finder - Application Controller with Plain Language & Maverick Tech Ventures Branding
  * Handles UI interactions, search autocomplete, category filtering, translation, rendering, and URL states.
  */
 
@@ -163,9 +163,9 @@
     const siteTitleEl = document.getElementById('site-title-el');
     if (siteTitleEl) {
       if (isUr) {
-        siteTitleEl.innerHTML = `اینٹی گریسیٹی <span class="site-title-divider">|</span> سستی دوا تلاش کار <span class="site-title-urdu">پاکستان</span>`;
+        siteTitleEl.innerHTML = `سستی دوا تلاش کار <span class="site-title-urdu">پاکستان</span>`;
       } else {
-        siteTitleEl.innerHTML = `Antigracity <span class="site-title-divider">|</span> Sasta Dawa Finder <span class="site-title-urdu" dir="rtl">سستی دوا</span>`;
+        siteTitleEl.innerHTML = `Sasta Dawa Finder <span class="site-title-urdu" dir="rtl">سستی دوا</span>`;
       }
     }
 

@@ -1,4 +1,4 @@
-# robots.txt for Antigracity (https://antigracity.pk)
+# robots.txt for Sasta Dawa Finder (https://sastadawafinder.pk)
 # Technical SEO Policy: Unblock Googlebot and allow all legitimate search crawlers
 
 User-agent: Googlebot
@@ -26,4 +26,4 @@ Disallow: /scripts/
 Crawl-delay: 1
 
 # XML Sitemap Location
-Sitemap: https://antigracity.pk/sitemap.xml
+Sitemap: https://sastadawafinder.pk/sitemap.xml

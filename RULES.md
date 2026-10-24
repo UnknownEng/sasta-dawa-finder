@@ -1,4 +1,4 @@
-# Engineering Rules & Standards (RULES.md) — Antigracity
+# Engineering Rules & Standards (RULES.md) — Sasta Dawa Finder
 
 ## 1. Core Principles
 1. **Preserve Documentation & Code Integrity**: Maintain all existing comments, docstrings, and architectural invariants unless explicitly instructed to refactor.
@@ -47,7 +47,7 @@
   - Include `<meta name="robots" content="noindex, follow">` on search query parameters, staging pages, and 404 pages.
 - **Canonical URLs**:
   - Every page must feature an absolute self-referencing canonical tag:
-    `<link rel="canonical" href="https://antigracity.pk/...">`.
+    `<link rel="canonical" href="https://sastadawafinder.pk/...">`.
 - **Meta Descriptions**:
   - Unique, compelling meta descriptions between 140–160 characters per page incorporating relevant primary keywords.
 - **Page Titles**:

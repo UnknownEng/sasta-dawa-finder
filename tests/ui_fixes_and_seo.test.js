@@ -1,5 +1,5 @@
 /**
- * Antigracity - Comprehensive UI/UX Fixes and Technical SEO Test Suite
+ * Sasta Dawa Finder - Comprehensive UI/UX Fixes and Technical SEO Test Suite
  * Explicitly tests each of the 20 UI/UX fixes and 17 Technical SEO requirements.
  */
 
@@ -21,7 +21,7 @@ async function loadDOM(filePath = '../index.html') {
 
   const dom = new JSDOM(htmlContent, {
     runScripts: 'outside-only',
-    url: 'https://antigracity.pk/',
+    url: 'https://sastadawafinder.pk/',
   });
 
   const { window } = dom;
@@ -81,7 +81,7 @@ test('Part 2: The 20 UI/UX and Functional Fixes Verification Suite', async (t) =
 
   await t.test('Fix 5: Fix page titles', () => {
     const title = document.title;
-    assert.ok(title.includes('Antigracity'), 'Title must feature Antigracity');
+    assert.ok(title.includes('Sasta Dawa Finder'), 'Title must feature Sasta Dawa Finder');
     assert.ok(title.includes('Medicine Price'), 'Title must contain primary keyword');
   });
 
@@ -182,7 +182,7 @@ test('Part 2: The 20 UI/UX and Functional Fixes Verification Suite', async (t) =
   await t.test('Fix 19: Make the email clickable', () => {
     const mailLinks = Array.from(document.querySelectorAll('a[href^="mailto:"]'));
     assert.ok(mailLinks.length >= 2, 'Must feature clickable mailto links');
-    assert.ok(mailLinks[0].getAttribute('href').includes('mailto:support@antigracity.pk'));
+    assert.ok(mailLinks[0].getAttribute('href').includes('mailto:ahmedmansoorrind1210@gmail.com'));
   });
 
   await t.test('Fix 20: Make every page mobile optimized', () => {
@@ -201,7 +201,7 @@ test('Part 3: Comprehensive Technical SEO & Performance Suite', async (t) => {
     const serverModule = require('../server.js');
     assert.ok(typeof serverModule.getPreRenderedHTML === 'function', 'SSR HTML generator function exists');
     const ssrHtml = serverModule.getPreRenderedHTML();
-    assert.ok(ssrHtml.includes('Antigracity'), 'SSR HTML contains brand name');
+    assert.ok(ssrHtml.includes('Sasta Dawa Finder'), 'SSR HTML contains brand name');
     assert.ok(ssrHtml.includes('site-header'), 'SSR HTML contains pre-rendered header');
   });
 
@@ -222,7 +222,7 @@ test('Part 3: Comprehensive Technical SEO & Performance Suite', async (t) => {
   await t.test('Req 4: Add canonical tags', () => {
     const canonical = document.querySelector('link[rel="canonical"]');
     assert.ok(canonical, 'Canonical tag exists');
-    assert.strictEqual(canonical.getAttribute('href'), 'https://antigracity.pk/');
+    assert.strictEqual(canonical.getAttribute('href'), 'https://sastadawafinder.pk/');
   });
 
   await t.test('Req 5: Ensure exactly one H1 per page', () => {
@@ -259,7 +259,7 @@ test('Part 3: Comprehensive Technical SEO & Performance Suite', async (t) => {
     assert.ok(fs.existsSync(sitemapPath), 'sitemap.xml must exist');
     const sitemap = fs.readFileSync(sitemapPath, 'utf8');
     assert.ok(sitemap.includes('<urlset'), 'Sitemap is valid XML urlset');
-    assert.ok(sitemap.includes('https://antigracity.pk/'));
+    assert.ok(sitemap.includes('https://sastadawafinder.pk/'));
   });
 
   await t.test('Req 10: Unblock Googlebot', () => {
@@ -268,7 +268,7 @@ test('Part 3: Comprehensive Technical SEO & Performance Suite', async (t) => {
     const robots = fs.readFileSync(robotsPath, 'utf8');
     assert.ok(robots.includes('User-agent: Googlebot'), 'robots.txt explicitly targets Googlebot');
     assert.ok(robots.includes('Allow: /'), 'Googlebot is allowed');
-    assert.ok(robots.includes('Sitemap: https://antigracity.pk/sitemap.xml'), 'robots.txt links sitemap');
+    assert.ok(robots.includes('Sitemap: https://sastadawafinder.pk/sitemap.xml'), 'robots.txt links sitemap');
   });
 
   await t.test('Req 11: Remove all redirect chains', () => {
@@ -288,7 +288,7 @@ test('Part 3: Comprehensive Technical SEO & Performance Suite', async (t) => {
 
   await t.test('Req 13: Write SEO-optimized meta descriptions', () => {
     const desc = document.querySelector('meta[name="description"]').getAttribute('content');
-    assert.ok(desc.includes('Antigracity') && desc.includes('Pakistan') && desc.includes('generic'));
+    assert.ok(desc.includes('Sasta Dawa') && desc.includes('Pakistan') && desc.includes('generic'));
   });
 
   await t.test('Req 14: Add FAQ schema', () => {
