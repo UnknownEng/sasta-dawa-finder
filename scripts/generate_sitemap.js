@@ -6,7 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const BASE_URL = 'https://sastadawafinder.pk';
+const BASE_URL = 'https://sasta-dawa-finder.vercel.app';
 
 function generateSitemap() {
   let lastmod = new Date().toISOString().slice(0, 10);
