@@ -88,11 +88,47 @@
     };
   }
 
+  /**
+   * Apply admin price corrections: { id: { price } } sets a new pack price,
+   * { id: { hidden: true } } removes the product. Returns how many were applied.
+   * Call before creating the search engine.
+   */
+  function applyOverrides(ds, overrides) {
+    if (!ds || !overrides || typeof overrides !== 'object') return 0;
+    let applied = 0;
+    for (const [id, o] of Object.entries(overrides)) {
+      const med = ds.byId.get(id);
+      if (!med || !o) continue;
+      if (o.hidden) {
+        med._hidden = true;
+        applied++;
+      } else if (typeof o.price === 'number' && o.price > 0) {
+        med.drapPrice = med.price;
+        med.price = o.price;
+        med.unitPrice = med.units > 0 ? o.price / med.units : o.price;
+        med.corrected = true;
+        applied++;
+      }
+    }
+    if (ds.items.some((m) => m._hidden)) {
+      ds.items = ds.items.filter((m) => !m._hidden);
+      for (const [id, m] of [...ds.byId]) if (m._hidden) ds.byId.delete(id);
+      for (const map of [ds.groups, ds.bySalt]) {
+        for (const [k, list] of [...map]) {
+          const kept = list.filter((m) => !m._hidden);
+          if (kept.length) map.set(k, kept);
+          else map.delete(k);
+        }
+      }
+    }
+    return applied;
+  }
+
   async function load(url) {
     const res = await fetch(url || 'data/medicines.json');
     if (!res.ok) throw new Error('Could not load medicine data (' + res.status + ')');
     return expand(await res.json());
   }
 
-  return { expand, load, slug };
+  return { expand, load, slug, applyOverrides };
 });

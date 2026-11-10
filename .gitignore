@@ -1,6 +1,5 @@
 # Dependencies
 node_modules/
-package-lock.json
 
 # Local Environment & API Secrets
 config.js
@@ -21,3 +20,10 @@ yarn-error.log*
 
 # DRAP page cache (scripts/sync_drap.js)
 .cache/
+
+# Vercel build output and local settings
+public/
+.vercel/
+
+# Admin panel data when running locally (settings, visitor reports)
+.data/

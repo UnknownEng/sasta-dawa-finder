@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="referrer" content="no-referrer">
+  <title>Admin · Sasta Dawa</title>
+  <script>
+    (function () {
+      var t = 'system';
+      try { var v = localStorage.getItem('sd_theme'); if (v) t = JSON.parse(v); } catch (e) {}
+      var dark = t === 'dark' || (t !== 'light' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    })();
+  </script>
+  <link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Nastaliq+Urdu:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css?v=2.1.1">
+  <link rel="stylesheet" href="/unonenginerrunon/admin.css?v=2.1.1">
+</head>
+<body class="admin">
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <!-- Sign in -->
+  <main id="login" class="ad-login" hidden>
+    <form class="ad-login-card" id="login-form" autocomplete="off">
+      <span class="ad-logo" aria-hidden="true">SD</span>
+      <h1>Admin sign in</h1>
+      <p class="muted" id="login-note">Enter the admin password to manage Sasta Dawa Finder.</p>
+      <label class="ad-field">
+        <span>Password</span>
+        <input type="password" id="login-password" class="input" autocomplete="current-password" required>
+      </label>
+      <p class="ad-error" id="login-error" role="alert" hidden></p>
+      <button type="submit" class="btn btn-primary" id="login-btn">Sign in</button>
+      <a class="ad-small-link" href="/">← Back to the website</a>
+    </form>
+  </main>
+
+  <!-- Panel -->
+  <div id="panel" hidden>
+    <header class="ad-top">
+      <div class="ad-top-inner">
+        <div class="ad-brand"><span class="ad-logo" aria-hidden="true">SD</span><div><b>Sasta Dawa</b><span>Admin panel</span></div></div>
+        <nav class="ad-tabs" role="tablist" aria-label="Admin sections">
+          <button role="tab" data-tab="overview" aria-selected="true">Overview</button>
+          <button role="tab" data-tab="inbox">Inbox <span class="count-badge" id="inbox-badge" hidden>0</span></button>
+          <button role="tab" data-tab="prices">Price fixes</button>
+          <button role="tab" data-tab="settings">Site settings</button>
+        </nav>
+        <div class="ad-top-actions">
+          <button type="button" class="icon-btn" id="ad-theme" aria-label="Switch light / dark mode" title="Light / dark mode">◐</button>
+          <a class="btn btn-ghost sm" href="/" target="_blank" rel="noopener">View site ↗</a>
+          <button type="button" class="btn btn-ghost sm" id="logout">Sign out</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="ad-main">
+      <!-- OVERVIEW -->
+      <section data-pane="overview">
+        <div class="ad-head"><h1>Overview</h1><p class="muted">How the site is doing and what needs attention.</p></div>
+        <div class="ad-stats" id="ov-stats"></div>
+        <div class="ad-grid2">
+          <div class="ad-card">
+            <h2>Status</h2>
+            <ul class="ad-status" id="ov-status"></ul>
+          </div>
+          <div class="ad-card">
+            <h2>Quick actions</h2>
+            <div class="ad-actions">
+              <button type="button" class="btn btn-soft" data-goto="inbox">Read visitor reports</button>
+              <button type="button" class="btn btn-soft" data-goto="prices">Fix a wrong price</button>
+              <button type="button" class="btn btn-soft" data-goto="settings">Post an announcement</button>
+            </div>
+            <h3>Updating medicine prices from DRAP</h3>
+            <ol class="ad-steps">
+              <li>On your PC, in the project folder, run <code>npm run sync-data</code> (takes about an hour, it downloads DRAP's price list slowly).</li>
+              <li>Run <code>npm test</code>, then <code>git add -A</code>, <code>git commit -m "Update prices"</code> and <code>git push</code>.</li>
+              <li>Vercel deploys the new prices automatically. Your price fixes here stay applied.</li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <!-- INBOX -->
+      <section data-pane="inbox" hidden>
+        <div class="ad-head row">
+          <div><h1>Inbox</h1><p class="muted">Reports visitors send from the site: wrong prices, missing medicines and suggestions.</p></div>
+          <div class="seg" role="group" aria-label="Filter">
+            <button type="button" class="seg-btn" data-filter="open" aria-pressed="true">Open</button>
+            <button type="button" class="seg-btn" data-filter="all" aria-pressed="false">All</button>
+          </div>
+        </div>
+        <div id="inbox-list" class="ad-list"></div>
+      </section>
+
+      <!-- PRICE FIXES -->
+      <section data-pane="prices" hidden>
+        <div class="ad-head"><h1>Price fixes</h1><p class="muted">Correct a wrong DRAP price or hide a product that shouldn't be listed. Changes go live for everyone within a minute.</p></div>
+        <div class="ad-grid2">
+          <div class="ad-card">
+            <h2>Find a medicine</h2>
+            <input type="search" id="pf-search" class="input" placeholder="Brand or salt name, e.g. Panadol 500" autocomplete="off">
+            <div id="pf-results" class="ad-results"></div>
+            <div id="pf-editor"></div>
+          </div>
+          <div class="ad-card">
+            <h2>Active fixes <span class="pill-count" id="pf-count">0</span></h2>
+            <div id="pf-list" class="ad-list tight"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section data-pane="settings" hidden>
+        <div class="ad-head"><h1>Site settings</h1><p class="muted">Edit what visitors see. Press “Save changes” when you're done.</p></div>
+        <form id="settings-form" class="ad-grid2">
+          <div class="ad-card">
+            <h2>Announcement banner</h2>
+            <label class="ad-switch"><input type="checkbox" id="an-on"><span>Show a banner at the top of the site</span></label>
+            <label class="ad-field"><span>Style</span>
+              <select id="an-tone" class="input select">
+                <option value="info">Information (teal)</option>
+                <option value="success">Good news (green)</option>
+                <option value="warn">Warning (amber)</option>
+              </select>
+            </label>
+            <label class="ad-field"><span>Message in English</span><textarea id="an-en" class="input" rows="2" maxlength="280" placeholder="e.g. Prices updated with DRAP's November list."></textarea></label>
+            <label class="ad-field"><span>Message in Urdu (optional)</span><textarea id="an-ur" class="input urdu-in" rows="2" maxlength="280" dir="rtl"></textarea></label>
+            <p class="ad-label">Preview</p>
+            <div id="an-preview"></div>
+          </div>
+          <div class="ad-card">
+            <h2>Dawa Assistant</h2>
+            <label class="ad-switch"><input type="checkbox" id="ai-on"><span>Use AI answers (Claude) when available</span></label>
+            <p class="muted small" id="ai-note"></p>
+            <h2>Popular searches</h2>
+            <label class="ad-field"><span>Shown as quick buttons under the search box. Separate with commas. Leave empty for automatic.</span>
+              <input type="text" id="popular" class="input" placeholder="Panadol, Augmentin, Risek, Glucophage">
+            </label>
+            <h2>Contact details (footer)</h2>
+            <label class="ad-field"><span>Phone</span><input type="text" id="c-phone" class="input" maxlength="40"></label>
+            <label class="ad-field"><span>Email</span><input type="email" id="c-email" class="input" maxlength="120"></label>
+            <label class="ad-field"><span>WhatsApp number (optional, with country code)</span><input type="text" id="c-wa" class="input" maxlength="40" placeholder="+923001234567"></label>
+          </div>
+          <div class="ad-savebar">
+            <span class="muted small" id="settings-state">No unsaved changes</span>
+            <button type="submit" class="btn btn-primary" id="settings-save">Save changes</button>
+          </div>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <div id="booting" class="loading"><div class="spinner" aria-hidden="true"></div><span>Loading…</span></div>
+
+  <script src="/js/data.js?v=2.1.1"></script>
+  <script src="/js/search.js?v=2.1.1"></script>
+  <script src="/unonenginerrunon/admin.js?v=2.1.1"></script>
+</body>
+</html>

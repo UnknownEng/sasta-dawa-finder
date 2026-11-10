@@ -4,18 +4,18 @@
  * (so price updates arrive quickly) with cached fallback for offline use.
  * API calls are never cached.
  */
-const CACHE_NAME = 'sasta-dawa-v2.0.0';
+const CACHE_NAME = 'sasta-dawa-v2.1.1';
 
 const PRECACHE_URLS = [
   './',
   './index.html',
   './manifest.json',
-  './css/style.css',
-  './js/i18n.js',
-  './js/data.js',
-  './js/search.js',
-  './js/assistant.js',
-  './js/app.js',
+  './css/style.css?v=2.1.1',
+  './js/i18n.js?v=2.1.1',
+  './js/data.js?v=2.1.1',
+  './js/search.js?v=2.1.1',
+  './js/assistant.js?v=2.1.1',
+  './js/app.js?v=2.1.1',
   './data/medicines.json',
   './icons/icon.svg',
   './icons/icon-192.png',
@@ -47,7 +47,7 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (!url.protocol.startsWith('http') || url.origin !== self.location.origin) return;
-  if (url.pathname.includes('/api/')) return;
+  if (url.pathname.includes('/api/') || url.pathname.startsWith('/unonenginerrunon')) return;
 
   // Medicine data: network first, cache fallback
   if (url.pathname.endsWith('/data/medicines.json')) {

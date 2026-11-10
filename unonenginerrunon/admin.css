@@ -1,0 +1,95 @@
+/* Sasta Dawa Finder - admin panel (uses the tokens from /css/style.css) */
+
+body.admin { background-image: none; }
+.admin code { font-size: 13px; padding: 1px 6px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--line); }
+
+.ad-logo { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; background: var(--brand); color: var(--brand-contrast); font-weight: 800; font-size: 14px; letter-spacing: .02em; flex-shrink: 0; }
+
+/* Sign in */
+.ad-login { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; }
+.ad-login-card { width: 100%; max-width: 380px; padding: 28px 24px; border-radius: 20px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-lg); display: grid; gap: 14px; }
+.ad-login-card h1 { margin: 4px 0 0; font-size: 22px; }
+.ad-login-card p { margin: 0; }
+.ad-small-link { font-size: 14px; color: var(--muted); text-align: center; }
+.ad-error { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--danger-soft); color: var(--danger); font-weight: 650; font-size: 14px; }
+
+/* Top bar */
+.ad-top { position: sticky; top: 0; z-index: 40; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
+.ad-top-inner { max-width: 1180px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.ad-brand { display: flex; align-items: center; gap: 10px; margin-inline-end: auto; }
+.ad-brand b { display: block; font-size: 16px; line-height: 1.1; }
+.ad-brand span { font-size: 12px; color: var(--muted); font-weight: 650; }
+.ad-tabs { display: flex; gap: 4px; overflow-x: auto; order: 3; width: 100%; scrollbar-width: none; }
+.ad-tabs button { display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; padding: 8px 12px; border-radius: 10px; font-weight: 700; color: var(--ink-2); cursor: pointer; white-space: nowrap; }
+.ad-tabs button:hover { background: var(--surface); color: var(--brand); }
+.ad-tabs button[aria-selected='true'] { background: var(--brand-soft); color: var(--brand); }
+.ad-top-actions { display: flex; align-items: center; gap: 8px; }
+#ad-theme { font-size: 18px; width: 38px; height: 38px; }
+@media (min-width: 980px) { .ad-tabs { order: 0; width: auto; } }
+
+.ad-main { max-width: 1180px; margin: 0 auto; padding: 8px 16px 80px; }
+.ad-head { padding: 20px 0 16px; }
+.ad-head.row { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.ad-head h1 { margin: 0 0 4px; font-size: clamp(22px, 3.5vw, 28px); letter-spacing: -0.02em; }
+.ad-head p { margin: 0; }
+
+.ad-grid2 { display: grid; gap: 16px; grid-template-columns: 1fr; align-items: start; }
+@media (min-width: 900px) { .ad-grid2 { grid-template-columns: 1fr 1fr; } }
+.ad-card { padding: 20px; border-radius: 18px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-sm); display: grid; gap: 12px; }
+.ad-card h2 { margin: 6px 0 0; font-size: 17px; display: flex; align-items: center; gap: 8px; }
+.ad-card h2:first-child { margin-top: 0; }
+.ad-card h3 { margin: 10px 0 0; font-size: 15px; }
+.ad-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.ad-steps { margin: 0; padding-inline-start: 20px; display: grid; gap: 6px; font-size: 14px; color: var(--ink-2); }
+
+/* Stats */
+.ad-stats { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 16px; }
+@media (min-width: 720px) { .ad-stats { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+.ad-stat { padding: 16px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); min-width: 0; }
+.ad-stat small { display: block; color: var(--muted); font-weight: 700; font-size: 12.5px; }
+.ad-stat b { display: block; font-size: 24px; letter-spacing: -0.02em; margin: 2px 0; overflow-wrap: anywhere; }
+.ad-stat span { font-size: 12.5px; color: var(--muted); }
+.ad-stat.attn { background: var(--accent-soft); border-color: transparent; }
+
+.ad-status { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.ad-status li { display: grid; grid-template-columns: auto 140px 1fr; gap: 10px; align-items: baseline; font-size: 14px; }
+.ad-status li span:last-child { color: var(--ink-2); overflow-wrap: anywhere; }
+@media (max-width: 520px) { .ad-status li { grid-template-columns: auto 1fr; } .ad-status li span:last-child { grid-column: 2; } }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--line-strong); display: inline-block; }
+.dot.ok { background: var(--save); }
+.dot.warn { background: var(--accent); }
+
+/* Fields */
+.ad-field { display: grid; gap: 6px; font-size: 14px; font-weight: 650; color: var(--ink-2); }
+.ad-field textarea.input { padding: 10px 14px; min-height: 64px; resize: vertical; line-height: 1.5; }
+.urdu-in { font-family: var(--font-ur); line-height: 2 !important; }
+.ad-label { margin: 0; font-size: 13px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.ad-switch { display: flex; align-items: center; gap: 10px; font-weight: 650; cursor: pointer; }
+.ad-switch input { width: 20px; height: 20px; accent-color: var(--brand); }
+.ad-savebar { position: sticky; bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line-strong); box-shadow: var(--shadow-lg); }
+@media (min-width: 900px) { .ad-savebar { grid-column: 1 / -1; } }
+.attn { color: color-mix(in srgb, var(--accent) 75%, var(--ink)) !important; font-weight: 700; }
+
+/* Lists */
+.ad-list { display: grid; gap: 10px; }
+.ad-empty { padding: 28px 16px; text-align: center; border-radius: 16px; border: 1px dashed var(--line-strong); color: var(--ink-2); }
+.ad-item { padding: 16px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); display: grid; gap: 8px; }
+.ad-item.done { opacity: .65; }
+.ad-item p { margin: 0; }
+.ad-item-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.ad-item-msg { white-space: pre-wrap; overflow-wrap: anywhere; }
+.ad-item-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.btn.danger { color: var(--danger); }
+.btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+
+.ad-results { display: grid; gap: 4px; max-height: 340px; overflow: auto; }
+.ad-result { display: flex; justify-content: space-between; align-items: center; gap: 12px; text-align: start; padding: 10px 12px; border-radius: 12px; border: 1px solid transparent; background: var(--surface-2); cursor: pointer; }
+.ad-result:hover { border-color: var(--brand); }
+.ad-result .num { font-weight: 800; white-space: nowrap; }
+.ad-editor { margin-top: 6px; padding: 16px; border-radius: 14px; border: 1.5px solid var(--brand); background: var(--brand-soft); display: grid; gap: 10px; }
+.ad-editor h3, .ad-editor p { margin: 0; }
+.ad-fix { display: flex; justify-content: space-between; gap: 10px; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); }
+.ad-fix .small { margin-top: 2px; }
+
+.toast.bad { background: var(--danger); color: #fff; }
+.admin .toast { bottom: 24px; }

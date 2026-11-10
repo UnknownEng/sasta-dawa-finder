@@ -149,3 +149,43 @@ test('untrusted text from the data is escaped', async () => {
   assert.match(d.querySelector('.mh-product').innerHTML, /onerror=alert\(1\)&gt;/);
   assert.match(d.querySelector('.mh-facts').innerHTML, /Bad &lt;b&gt;Actor&lt;\/b&gt;/);
 });
+
+test('theme switch: light, dark and auto', async () => {
+  const { window: w } = await boot();
+  const d = w.document;
+  const btn = (v) => d.querySelector(`[data-theme-set="${v}"]`);
+  btn('dark').click();
+  assert.equal(d.documentElement.getAttribute('data-theme'), 'dark');
+  assert.equal(btn('dark').getAttribute('aria-pressed'), 'true');
+  assert.equal(w.localStorage.getItem('sd_theme'), '"dark"');
+  btn('light').click();
+  assert.equal(d.documentElement.getAttribute('data-theme'), 'light');
+  btn('system').click();
+  assert.equal(d.documentElement.getAttribute('data-theme'), 'light', 'jsdom reports a light system theme');
+  assert.equal(btn('system').getAttribute('aria-pressed'), 'true');
+});
+
+test('report a wrong price opens the form and sends it', async () => {
+  const { window: w } = await boot('#/medicine/panadol-500mg-tablet-000101');
+  const d = w.document;
+  let sent = null;
+  const orig = w.fetch;
+  w.fetch = async (url, opts) => {
+    if (String(url).includes('api/feedback')) {
+      sent = JSON.parse(opts.body);
+      return { ok: true, status: 200, json: async () => ({ ok: true }) };
+    }
+    return orig(url, opts);
+  };
+  d.getElementById('btn-report').click();
+  assert.ok(!d.getElementById('fb-modal').hidden);
+  assert.match(d.getElementById('fb-title').textContent, /wrong price/i);
+  assert.match(d.getElementById('fb-about').textContent, /Panadol/);
+  d.getElementById('fb-message').value = 'Charged Rs 30';
+  d.getElementById('fb-form').dispatchEvent(new w.Event('submit', { cancelable: true }));
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(sent.type, 'wrong_price');
+  assert.equal(sent.medicine_id, 'panadol-500mg-tablet-000101');
+  assert.equal(sent.message, 'Charged Rs 30');
+  assert.ok(d.getElementById('fb-modal').hidden, 'closes after sending');
+});

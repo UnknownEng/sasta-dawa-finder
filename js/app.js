@@ -221,16 +221,23 @@
     document.title = 'Sasta Dawa Finder — Compare medicine prices & find cheaper generics in Pakistan';
     const { engine, ds } = state;
 
-    // quick chips
-    const chips = engine.popular(9);
-    $('#quick-chips').innerHTML = chips
-      .map((m) => `<a class="chip" href="#/medicine/${encodeURIComponent(m.id)}">${esc(m.name)}</a>`)
-      .join('');
+    // quick chips: the admin's list if set, otherwise the most popular brands
+    const picked = state.site && Array.isArray(state.site.popular) ? state.site.popular.slice(0, 10) : [];
+    $('#quick-chips').innerHTML = picked.length
+      ? picked.map((name) => `<a class="chip" href="#/search/${encodeURIComponent(name)}">${esc(name)}</a>`).join('')
+      : engine.popular(9).map((m) => `<a class="chip" href="#/medicine/${encodeURIComponent(m.id)}">${esc(m.name)}</a>`).join('');
 
     $('#data-stamp').textContent = t('data_stamp', {
       products: ds.items.length.toLocaleString('en-PK'),
       date: fmtDate(ds.meta.latest_price_date),
     });
+    $('#hero-stats').innerHTML = [
+      [ds.items.length.toLocaleString('en-PK'), t('stat_medicines')],
+      [ds.groups.size.toLocaleString('en-PK'), t('stat_formulas')],
+      [fmtDate(ds.meta.latest_price_date), t('stat_updated')],
+    ]
+      .map(([v, k]) => `<div><b class="num">${esc(v)}</b><span>${esc(k)}</span></div>`)
+      .join('');
 
     // recent
     const recent = store('sd_recent', []).map((id) => engine.byId(id)).filter(Boolean);
@@ -404,7 +411,9 @@
           <svg class="ic"><use href="#${inCab ? 'i-check' : 'i-plus'}"/></svg><span>${esc(t(inCab ? 'in_cabinet' : 'add_cabinet'))}</span></button>
         <button type="button" class="btn btn-ghost" id="btn-share"><svg class="ic"><use href="#i-share"/></svg><span>${esc(t('share'))}</span></button>
         <a class="btn btn-ghost" href="https://www.google.com/maps/search/pharmacy+near+me" target="_blank" rel="noopener"><svg class="ic"><use href="#i-map"/></svg><span>${esc(t('find_pharmacy'))}</span></a>
-      </div>`;
+      </div>
+      ${med.corrected ? `<p class="mh-corrected"><svg class="ic"><use href="#i-check"/></svg>${esc(t('price_corrected', { price: rs(med.drapPrice) }))}</p>` : ''}
+      <button type="button" class="link-btn mh-report" id="btn-report"><svg class="ic"><use href="#i-flag"/></svg>${esc(t('report_price'))}</button>`;
 
     const onCabinet = () => {
       if (cabinet.has(med.id)) {
@@ -436,6 +445,7 @@
     $('#med-hero').innerHTML = $('#med-hero').innerHTML.replace('{{SAVINGS}}', savingsHtml);
     $('#btn-cabinet').onclick = onCabinet;
     $('#btn-share').onclick = () => shareMedicine(med);
+    $('#btn-report').onclick = () => openFeedback('wrong_price', { med });
     $('#med-savings').innerHTML = noticeHtml;
 
     // strengths
@@ -730,11 +740,149 @@
     }
   }
 
-  function applyTheme(theme) {
-    const root = document.documentElement;
-    const resolved = theme || (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-    root.setAttribute('data-theme', resolved);
-    $('#theme-toggle use').setAttribute('href', resolved === 'dark' ? '#i-sun' : '#i-moon');
+  /** pref: 'light' | 'dark' | 'system' (follow the phone / computer setting) */
+  function applyTheme(pref) {
+    const p = pref === 'light' || pref === 'dark' ? pref : 'system';
+    const systemDark = !!(window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+    const resolved = p === 'system' ? (systemDark ? 'dark' : 'light') : p;
+    document.documentElement.setAttribute('data-theme', resolved);
+    $$('[data-theme-set]').forEach((b) => {
+      b.setAttribute('aria-pressed', b.dataset.themeSet === p ? 'true' : 'false');
+      const label = t('theme_' + b.dataset.themeSet);
+      b.setAttribute('aria-label', label);
+      b.title = label;
+    });
+    const seg = $('#theme-seg');
+    if (seg) seg.setAttribute('aria-label', t('theme_label'));
+    const meta = $('#meta-theme');
+    if (meta) meta.setAttribute('content', resolved === 'dark' ? '#0b1412' : '#0f5c54');
+  }
+
+  // ------------------------------------------------------------------------
+  // Site settings from the admin panel (announcement, price fixes, contact)
+  // ------------------------------------------------------------------------
+  async function fetchSiteConfig() {
+    if (!location.protocol.startsWith('http')) return null;
+    try {
+      const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const timer = setTimeout(() => ctrl && ctrl.abort(), 2500);
+      const res = await fetch('api/config', { cache: 'no-cache', ...(ctrl ? { signal: ctrl.signal } : {}) });
+      clearTimeout(timer);
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function renderAnnouncement() {
+    const box = $('#announce');
+    const a = state.site && state.site.announcement;
+    const text = a && (I18N.getLang() === 'ur' ? a.ur || a.en : a.en || a.ur);
+    let dismissed = null;
+    try { dismissed = sessionStorage.getItem('sd_announce_closed'); } catch (e) { /* ignore */ }
+    if (!text || dismissed === text) {
+      box.hidden = true;
+      return;
+    }
+    box.hidden = false;
+    box.innerHTML = `<div class="announce tone-${esc(a.tone)}" role="note"><svg class="ic"><use href="#i-${a.tone === 'warn' ? 'alert' : 'info'}"/></svg><span>${esc(text)}</span>
+      <button type="button" class="icon-btn ghost sm" id="announce-close" aria-label="${esc(t('close'))}"><svg class="ic"><use href="#i-x"/></svg></button></div>`;
+    $('#announce-close').onclick = () => {
+      try { sessionStorage.setItem('sd_announce_closed', text); } catch (e) { /* ignore */ }
+      box.hidden = true;
+    };
+  }
+
+  function renderContact() {
+    const c = state.site && state.site.contact;
+    if (!c) return;
+    const links = [];
+    if (c.phone) links.push(`<a class="footer-link" href="tel:${esc(c.phone.replace(/[^\d+]/g, ''))}">${esc(c.phone)}</a>`);
+    if (c.whatsapp) links.push(`<a class="footer-link" href="https://wa.me/${esc(c.whatsapp.replace(/\D/g, ''))}" target="_blank" rel="noopener">${esc(t('footer_whatsapp'))}: ${esc(c.whatsapp)}</a>`);
+    if (c.email) links.push(`<a class="footer-link" href="mailto:${esc(c.email)}">${esc(c.email)}</a>`);
+    $('#footer-contact').innerHTML = links.join('');
+  }
+
+  // ------------------------------------------------------------------------
+  // Report a wrong price / request a medicine / suggestion
+  // ------------------------------------------------------------------------
+  const fb = { type: 'other', med: null, query: '', lastFocus: null };
+
+  function openFeedback(type, opts) {
+    const o = opts || {};
+    fb.type = type;
+    fb.med = o.med || null;
+    fb.query = o.query || '';
+    fb.lastFocus = document.activeElement;
+    const kind = type === 'wrong_price' ? 'price' : type === 'missing' ? 'missing' : 'general';
+    $('#fb-title').textContent = t('fb_title_' + kind);
+    $('#fb-intro').textContent = t('fb_intro_' + kind);
+    const about = $('#fb-about');
+    if (fb.med) {
+      about.hidden = false;
+      about.textContent = `${medTitle(fb.med)} · ${fb.med.pack || fb.med.form} · ${rs(fb.med.price)}`;
+    } else if (fb.query) {
+      about.hidden = false;
+      about.textContent = fb.query;
+    } else about.hidden = true;
+    $('#fb-message').value = '';
+    $('#fb-status').hidden = true;
+    $('#fb-send').disabled = false;
+    $('#fb-modal').hidden = false;
+    document.body.classList.add('modal-open');
+    setTimeout(() => $('#fb-message').focus(), 30);
+  }
+
+  function closeFeedback() {
+    $('#fb-modal').hidden = true;
+    document.body.classList.remove('modal-open');
+    if (fb.lastFocus && fb.lastFocus.focus) fb.lastFocus.focus();
+  }
+
+  function setupFeedback() {
+    $$('#fb-modal [data-close]').forEach((el) => el.addEventListener('click', closeFeedback));
+    $('#fb-modal').addEventListener('keydown', (e) => { if (e.key === 'Escape') closeFeedback(); });
+    $('#footer-feedback').addEventListener('click', () => openFeedback('suggestion'));
+    $('#empty-request').addEventListener('click', () => openFeedback('missing', { query: state.lastQuery || (state.route && state.route.q) || '' }));
+    $('#fb-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const message = $('#fb-message').value.trim();
+      const status = $('#fb-status');
+      if (!message) {
+        status.textContent = t('fb_empty');
+        status.className = 'fb-status bad';
+        status.hidden = false;
+        return;
+      }
+      $('#fb-send').disabled = true;
+      status.textContent = t('fb_sending');
+      status.className = 'fb-status';
+      status.hidden = false;
+      try {
+        const res = await fetch('api/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: fb.type,
+            message,
+            contact: $('#fb-contact').value.trim(),
+            medicine_id: fb.med ? fb.med.id : '',
+            medicine_name: fb.med ? medTitle(fb.med) : '',
+            query: fb.query,
+            lang: I18N.getLang(),
+            website: $('#fb-website').value,
+          }),
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        closeFeedback();
+        toast(t('fb_thanks'));
+      } catch (err) {
+        status.textContent = t('fb_error');
+        status.className = 'fb-status bad';
+        $('#fb-send').disabled = false;
+      }
+    });
   }
 
   // ------------------------------------------------------------------------
@@ -745,15 +893,24 @@
       b.addEventListener('click', () => {
         I18N.setLang(b.dataset.lang);
         applyLanguage();
+        applyTheme(store('sd_theme', 'system'));
+        renderAnnouncement();
+        renderContact();
         render();
         window.SDAssistantUI && window.SDAssistantUI.refresh();
       })
     );
-    $('#theme-toggle').addEventListener('click', () => {
-      const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-      save('sd_theme', next);
-      applyTheme(next);
-    });
+    $$('[data-theme-set]').forEach((b) =>
+      b.addEventListener('click', () => {
+        save('sd_theme', b.dataset.themeSet);
+        applyTheme(b.dataset.themeSet);
+      })
+    );
+    if (window.matchMedia) {
+      const mq = matchMedia('(prefers-color-scheme: dark)');
+      const onChange = () => { if (store('sd_theme', 'system') === 'system') applyTheme('system'); };
+      if (mq.addEventListener) mq.addEventListener('change', onChange);
+    }
     $('#recent-clear').addEventListener('click', () => {
       save('sd_recent', []);
       renderHome();
@@ -775,15 +932,19 @@
 
   async function init() {
     I18N.initLang();
-    applyTheme(store('sd_theme', null));
+    applyTheme(store('sd_theme', 'system'));
     applyLanguage();
     setupGlobal();
     setupSearch();
+    setupFeedback();
     updateCabinetBadge();
     const yr = $('#copyright-year');
     if (yr) yr.textContent = new Date().getFullYear();
+    const sitePromise = fetchSiteConfig();
     try {
       state.ds = await window.SDData.load('data/medicines.json');
+      state.site = await sitePromise;
+      if (state.site && state.site.overrides) window.SDData.applyOverrides(state.ds, state.site.overrides);
       state.engine = window.SDSearch.createEngine(state.ds);
     } catch (e) {
       console.error(e);
@@ -792,6 +953,8 @@
     }
     $('#loading').hidden = true;
     applyLanguage();
+    renderAnnouncement();
+    renderContact();
     updateCabinetBadge();
     render();
     if (window.SDAssistantUI) window.SDAssistantUI.init({ engine: state.engine, ds: state.ds, app: api });
