@@ -88,6 +88,9 @@ const SALT_WORDS = new Set([
   'enteric', 'coated', 'granules', 'dc', 'eq', 'equivalent', 'to', 'as', 'of', 'specs', 'spec',
 ]);
 
+// Words DRAP mixes into ingredient names that are not part of the ingredient.
+const NOISE_WORDS = new Set(['sterile', 'inj', 'injection', 'specification', 'specifications', 'containg', 'contains', 'contain']);
+
 // Esters/salts that change the active moiety meaningfully for topical steroids -> keep them.
 const KEEP_AFTER_FIRST = new Set(['valerate', 'dipropionate', 'propionate', 'furoate', 'acetonide', 'butyrate']);
 const MINERALS = new Set(['magnesium', 'calcium', 'sodium', 'potassium', 'ferrous', 'ferric', 'zinc', 'aluminium', 'aluminum', 'iron', 'copper', 'lithium', 'silver', 'bismuth', 'ammonium', 'cupric', 'selenium']);
@@ -101,15 +104,18 @@ function normalizeIngredientName(raw) {
   for (const [re, rep] of SPELLING) s = s.replace(re, rep);
   s = squash(s);
   const words = s.split(' ').filter(Boolean);
+  while (words.length > 1 && NOISE_WORDS.has(words[0])) words.shift(); // "injection cefazolin"
   if (!words.length) return '';
   const first = words[0];
-  if (MINERALS.has(first)) return words.filter((w) => !/^(usp|bp|nf|eq|as|to|anhydrous|dried|monohydrate|heptahydrate|dihydrate)$/.test(w)).join(' ');
+  if (MINERALS.has(first)) return words.filter((w, i) => !/^(usp|bp|nf|eq|as|to|anhydrous|dried|monohydrate|heptahydrate|dihydrate)$/.test(w) && words.indexOf(w) === i).join(' ');
   const keepEster = TOPICAL_STEROIDS.has(first);
   const out = [first];
   for (let i = 1; i < words.length; i++) {
     const w = words[i];
     if (SALT_WORDS.has(w) && !(keepEster && KEEP_AFTER_FIRST.has(w))) continue;
+    if (NOISE_WORDS.has(w) && !(out[out.length - 1] === 'for' && /^inj/.test(w))) continue; // keep "water for injection"
     if (/^\d/.test(w)) continue;
+    if (out.includes(w)) continue; // "ceftazidime pentahydrate ceftazidime" -> "ceftazidime"
     out.push(w);
   }
   let name = out.join(' ');
@@ -271,6 +277,12 @@ function cleanComposition(text) {
   // Per-volume header: "Each 5ml contains" -> remember volume
   s = s.replace(/(\d\s*(?:mg|mcg|gm|g|iu|ml|%))(?=[A-Z])/g, '$1 ');
   s = s.replace(/\b(eq\.?\s*to|equivalent\s*to)(?=[A-Za-z])/gi, '$1 ');
+  s = s.replace(/\b(equalent|equivalant|equivelent|equivilent|equ)\b\.?/gi, 'equivalent '); // common misspellings
+  // DRAP often glues a title in front: "LoratadineEach tablet contains:Loratadine….10mg" or
+  // "Telmisartan + Amlodipine BesylateEach … contains: …". The title repeats the ingredients,
+  // so drop it when it has no amounts of its own (otherwise names come out doubled).
+  const header = s.match(/each\s+[^:;]*?contains?\b/i);
+  if (header && header.index > 0 && !/\d/.test(s.slice(0, header.index))) s = s.slice(header.index);
   s = s.replace(/\bn\.f\.?/gi, ' ');
   s = s.replace(/each\s+[^:;]*?contains?\s*[:;\-]*/gi, ' ');
   s = s.replace(/\b(contains?|composition)\s*[:;\-]/gi, ' ');

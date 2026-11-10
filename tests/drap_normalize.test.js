@@ -84,3 +84,24 @@ test('normalizeRecord builds conservative alternative groups', () => {
   assert.notEqual(xr.group, ir.group, 'extended-release must not be grouped with immediate-release');
   assert.equal(N.normalizeRecord({ product: 'X', composition: '', price: 'N/A' }), null);
 });
+
+// Real DRAP strings that used to produce doubled names ("Loratadine Loratadine"), 2026-11-10 review.
+test('no doubled ingredient names from titles, salt forms or misspellings', async (t) => {
+  const names = (comp, product) => N.parseComposition(comp, product || '').map((i) => [i.name, i.amount ? N.formatAmount(i.amount) : null]);
+  await t.test('title glued to "Each tablet contains"', () => {
+    assert.deepEqual(names('LoratadineEach tablet contains:Loratadine….10mg'), [['loratadine', '10mg']]);
+    assert.deepEqual(names('LevetiracetamEach film coated tablet containsLevetiracetam………….1000mg'), [['levetiracetam', '1g']]);
+  });
+  await t.test('combination title with salt + "eq." keeps both ingredients once', () => {
+    assert.deepEqual(names('Telmisartan + Amlodipine BesylateEach uncoated bi-layered Tablet contains:Telmisartan…..40mgAmlodipine Besylate eq. Amlodipine……10mg'), [['telmisartan', '40mg'], ['amlodipine', '10mg']]);
+    assert.deepEqual(names('Piperacillin + TazobactamEach vial contains:Piperacillin as sodium…..2gTazobactam as sodium……0.25g'), [['piperacillin', '2g'], ['tazobactam', '250mg']]);
+  });
+  await t.test('salt form written out, and misspelt "Equalent to"', () => {
+    assert.deepEqual(names('Each vial contains:Ceftazidime Pentahydrate Ceftazidime ……….250mg'), [['ceftazidime', '250mg']]);
+    assert.deepEqual(names('Each Vial contains: Sterile pipracillin sodium Equalent to pipracillin ………..4.0gm Sterile Tazobactam Sodium eq to Tazobactam …….500mg'), [['piperacillin', '4g'], ['tazobactam', '500mg']]);
+  });
+  await t.test('a title with its own amounts is kept, and "water for injection" survives', () => {
+    assert.equal(N.normalizeIngredientName('Water for Injection'), 'water for injection');
+    assert.equal(N.normalizeIngredientName('Injection Cefazolin'), 'cefazolin');
+  });
+});
