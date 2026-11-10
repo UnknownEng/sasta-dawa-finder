@@ -33,12 +33,23 @@
     // Ids must not depend on row order, or a price fix / saved medicine could move to another
     // pack after a data update. One registration number can cover several packs, so those
     // ids also include the pack (e.g. "...-023533-60ml"); a counter is only the last resort.
-    const baseId = (r, idx) => slug(r[F.product]) + '-' + slug(r[F.reg] || String(idx));
+    // (each slug is computed once: this runs for ~22k rows on every page load)
+    const n = json.rows.length;
+    const bases = new Array(n);
     const baseCount = new Map();
-    json.rows.forEach((r, idx) => baseCount.set(baseId(r, idx), (baseCount.get(baseId(r, idx)) || 0) + 1));
-    const packId = (r, idx) => (baseCount.get(baseId(r, idx)) > 1 ? baseId(r, idx) + '-' + (slug(r[F.pack]) || 'pack') : baseId(r, idx));
+    for (let i = 0; i < n; i++) {
+      const r = json.rows[i];
+      const b = slug(r[F.product]) + '-' + slug(r[F.reg] || String(i));
+      bases[i] = b;
+      baseCount.set(b, (baseCount.get(b) || 0) + 1);
+    }
+    const packIds = new Array(n);
     const packIdCount = new Map();
-    json.rows.forEach((r, idx) => packIdCount.set(packId(r, idx), (packIdCount.get(packId(r, idx)) || 0) + 1));
+    for (let i = 0; i < n; i++) {
+      const p = baseCount.get(bases[i]) > 1 ? bases[i] + '-' + (slug(json.rows[i][F.pack]) || 'pack') : bases[i];
+      packIds[i] = p;
+      packIdCount.set(p, (packIdCount.get(p) || 0) + 1);
+    }
     const taken = new Map();
     const legacy = new Map(); // old order-based ids ("-2", "-3") -> medicine, for links shared before
     const legacySeen = new Map();
@@ -46,8 +57,8 @@
     json.rows.forEach((r, idx) => {
       const groupIdx = r[F.group];
       const product = r[F.product];
-      const base = baseId(r, idx);
-      let id = packId(r, idx);
+      const base = bases[idx];
+      let id = packIds[idx];
       // DRAP occasionally lists the same registration + pack twice at different prices
       if (packIdCount.get(id) > 1) id = id + '-rs' + slug(String(r[F.price]));
       if (taken.has(id)) {
@@ -152,7 +163,10 @@
   async function load(url) {
     const res = await fetch(url || 'data/medicines.json');
     if (!res.ok) throw new Error('Could not load medicine data (' + res.status + ')');
-    return expand(await res.json());
+    const json = await res.json();
+    // let the browser paint (spinner, taps) between parsing and building the list
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    return expand(json);
   }
 
   return { expand, load, slug, applyOverrides };

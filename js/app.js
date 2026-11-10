@@ -971,6 +971,11 @@
     updateCabinetBadge();
     render();
     if (window.SDAssistantUI) window.SDAssistantUI.init({ engine: state.engine, ds: state.ds, app: api });
+    // Build the search index once the page is on screen, before the visitor starts typing.
+    // (If they type first, the first search builds it.)
+    const warm = () => state.engine.warm && state.engine.warm();
+    if (window.requestIdleCallback) requestIdleCallback(warm, { timeout: 1500 });
+    else setTimeout(warm, 200);
   }
 
   const api = {

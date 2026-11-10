@@ -71,19 +71,41 @@
       ['amoxycillin', 'amoxicillin'], ['lignocaine', 'lidocaine'], ['paracetamole', 'paracetamol']]
       .forEach(([a, c]) => alias.set(a, c));
 
-    // --- Precomputed haystacks
-    const hay = items.map((m) => ({
-      name: normalize(m.name),
-      product: normalize(m.product),
-      generic: normalize(m.generic),
-      strength: normalize(m.strength).replace(/\s/g, ''),
-      form: normalize(m.form),
-      mfr: normalize(m.manufacturer),
-    }));
+    // --- Precomputed haystacks. Names, formulas, forms and manufacturers repeat thousands of
+    // times, so each distinct string is normalized once (this runs on every page load).
+    const normMemo = new Map();
+    const norm = (s) => {
+      let v = normMemo.get(s);
+      if (v === undefined) {
+        v = normalize(s);
+        normMemo.set(s, v);
+      }
+      return v;
+    };
+    // The search index is built on first use (or when the app calls warm() right after the home
+    // page is on screen), so the first paint never waits for it.
+    let hay = null;
+    let nameIndex = null;
+    let genericIndex = null;
+    let nameKeys = null;
+    let genericKeys = null;
+    function ensureIndex() {
+      if (hay) return;
+      hay = items.map((m) => ({
+        name: norm(m.name),
+        product: norm(m.product),
+        generic: norm(m.generic),
+        strength: norm(m.strength).replace(/\s/g, ''),
+        form: norm(m.form),
+        mfr: norm(m.manufacturer),
+      }));
+      buildEntityIndexes();
+    }
 
     // name / generic indexes for entity extraction (assistant)
-    const nameIndex = new Map();
-    const genericIndex = new Map();
+    function buildEntityIndexes() {
+    nameIndex = new Map();
+    genericIndex = new Map();
     items.forEach((m, i) => {
       const n = hay[i].name;
       if (n.length >= 3) {
@@ -107,8 +129,9 @@
         }
       });
     });
-    const nameKeys = [...nameIndex.keys()];
-    const genericKeys = [...genericIndex.keys()];
+    nameKeys = [...nameIndex.keys()];
+    genericKeys = [...genericIndex.keys()];
+    }
 
     function expandToken(t) {
       const out = [t];
@@ -138,6 +161,7 @@
      * Search medicines. Returns [{ med, score }] sorted best-first.
      */
     function search(query, opts) {
+      ensureIndex();
       const o = opts || {};
       const limit = o.limit || 50;
       const qt = tokens(query);
@@ -182,6 +206,7 @@
 
     /** "Did you mean" for misspelled queries. */
     function didYouMean(query, limit) {
+      ensureIndex();
       const q = normalize(query).split(' ')[0] || '';
       if (q.length < 4) return [];
       const max = q.length >= 8 ? 2 : 1;
@@ -394,6 +419,7 @@
      * [{ term, kind: 'brand'|'generic', items, best }] in order of appearance.
      */
     function findInText(text) {
+      ensureIndex();
       const raw = normalize(text);
       const words = raw.split(' ').filter(Boolean);
       const STOP = new Set(['the', 'and', 'for', 'price', 'cost', 'what', 'is', 'of', 'me', 'my', 'a', 'an', 'to', 'in', 'ki', 'ka', 'ke', 'kya', 'hai', 'he', 'tablet', 'tablets', 'tab', 'syrup', 'capsule', 'injection', 'medicine', 'dawa', 'dawai', 'goli', 'cheaper', 'cheap', 'sasta', 'sasti', 'alternative', 'alternatives', 'generic', 'compare', 'vs', 'or', 'ya', 'with', 'than', 'instead', 'formula', 'salt', 'price', 'qeemat', 'kitne', 'kitna', 'kitni', 'add', 'list', 'show', 'tell', 'about', 'please', 'plz', 'mujhe', 'batao', 'bataen', 'chahiye', 'option', 'options', 'brand', 'brands', 'same', 'other', 'any', 'how', 'much', 'rs', 'rupees', 'pkr', 'mg', 'ml', 'per', 'pack', 'box', 'need', 'want', 'buy', 'find', 'search', 'better', 'best', 'which', 'where', 'can', 'i', 'get', 'use', 'used', 'uses', 'doctor', 'prescribed', 'wala', 'wali', 'walay', 'se', 'sy', 'aur', 'or', 'bhi', 'koi', 'hain', 'hy', 'available', 'pakistan', 'tell', 'mein', 'main', 'mai', 'k', 'liye', 'liay', 'lye',
@@ -461,6 +487,7 @@
     }
 
     return {
+      warm: ensureIndex,
       search,
       suggest,
       didYouMean,
