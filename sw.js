@@ -4,18 +4,18 @@
  * (so price updates arrive quickly) with cached fallback for offline use.
  * API calls are never cached.
  */
-const CACHE_NAME = 'sasta-dawa-v2.1.1';
+const CACHE_NAME = 'sasta-dawa-v2.1.2';
 
 const PRECACHE_URLS = [
   './',
   './index.html',
   './manifest.json',
-  './css/style.css?v=2.1.1',
-  './js/i18n.js?v=2.1.1',
-  './js/data.js?v=2.1.1',
-  './js/search.js?v=2.1.1',
-  './js/assistant.js?v=2.1.1',
-  './js/app.js?v=2.1.1',
+  './css/style.css?v=2.1.2',
+  './js/i18n.js?v=2.1.2',
+  './js/data.js?v=2.1.2',
+  './js/search.js?v=2.1.2',
+  './js/assistant.js?v=2.1.2',
+  './js/app.js?v=2.1.2',
   './data/medicines.json',
   './icons/icon.svg',
   './icons/icon-192.png',

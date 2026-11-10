@@ -133,7 +133,7 @@
     $('#ov-status').innerHTML = [
       ['AI assistant', ...aiState],
       ['Announcement', an.on && (an.en || an.ur) ? 'ok' : 'off', an.on && (an.en || an.ur) ? 'Showing: “' + (an.en || an.ur).slice(0, 60) + '”' : 'None'],
-      ['Saved data', 'ok', o.storage],
+      ['Saved data', o.storageOk === false ? 'warn' : 'ok', o.storage],
       ['Settings last saved', state.cfg.updatedAt ? 'ok' : 'off', state.cfg.updatedAt ? fmtWhen(state.cfg.updatedAt) : 'Never (using defaults)'],
     ]
       .map(([k, s, v]) => `<li><span class="dot ${s}"></span><b>${esc(k)}</b><span>${esc(v)}</span></li>`)
