@@ -55,6 +55,39 @@ ANTHROPIC_API_KEY=sk-ant-... npm start
 - `CHAT_RATE_LIMIT` (default 30 messages per IP per 10 minutes) limits abuse.
 - If the API is unavailable, the browser silently falls back to the offline assistant.
 
+## Admin panel
+
+A hidden, password-protected admin panel lives at **`/unonenginerrunon`**. It is not linked anywhere on the site, is not in
+`robots.txt` or the sitemap, and is sent with `noindex` headers. The hidden address is only a convenience: the password is
+what protects it.
+
+- **Overview**: medicine count, price date, AI status, open visitor reports.
+- **Inbox**: reports visitors send from the site ("Report a wrong price" on every medicine page, "Ask us to add it" when a
+  search finds nothing, "Send a suggestion" in the footer). Mark done or delete.
+- **Price fixes**: search any medicine and set the correct pack price or hide it. Fixes apply on top of the DRAP data for
+  every visitor (and the AI assistant) within about a minute, and survive the next DRAP data update.
+- **Site settings**: announcement banner (English/Urdu, three styles), AI answers on/off, the quick-search buttons, and the
+  footer contact details.
+
+Set the password with the `ADMIN_PASSWORD` environment variable (8+ characters). Changing it signs everyone out.
+Sessions are signed, HttpOnly, SameSite=Strict cookies that last 12 hours; sign-in attempts are rate-limited.
+
+```bash
+ADMIN_PASSWORD='choose-a-long-password' npm start   # then open http://localhost:3000/unonenginerrunon
+```
+
+Locally, settings and reports are saved in `.data/` (git-ignored). On Vercel they are saved in a private Vercel Blob store.
+
+## Deploy on Vercel
+
+The repo is ready for Vercel with no framework: `vercel.json` runs `scripts/build_public.js`, which copies only the website
+files into `public/` (server code, scripts, tests and docs are never published), and `api/*.js` become serverless functions.
+
+1. Import the GitHub repo in Vercel (no settings to change).
+2. Add environment variables: `ADMIN_PASSWORD` (required for the admin panel) and optionally `ANTHROPIC_API_KEY` (AI answers).
+3. Create a **private** Blob store under Storage and connect it to the project (this adds `BLOB_READ_WRITE_TOKEN`).
+4. Every `git push` to `main` deploys automatically.
+
 ## Update the prices
 
 ```bash
@@ -77,9 +110,10 @@ The pipeline (`scripts/sync_drap.js` + `scripts/drap_normalize.js`):
 npm test
 ```
 
-62 tests cover the normalizer, DRAP HTML parsing, search/alternatives/savings, the assistant (intents in English, Urdu and Roman Urdu,
+68 tests cover the normalizer, DRAP HTML parsing, search/alternatives/savings, the assistant (intents in English, Urdu and Roman Urdu,
 emergency and advice refusals), the server (gzip, blocked paths, chat validation, the tool loop with a mocked client), the
-DOM (routing, autocomplete, My Medicines math, Urdu RTL, HTML escaping) and the integrity of the shipped dataset.
+DOM (routing, autocomplete, My Medicines math, Urdu RTL, HTML escaping, theme switch, report form), the admin panel (sign-in,
+sessions, settings, price fixes, inbox, blocked paths), the Vercel build output and the integrity of the shipped dataset.
 
 ## Project structure
 
@@ -91,7 +125,16 @@ js/data.js              Loads & expands data/medicines.json (browser + Node)
 js/search.js            Search, alternatives, savings, entity extraction (browser + Node)
 js/assistant.js         Dawa Assistant: offline brain + chat UI
 js/app.js               Routing, views, My Medicines
-server.js               Static server + /api/health + /api/chat (Claude tool use)
+server.js               Local static server (npm start); routes /api/* to lib/api.js
+api/*.js                Vercel functions (thin wrappers around lib/api.js)
+lib/api.js              API routes: health, chat, config, feedback, admin
+lib/chat.js             Dawa Assistant AI mode (Claude tool use over the dataset)
+lib/auth.js             Admin password check and signed session cookies
+lib/config.js           Site settings (announcement, price fixes, contact)
+lib/store.js            JSON storage: Vercel Blob (private) or local .data/
+unonenginerrunon/       Hidden admin panel
+scripts/build_public.js Vercel build: copies the public website into public/
+vercel.json             Vercel build, headers, functions
 sw.js                   Offline service worker
 scripts/sync_drap.js    DRAP download & dataset build
 scripts/drap_normalize.js  Composition / pack / form normalization
