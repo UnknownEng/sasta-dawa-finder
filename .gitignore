@@ -2,7 +2,7 @@
 node_modules/
 
 # Local Environment & API Secrets
-config.js
+/config.js
 .env
 .env.local
 .env.*.local
