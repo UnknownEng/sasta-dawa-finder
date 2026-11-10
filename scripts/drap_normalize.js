@@ -89,7 +89,7 @@ const SALT_WORDS = new Set([
 ]);
 
 // Words DRAP mixes into ingredient names that are not part of the ingredient.
-const NOISE_WORDS = new Set(['sterile', 'inj', 'injection', 'specification', 'specifications', 'containg', 'contains', 'contain']);
+const NOISE_WORDS = new Set(['sterile', 'inj', 'injection', 'specification', 'specifications', 'containg', 'contains', 'contain', 'each']);
 
 // Esters/salts that change the active moiety meaningfully for topical steroids -> keep them.
 const KEEP_AFTER_FIRST = new Set(['valerate', 'dipropionate', 'propionate', 'furoate', 'acetonide', 'butyrate']);
@@ -270,7 +270,8 @@ function parsePack(pack, form) {
 // Composition parsing
 // ---------------------------------------------------------------------------
 
-function cleanComposition(text) {
+function cleanComposition(text, opts) {
+  const keepTitle = !!(opts && opts.keepTitle);
   let s = String(text || '');
   s = s.replace(/[’`]/g, "'").replace(/µ/g, 'mc');
   s = s.replace(/\(\s*(usp|bp|ph\.?\s*eur\.?|nf|usp specs?\.?|b\.p\.?|u\.s\.p\.?|innovator'?s? specs?\.?|manufacturer'?s? specs?\.?)\s*\)/gi, ' ');
@@ -282,12 +283,15 @@ function cleanComposition(text) {
   // "Telmisartan + Amlodipine BesylateEach … contains: …". The title repeats the ingredients,
   // so drop it when it has no amounts of its own (otherwise names come out doubled).
   const header = s.match(/each\s+[^:;]*?contains?\b/i);
-  if (header && header.index > 0 && !/\d/.test(s.slice(0, header.index))) s = s.slice(header.index);
+  if (!keepTitle && header && header.index > 0 && !/\d/.test(s.slice(0, header.index))) s = s.slice(header.index);
   s = s.replace(/\bn\.f\.?/gi, ' ');
+  // "Betamethasone Dipropionate 0.64 mg eq. to Betamethasone 0.5 mg": the salt and its amount
+  // are not a second ingredient, only the equivalent amount counts.
+  s = s.replace(/\b[A-Za-z][A-Za-z\s\-]*?\s*[.…]*\s*\d+(?:[.,]\d+)?\s*(?:mg|mcg|g|gm|iu)\b\.?\s*(?:\(\s*)?(?:\beq\b\.?|\bequivalent\b|\bequiv\b\.?|\beqv\b\.?)\s*(?:to\b)?\s*(?=[A-Za-z])(?!to\b)/gi, ' ');
   s = s.replace(/each\s+[^:;]*?contains?\s*[:;\-]*/gi, ' ');
   s = s.replace(/\b(contains?|composition)\s*[:;\-]/gi, ' ');
   // "X eq. to Y" -> "Y"
-  s = s.replace(/(?<!\d\s?)\b[A-Za-z][A-Za-z\s\-\(\)]*?\s*(?:\beq\b\.?|\bequivalent\b|\bequiv\b\.?|\beqv\b\.?)\s*(?:to)?\s*(?=[A-Za-z])/gi, ' ');
+  s = s.replace(/(?<!\d\s?)\b[A-Za-z][A-Za-z\s\-\(\)]*?\s*(?:\beq\b\.?|\bequivalent\b|\bequiv\b\.?|\beqv\b\.?)\s*(?:to\b)?\s*(?=[A-Za-z])(?!to\b)/gi, ' ');
   s = s.replace(/\(\s*as\s+[^)]*\)/gi, ' ');
   s = s.replace(/\b(usp|bp|ph\.?\s?eur|n\.f\.|nf|jp)\b\.?/gi, ' ');
   s = s.replace(/[.…]{2,}|…|_{2,}/g, ' ');
@@ -308,9 +312,22 @@ const PAIR_RE = new RegExp(
   'gi'
 );
 
+/**
+ * Parse with and without the leading title. Usually the title only repeats the ingredients
+ * (dropping it avoids doubled names), but sometimes the amounts only read correctly with it
+ * ("Insulin Glargine: Each ml contains 100 units insulin glargine"). Keep whichever finds more
+ * amounts; on a tie, the version without the title.
+ */
 function parseComposition(composition, product) {
+  const withAmounts = (list) => list.filter((i) => i.amount).length;
+  const dropped = parseCompositionOnce(composition, product, false);
+  const kept = parseCompositionOnce(composition, product, true);
+  return withAmounts(kept) > withAmounts(dropped) ? kept : dropped;
+}
+
+function parseCompositionOnce(composition, product, keepTitle) {
   const perVol = perVolumeFrom(composition);
-  const cleaned = cleanComposition(composition);
+  const cleaned = cleanComposition(composition, { keepTitle });
   const ingredients = [];
   let m;
   PAIR_RE.lastIndex = 0;
@@ -470,7 +487,7 @@ function normalizeRecord(raw, renames) {
     : '';
 
   let generic = ingredients.map((i) => displayIngredient(i.name)).join(' + ') || titleCaseIfShouting(composition || product);
-  if (ingredients.length > 4 || generic.length > 90) generic = titleCaseIfShouting(cleanComposition(composition || product)).slice(0, 90);
+  if (generic.length > 100) generic = titleCaseIfShouting(cleanComposition(composition || product)).slice(0, 90);
   const strength = ingredients
     .filter((i) => i.amount)
     .map((i) => formatAmount(i.amount) + i.per)
