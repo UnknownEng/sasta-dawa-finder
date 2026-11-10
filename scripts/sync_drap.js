@@ -12,8 +12,8 @@
  *   node scripts/sync_drap.js --cache DIR     # use another cache directory
  *   node scripts/sync_drap.js --max-pages 20  # limit pages (testing)
  *
- * Cached HTML pages are kept in .cache/drap/ (git-ignored) so re-runs only
- * download what is missing. Delete that folder to force a full refresh.
+ * Cached HTML pages are kept in .cache/drap/ (git-ignored). A re-run within 24 hours resumes
+ * an interrupted download; after that every page is fetched again, so prices are fresh.
  */
 'use strict';
 
@@ -33,6 +33,7 @@ const CACHE_DIR = path.resolve(argValue('--cache', path.join(ROOT, '.cache', 'dr
 const BUILD_ONLY = process.argv.includes('--build-only');
 const MAX_PAGES = parseInt(argValue('--max-pages', '0'), 10) || 0;
 const DELAY_MS = parseInt(argValue('--delay', '900'), 10);
+const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const OUT_FILE = path.resolve(argValue('--out', path.join(ROOT, 'data', 'medicines.json')));
 
 // ---------------------------------------------------------------------------
@@ -95,7 +96,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function fetchPage(page) {
   const file = path.join(CACHE_DIR, `p${page}.html`);
-  if (fs.existsSync(file)) {
+  // Saved pages are reused only for 24 hours (to resume an interrupted download), so a monthly
+  // `npm run sync-data` always fetches fresh prices. --build-only never downloads anything.
+  if (fs.existsSync(file) && Date.now() - fs.statSync(file).mtimeMs < CACHE_MAX_AGE_MS) {
     const cached = fs.readFileSync(file, 'utf8');
     if (cached.includes('</tbody>')) return { html: cached, cached: true };
   }
