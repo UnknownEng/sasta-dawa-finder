@@ -208,13 +208,28 @@
     }
 
     function byId(id) {
-      return dataset.byId.get(id) || null;
+      return dataset.byId.get(id) || (dataset.aliases && dataset.aliases.get(id)) || null;
     }
 
-    /** Same formula (ingredients, strength, form, comparable unit). Includes `med`. */
+    /** "5'sx4ml", "5 's x 4 ml" and "5S X4ML" are the same pack. */
+    function packKey(p) {
+      return String(p || '').toLowerCase().replace(/[\s'’`´"]/g, '').replace(/x/g, '*');
+    }
+
+    /**
+     * Can `a` and `b` be compared on price? Counted packs (tablets, ml, doses) compare per unit.
+     * When a pack couldn't be counted (unit 'pack', e.g. "5*4ml" ampoules or an inhaler), the
+     * "unit price" is the whole pack, so it only compares with exactly the same pack.
+     */
+    function comparable(a, b) {
+      if (a.unit === 'pack' || b.unit === 'pack') return a.unit === b.unit && packKey(a.pack) === packKey(b.pack);
+      return a.unit === b.unit;
+    }
+
+    /** Same formula (ingredients, strength, form) and a comparable pack. Includes `med`. */
     function alternatives(med, sort) {
       if (!med || !med.group) return med ? [med] : [];
-      const list = [...(dataset.groups.get(med.group) || [med])];
+      const list = (dataset.groups.get(med.group) || [med]).filter((m) => m === med || comparable(m, med));
       const s = sort || 'unit';
       list.sort((a, b) => {
         if (s === 'pack') return a.price - b.price;

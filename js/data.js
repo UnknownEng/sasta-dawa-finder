@@ -25,23 +25,41 @@
     }
     const F = {};
     json.fields.forEach((f, i) => (F[f] = i));
-    const seen = new Map();
     const items = new Array(json.rows.length);
     const groups = new Map();
     const bySalt = new Map();
     const byId = new Map();
 
+    // Ids must not depend on row order, or a price fix / saved medicine could move to another
+    // pack after a data update. One registration number can cover several packs, so those
+    // ids also include the pack (e.g. "...-023533-60ml"); a counter is only the last resort.
+    const baseId = (r, idx) => slug(r[F.product]) + '-' + slug(r[F.reg] || String(idx));
+    const baseCount = new Map();
+    json.rows.forEach((r, idx) => baseCount.set(baseId(r, idx), (baseCount.get(baseId(r, idx)) || 0) + 1));
+    const packId = (r, idx) => (baseCount.get(baseId(r, idx)) > 1 ? baseId(r, idx) + '-' + (slug(r[F.pack]) || 'pack') : baseId(r, idx));
+    const packIdCount = new Map();
+    json.rows.forEach((r, idx) => packIdCount.set(packId(r, idx), (packIdCount.get(packId(r, idx)) || 0) + 1));
+    const taken = new Map();
+    const legacy = new Map(); // old order-based ids ("-2", "-3") -> medicine, for links shared before
+    const legacySeen = new Map();
+
     json.rows.forEach((r, idx) => {
       const groupIdx = r[F.group];
       const product = r[F.product];
-      let id = slug(product) + '-' + slug(r[F.reg] || String(idx));
-      if (seen.has(id)) {
-        const n = seen.get(id) + 1;
-        seen.set(id, n);
+      const base = baseId(r, idx);
+      let id = packId(r, idx);
+      // DRAP occasionally lists the same registration + pack twice at different prices
+      if (packIdCount.get(id) > 1) id = id + '-rs' + slug(String(r[F.price]));
+      if (taken.has(id)) {
+        const n = taken.get(id) + 1;
+        taken.set(id, n);
         id = id + '-' + n;
       } else {
-        seen.set(id, 1);
+        taken.set(id, 1);
       }
+      const nLegacy = (legacySeen.get(base) || 0) + 1;
+      legacySeen.set(base, nLegacy);
+      const legacyId = nLegacy === 1 ? base : base + '-' + nLegacy;
       const units = Number(r[F.units]) || 1;
       const price = Number(r[F.price]) || 0;
       const med = {
@@ -67,6 +85,7 @@
       };
       items[idx] = med;
       byId.set(id, med);
+      if (legacyId !== id) legacy.set(legacyId, med);
       if (med.group) {
         if (!groups.has(med.group)) groups.set(med.group, []);
         groups.get(med.group).push(med);
@@ -77,12 +96,17 @@
       }
     });
 
+    // keep old ids working only where they don't clash with a current id
+    const aliases = new Map();
+    for (const [old, med] of legacy) if (!byId.has(old)) aliases.set(old, med);
+
     return {
       meta: json.meta || {},
       categories: json.categories || [],
       synonyms: json.synonyms || {},
       items,
       byId,
+      aliases,
       groups,
       bySalt,
     };
@@ -97,7 +121,7 @@
     if (!ds || !overrides || typeof overrides !== 'object') return 0;
     let applied = 0;
     for (const [id, o] of Object.entries(overrides)) {
-      const med = ds.byId.get(id);
+      const med = ds.byId.get(id) || (ds.aliases && ds.aliases.get(id));
       if (!med || !o) continue;
       if (o.hidden) {
         med._hidden = true;
@@ -113,6 +137,7 @@
     if (ds.items.some((m) => m._hidden)) {
       ds.items = ds.items.filter((m) => !m._hidden);
       for (const [id, m] of [...ds.byId]) if (m._hidden) ds.byId.delete(id);
+      if (ds.aliases) for (const [id, m] of [...ds.aliases]) if (m._hidden) ds.aliases.delete(id);
       for (const map of [ds.groups, ds.bySalt]) {
         for (const [k, list] of [...map]) {
           const kept = list.filter((m) => !m._hidden);

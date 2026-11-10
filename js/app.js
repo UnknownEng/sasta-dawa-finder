@@ -177,7 +177,13 @@
   const VIEWS = ['home', 'search', 'category', 'medicine', 'cabinet', 'empty'];
 
   function parseHash() {
-    const h = decodeURIComponent(location.hash.replace(/^#\/?/, ''));
+    let h = location.hash.replace(/^#\/?/, '');
+    try {
+      h = decodeURIComponent(h);
+    } catch (e) {
+      h = h.replace(/%(?![0-9a-f]{2})/gi, '%25'); // a stray "%" (e.g. "50%") must not break the page
+      try { h = decodeURIComponent(h); } catch (e2) { h = ''; }
+    }
     const [name, ...rest] = h.split('/');
     const arg = rest.join('/');
     if (name === 'search' && arg) return { name: 'search', q: arg };
@@ -761,17 +767,24 @@
   // ------------------------------------------------------------------------
   // Site settings from the admin panel (announcement, price fixes, contact)
   // ------------------------------------------------------------------------
+  /**
+   * Admin settings (price fixes, hidden products, announcement). Runs in parallel with the
+   * medicine data download. On a slow or broken connection, fall back to the last settings this
+   * browser received, so price fixes and hidden products still apply.
+   */
   async function fetchSiteConfig() {
     if (!location.protocol.startsWith('http')) return null;
     try {
       const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-      const timer = setTimeout(() => ctrl && ctrl.abort(), 2500);
+      const timer = setTimeout(() => ctrl && ctrl.abort(), 8000);
       const res = await fetch('api/config', { cache: 'no-cache', ...(ctrl ? { signal: ctrl.signal } : {}) });
       clearTimeout(timer);
-      if (!res.ok) return null;
-      return await res.json();
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const cfg = await res.json();
+      save('sd_site', cfg);
+      return cfg;
     } catch (e) {
-      return null;
+      return store('sd_site', null);
     }
   }
 

@@ -718,16 +718,12 @@
       }
     }
 
+    // The page already loaded the site settings (/api/config), which say whether AI answers
+    // are on, so there's no extra server call per visit.
     async function detectAI() {
       if (!location.protocol.startsWith('http')) return false;
-      try {
-        const res = await fetch('api/health', { cache: 'no-store' });
-        if (!res.ok) return false;
-        const j = await res.json();
-        return !!(j && j.ai);
-      } catch (e) {
-        return false;
-      }
+      const site = ui.app && ui.app.state && ui.app.state.site;
+      return !!(site && site.ai);
     }
 
     return {
