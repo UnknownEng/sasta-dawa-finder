@@ -1,149 +1,107 @@
-# Sasta Dawa Finder (سستی دوا تلاش کار) 🇵🇰
-### Medicine Price & Generic Alternative Finder for Pakistan
+# Sasta Dawa Finder (سستی دوا) 🇵🇰
 
-**Sasta Dawa Finder** is a fast, clean, mobile-first web tool built for people in Pakistan to search common medicines by brand name, see their active salt/generic formula, compare retail market prices, and find cheaper generic alternatives with the exact same active pharmaceutical ingredient.
+**Official medicine prices for Pakistan — and cheaper brands with the exact same formula.**
 
----
-
-## 🌟 Features (Version 1)
-
-1. **Instant Autocomplete & Fuzzy Search**:
-   - Search by brand name (e.g., *"Panadol"*, *"Risek"*, *"Augmentin"*, *"Brufen"*), generic formula (e.g., *"Paracetamol"*, *"Omeprazole"*, *"Co-Amoxiclav"*), or category.
-   - Fast, interactive suggestions dropdown with keyboard navigation (`↑`, `↓`, `Enter`, `Esc`).
-
-2. **Medicine Category Priority & Filtering**:
-   - Interactive category pill bar with live medicine counts:
-     - 🩹 **Pain & Fever** / درد اور بخار
-     - 🫄 **Stomach & Acidity (PPI)** / معدہ اور تیزابیت
-     - 🦠 **Antibiotics** / اینٹی بائیوٹکس
-     - ❤️ **Blood Pressure & Heart** / بلڈ پریشر اور دل
-     - 🩸 **Diabetes / Sugar** / شوگر و ذیابیطس
-     - 🤧 **Allergy & Cold** / الرجی اور نزلہ زکام
-   - 1-click filtering that prioritizes search queries and explores top medicines in the selected category.
-
-3. **Urdu UI Mode (مکمل اردو موڈ)**:
-   - 1-click toggle in the header: **`[ English | اردو ]`**.
-   - Native Right-to-Left (RTL) layout with natural Pakistani Urdu translations for search inputs, medical disclaimers, savings calculations, sorting options, and unit labels (گولی, کیپسول, بوتل).
-
-4. **Accurate Formula & Pricing Breakdown**:
-   - Displays brand name, manufacturer, exact generic salt formula, strength, and packaging details.
-   - Shows both unit price (per tablet / capsule / puff) and pack price in Pakistani Rupees (PKR).
-   - Clear flagging of estimates (`Approx. Estimate` badge) for specialized or fluctuating items.
-
-5. **Generic Alternative Matching & Savings Calculator**:
-   - Groups identical chemical salts and strengths (`salt_group_id`).
-   - Highlights the potential savings in a prominent **Savings Spotlight** banner (e.g., *"Save up to 41% by switching from Panadol to Febrol"*).
-   - Shows calculated per-unit price differences and percentage savings for every generic brand.
-
-6. **Multi-Criteria Price Sorting**:
-   - **Cheapest First (Recommended)**: instantly identifies the lowest cost quality generic.
-   - **Highest Savings %**: ranks brands that maximize your savings.
-   - **Price: High to Low**: for full market perspective.
-   - **Brand Name (A to Z)**: alphabetical listing.
-
-7. **Handles Zero-Alternative Formulations**:
-   - If a medicine is proprietary or single-source with no registered generic in the database (e.g. *Spiriva Respimat*), a friendly notice explains that no cheaper generic equivalents were found and advises consulting a physician.
-
-
-6. **Mobile-First & Offline Capable**:
-   - Responsive design tailored for Pakistani mobile users on Android/iOS phones with touch targets >= 44px.
-   - Zero-dependency Vanilla HTML5/CSS3/JavaScript architecture.
-   - Dual-loader support: runs instantly over HTTP (`fetch`) or directly via double-clicking `index.html` in browser (`file://`).
-
-7. **Prominent Safety & Medical Disclaimers**:
-   - Visible banner and footer stating:
-     > *"Prices and information are approximate and for general awareness only. Always confirm with a licensed pharmacist or doctor before switching medicines."*
+Type a brand (e.g. *Panadol*, *Augmentin*, *Risek*) or a salt (*paracetamol*, *omeprazole*). Sasta Dawa Finder shows the
+government-notified maximum retail price (MRP), the price per tablet, and every other DRAP-registered brand with the same
+active ingredients, strength and dosage form, cheapest first.
 
 ---
 
-## 🚀 How to Run and View the App
+## What's new in v2
 
-### Option 1: Quick Local Server (Recommended)
-You can start a local server using either Python or Node.js:
+| | v1 | v2 |
+|---|---|---|
+| **Data** | 317 hand-typed entries, estimated prices | **~20,000 products from DRAP's official Pharmaceutical Product Price Index**, with registration numbers and the date each price took effect |
+| **Matching** | manual `salt_group_id` | automatic: ingredients + strength + form + release type (extended-release is never mixed with normal tablets), typo-tolerant ingredient names |
+| **Chat** | — | **Dawa Assistant**: understands English, Urdu and Roman Urdu (*"panadol ka sasta option"*), voice input, medicine cards, works offline; optional AI mode (Claude) grounded in the same data |
+| **New** | — | **My Medicines** monthly-cost planner with one-tap switch to the cheapest brand, recently viewed, dark mode, mobile bottom nav, WhatsApp share of your list, printable list |
+| **Removed** | hardcoded pharmacy directory, header contact bar, nav drawer, breadcrumb, duplicate disclaimers, 6,400-line embedded data bundle | replaced by a single "Pharmacies near me" (Google Maps) button and a clean footer |
+
+## Features
+
+- **Fast search** with autocomplete, keyboard navigation, "did you mean" for misspellings, synonyms (acetaminophen → paracetamol) and voice search.
+- **Medicine page**: formula, pack price, price per tablet/ml/gram, manufacturer, DRAP registration number, price date, savings banner,
+  all same-formula brands with a price bar, and other strengths/forms of the same salt.
+- **Safety cues**: a warning on medicines where brand switching needs a doctor (levothyroxine, warfarin, anti-epileptics, lithium, …),
+  emergency numbers (Rescue 1122, Edhi 115) in the footer and the assistant.
+- **Browse by health need**: 15 categories, each listing formulas with brand counts and price ranges, filterable by name and form.
+- **My Medicines**: add what you buy every month, set tablets per day, see monthly cost now vs. with the cheapest brands, and the yearly saving.
+- **Dawa Assistant** (bottom-right button):
+  - *"Risek 40 ki qeemat"*, *"cheaper alternative to Augmentin"*, *"Panadol vs Calpol"*, *"formula of Brufen"*, *"add Concor to my medicines"*.
+  - Never gives dose or diagnosis advice; emergency messages get Rescue 1122 / Edhi 115 immediately.
+- **English / اردو** with full right-to-left layout, **dark mode**, installable **PWA** that works offline.
+
+## Run it
 
 ```bash
-# Using Python 3
-python3 -m http.server 3000
-
-# Or using npm
-npm start
+npm install
+npm start            # http://localhost:3000
 ```
-Then open your browser at:
-👉 **`http://localhost:3000`**
 
-### Option 2: Direct File Open (Offline)
-Double-click `index.html` or open it directly in any browser (Chrome, Firefox, Safari, Edge, Android Chrome):
+Any static server also works (e.g. `python3 -m http.server 3000`), but `npm start` adds gzip (the dataset is ~3 MB raw,
+~0.5 MB gzipped) and the optional AI chat endpoint.
+
+### Turn on AI answers in the assistant (optional)
+
+The assistant works without any key using its built-in offline engine. To let it answer free-form questions with Claude:
+
 ```bash
-# In Linux terminal
-xdg-open index.html
+ANTHROPIC_API_KEY=sk-ant-... npm start
 ```
 
----
+- Claude only sees what its two tools return (`search_medicines`, `get_alternatives`), which query the same DRAP dataset, so prices come from data, not memory.
+- Model defaults to `claude-opus-5-5`; set `CHAT_MODEL` to change it (e.g. `claude-haiku-5-5` costs much less per message).
+- `CHAT_RATE_LIMIT` (default 30 messages per IP per 10 minutes) limits abuse.
+- If the API is unavailable, the browser silently falls back to the offline assistant.
 
-## 🧪 Automated Testing & Verification
+## Update the prices
 
-The project includes an end-to-end automated test suite utilizing Node.js native test runner and JSDOM:
+```bash
+npm run sync-data     # downloads DRAP's price index (~1,100 pages, ~1 request/sec) and rebuilds data/medicines.json
+npm run build-data    # rebuild from the cached pages in .cache/drap without downloading
+```
+
+The pipeline (`scripts/sync_drap.js` + `scripts/drap_normalize.js`):
+
+1. Parses each DRAP row: product, composition, registration no., manufacturer, pack, price, effective date.
+2. Extracts ingredients and strengths from free-text compositions (handles "Each tablet contains…", "eq. to", dot leaders, `g`→`mg`, per-5ml syrups).
+3. Fixes common misspellings by matching rare spellings to frequent ones ("ceftrixone" → ceftriaxone), with a guard list of real look-alike drugs.
+4. Detects dosage form and extended-release, parses pack sizes, computes price per unit.
+5. Groups only exact matches and removes pack-parsing outliers so savings are never exaggerated.
+6. Writes a compact columnar JSON.
+
+## Tests
 
 ```bash
 npm test
 ```
 
-### Test Coverage (12 Comprehensive Test Suites):
-- `tests/data.test.js`: Validates 317 entries, checks schema integrity, unique IDs, positive prices, and spot-checks real medications manually.
-- `tests/search.test.js`: Verifies exact matching, partial prefix matching, case insensitivity, generic formula search, no-match handling, and input sanitization.
-- `tests/alternatives_sort.test.js`: Verifies generic grouping, unit price calculations, savings percentages, and price sorting logic.
-- `tests/synonyms_and_rivotril.test.js`: Verifies bidirectional synonym matching (Metamizole ↔ Novaminsulfon) and psychiatric medications (Rivotril / Clonazepam).
-- `tests/category_filter.test.js`: Validates therapeutic category mappings and prioritized category browsing.
-- `tests/pediatric_and_topical.test.js`: Verifies pediatric syrups (Paracetamol, Brufen, Augmentin) and topical dermatologicals (Betnovate, Fucidin, Canesten, Polyfax).
-- `tests/pwa.test.js`: Verifies Web App Manifest, offline Service Worker, and mobile PWA meta tags.
-- `tests/whatsapp_share.test.js`: Verifies 1-tap WhatsApp sharing link generation with price comparisons and safety warnings in English & Urdu.
-- `tests/sync_drug_data.test.js`: Verifies offline DRAP data ingestion, normalization, and validation pipeline.
-- `tests/urdu_mode.test.js`: Validates English/Urdu bilingual switching, RTL layout, and natural Urdu phrasing.
-- `tests/ui_dom.test.js`: Tests DOM rendering, zero-alternatives card, mobile viewport configuration, XSS prevention, and simulates 5 realistic end-to-end user journeys.
-- `tests/ui_responsive_branding.test.js`: Verifies plain-language UI without jargon, footer branding ("Made by Maverick Tech Ventures"), auto-updating copyright notice, and non-color-reliant savings cues.
+62 tests cover the normalizer, DRAP HTML parsing, search/alternatives/savings, the assistant (intents in English, Urdu and Roman Urdu,
+emergency and advice refusals), the server (gzip, blocked paths, chat validation, the tool loop with a mocked client), the
+DOM (routing, autocomplete, My Medicines math, Urdu RTL, HTML escaping) and the integrity of the shipped dataset.
 
----
-
-## 📁 Project Structure
+## Project structure
 
 ```
-medicine/
-├── index.html                   # Mobile-first SPA entrypoint with plain language & Maverick Tech Ventures branding
-├── manifest.json                # PWA Web App Manifest for mobile installation
-├── sw.js                        # Offline Service Worker with stale-while-revalidate caching
-├── icons/
-│   └── icon.svg                 # Scalable high-res SVG app icon
-├── css/
-│   └── style.css                # Accessible CSS with mobile touch targets (>= 48px), RTL, and dark footer
-├── js/
-│   ├── app.js                   # Application controller, plain language rendering, WhatsApp share & PWA registration
-│   ├── search.js                # Search, bidirectional synonym resolution, and ranking algorithms
-│   ├── translations.js          # Bilingual English/Urdu plain language dictionary & i18n module
-│   ├── data.js                  # Asynchronous data loader with offline fallback
-│   └── medicines_data_embed.js  # Embedded dataset for zero-CORS / offline execution (317 medicines)
-├── data/
-│   └── medicines.json           # Expanded database of 317 common Pakistani medicines across 29 categories
-├── scripts/
-│   └── sync_drug_data.js        # DRAP / Public drug data validation, normalization and sync pipeline
-├── tests/
-│   ├── data.test.js             # Dataset schema and accuracy tests
-│   ├── search.test.js           # Search engine unit tests
-│   ├── alternatives_sort.test.js# Alternative matching & sorting unit tests
-│   ├── synonyms_and_rivotril.test.js # Synonym resolution & psychiatric medicine tests
-│   ├── category_filter.test.js  # Category priority filtering tests
-│   ├── pediatric_and_topical.test.js # Pediatric syrups and topical creams tests
-│   ├── pwa.test.js              # PWA manifest, service worker & icons tests
-│   ├── whatsapp_share.test.js   # WhatsApp share formatting and DOM tests
-│   ├── sync_drug_data.test.js   # Data ingestion pipeline unit tests
-│   ├── urdu_mode.test.js        # Urdu RTL mode & i18n tests
-│   ├── ui_dom.test.js           # DOM integration and realistic user simulation tests
-│   └── ui_responsive_branding.test.js # Plain language, branding & responsive styles tests
-├── BUILD_LOG.md                 # Complete Build-Verify-Fix loop log (v1, v2 & v3 entries)
-├── package.json                 # Project configuration and test runners
-└── README.md                    # Project documentation
+index.html              Single-page app
+css/style.css           Design system (light/dark, RTL, print)
+js/i18n.js              English / Urdu strings
+js/data.js              Loads & expands data/medicines.json (browser + Node)
+js/search.js            Search, alternatives, savings, entity extraction (browser + Node)
+js/assistant.js         Dawa Assistant: offline brain + chat UI
+js/app.js               Routing, views, My Medicines
+server.js               Static server + /api/health + /api/chat (Claude tool use)
+sw.js                   Offline service worker
+scripts/sync_drap.js    DRAP download & dataset build
+scripts/drap_normalize.js  Composition / pack / form normalization
+data/medicines.json     Generated dataset
+tests/                  node:test suites
 ```
 
----
+## Disclaimer
 
-## ⚖️ Legal & Medical Disclaimer
-*Prices and pharmaceutical information provided are approximate and for consumer awareness only based on publicly available drug information in Pakistan. This application is not a substitute for professional medical advice, diagnosis, or treatment. Always consult a qualified physician or licensed pharmacist before changing or stopping any prescribed medication.*
+Prices are DRAP-notified maximum retail prices and can change; pharmacies may sell for less. This website does not give
+medical advice. Always confirm with a licensed pharmacist or doctor before switching or stopping a medicine.
+
+Made by Maverick Tech Ventures.

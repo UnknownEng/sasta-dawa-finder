@@ -1,87 +1,71 @@
 /**
- * Sasta Dawa Finder - Offline Service Worker (PWA)
- * Provides 100% offline lookup capability and instant loading on Android and iOS.
+ * Sasta Dawa Finder - service worker
+ * App shell: cache-first with background refresh. Medicine data: network-first
+ * (so price updates arrive quickly) with cached fallback for offline use.
+ * API calls are never cached.
  */
-
-const CACHE_NAME = 'sasta-dawa-v1.2.0';
+const CACHE_NAME = 'sasta-dawa-v2.0.0';
 
 const PRECACHE_URLS = [
   './',
   './index.html',
   './manifest.json',
   './css/style.css',
-  './js/medicines_data_embed.js',
-  './js/translations.js',
-  './js/search.js',
+  './js/i18n.js',
   './js/data.js',
+  './js/search.js',
+  './js/assistant.js',
   './js/app.js',
   './data/medicines.json',
-  './icons/icon.svg'
+  './icons/icon.svg',
+  './icons/icon-192.png',
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(PRECACHE_URLS);
-    }).then(() => self.skipWaiting())
-  );
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS)).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames
-          .filter((name) => name !== CACHE_NAME)
-          .map((name) => caches.delete(name))
-      );
-    }).then(() => self.clients.claim())
+    caches
+      .keys()
+      .then((names) => Promise.all(names.filter((n) => n !== CACHE_NAME).map((n) => caches.delete(n))))
+      .then(() => self.clients.claim())
   );
 });
 
+function putInCache(request, response) {
+  if (response && response.status === 200 && response.type === 'basic') {
+    const copy = response.clone();
+    caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+  }
+  return response;
+}
+
 self.addEventListener('fetch', (event) => {
-  // Only handle GET requests
-  if (event.request.method !== 'GET') return;
+  const { request } = event;
+  if (request.method !== 'GET') return;
+  const url = new URL(request.url);
+  if (!url.protocol.startsWith('http') || url.origin !== self.location.origin) return;
+  if (url.pathname.includes('/api/')) return;
 
-  const url = new URL(event.request.url);
+  // Medicine data: network first, cache fallback
+  if (url.pathname.endsWith('/data/medicines.json')) {
+    event.respondWith(fetch(request).then((r) => putInCache(request, r)).catch(() => caches.match(request)));
+    return;
+  }
 
-  // Ignore non-http/https (e.g. chrome-extension:)
-  if (!url.protocol.startsWith('http')) return;
+  // Navigations: serve the app shell offline
+  if (request.mode === 'navigate') {
+    event.respondWith(fetch(request).then((r) => putInCache(request, r)).catch(() => caches.match('./index.html')));
+    return;
+  }
 
+  // Everything else: stale-while-revalidate
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        // Fetch in background to update cache (stale-while-revalidate)
-        fetch(event.request).then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, networkResponse);
-            });
-          }
-        }).catch(() => {
-          // Offline, cachedResponse already returned
-        });
-        return cachedResponse;
-      }
-
-      // If not in cache, fetch from network and cache
-      return fetch(event.request).then((networkResponse) => {
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-          return networkResponse;
-        }
-
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
-        });
-
-        return networkResponse;
-      }).catch(() => {
-        // Fallback for navigation requests
-        if (event.request.mode === 'navigate') {
-          return caches.match('./index.html');
-        }
-      });
+    caches.match(request).then((cached) => {
+      const network = fetch(request).then((r) => putInCache(request, r)).catch(() => cached);
+      return cached || network;
     })
   );
 });
