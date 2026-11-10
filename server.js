@@ -137,7 +137,9 @@ const server = http.createServer((req, res) => {
   }
 
   const filePath = path.normalize(path.join(ROOT_DIR, pathname));
-  if (!filePath.startsWith(ROOT_DIR + path.sep) || BLOCKED.test(pathname)) {
+  // check the resolved path, not the raw one: "/css/..%2fserver.js" must be blocked too
+  const relPath = '/' + path.relative(ROOT_DIR, filePath).split(path.sep).join('/');
+  if (!filePath.startsWith(ROOT_DIR + path.sep) || BLOCKED.test(pathname) || BLOCKED.test(relPath)) {
     return send(req, res, 404, get404HTML(), NOT_FOUND_HEADERS, '.html');
   }
   fs.stat(filePath, (err, stats) => {

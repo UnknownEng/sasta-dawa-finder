@@ -4,18 +4,18 @@
  * (so price updates arrive quickly) with cached fallback for offline use.
  * API calls are never cached.
  */
-const CACHE_NAME = 'sasta-dawa-v2.1.2';
+const CACHE_NAME = 'sasta-dawa-v2.1.3';
 
 const PRECACHE_URLS = [
   './',
   './index.html',
   './manifest.json',
-  './css/style.css?v=2.1.2',
-  './js/i18n.js?v=2.1.2',
-  './js/data.js?v=2.1.2',
-  './js/search.js?v=2.1.2',
-  './js/assistant.js?v=2.1.2',
-  './js/app.js?v=2.1.2',
+  './css/style.css?v=2.1.3',
+  './js/i18n.js?v=2.1.3',
+  './js/data.js?v=2.1.3',
+  './js/search.js?v=2.1.3',
+  './js/assistant.js?v=2.1.3',
+  './js/app.js?v=2.1.3',
   './data/medicines.json',
   './icons/icon.svg',
   './icons/icon-192.png',
@@ -49,9 +49,18 @@ self.addEventListener('fetch', (event) => {
   if (!url.protocol.startsWith('http') || url.origin !== self.location.origin) return;
   if (url.pathname.includes('/api/') || url.pathname.startsWith('/unonenginerrunon')) return;
 
-  // Medicine data: network first, cache fallback
+  // Medicine data: network first so new prices arrive quickly, but on a weak connection use
+  // the saved copy after 4 s (the download still finishes in the background for next time).
   if (url.pathname.endsWith('/data/medicines.json')) {
-    event.respondWith(fetch(request).then((r) => putInCache(request, r)).catch(() => caches.match(request)));
+    const network = fetch(request).then((r) => putInCache(request, r));
+    event.waitUntil(network.catch(() => {}));
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        if (!cached) return network;
+        const slow = new Promise((resolve) => setTimeout(() => resolve(cached), 4000));
+        return Promise.race([network.catch(() => cached), slow]);
+      })
+    );
     return;
   }
 

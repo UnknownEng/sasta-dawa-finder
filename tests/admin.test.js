@@ -131,11 +131,30 @@ test('admin: sign-in, settings, price fixes, inbox', async (t) => {
   assert.equal(inbox.json.items.length, 1);
   const key = inbox.json.items[0].key;
   assert.equal(inbox.json.items[0].type, 'wrong_price');
-  assert.equal((await go('POST', '/api/admin?a=feedback-update', { cookie, headers: ADMIN, body: { key, status: 'done' } })).status, 200);
-  assert.equal((await go('GET', '/api/admin?a=feedback', { cookie })).json.items[0].status, 'done');
+  const moved = await go('POST', '/api/admin?a=feedback-update', { cookie, headers: ADMIN, body: { key, status: 'done' } });
+  assert.equal(moved.status, 200);
+  assert.match(moved.json.key, /^feedback-done\//, 'done reports move to their own folder');
+  assert.equal((await go('GET', '/api/admin?a=feedback', { cookie })).json.items.length, 0, 'open list is now empty');
+  const doneList = (await go('GET', '/api/admin?a=feedback&status=done', { cookie })).json;
+  assert.equal(doneList.items[0].status, 'done');
+  const ov2 = (await go('GET', '/api/admin?a=overview', { cookie })).json;
+  assert.deepEqual([ov2.feedback.open, ov2.feedback.total], [0, 1], 'overview counts without reading reports');
   assert.equal((await go('POST', '/api/admin?a=feedback-delete', { cookie, headers: ADMIN, body: { key: '../../etc/passwd' } })).status, 400);
-  assert.equal((await go('POST', '/api/admin?a=feedback-delete', { cookie, headers: ADMIN, body: { key } })).status, 200);
-  assert.equal((await go('GET', '/api/admin?a=feedback', { cookie })).json.items.length, 0);
+  assert.equal((await go('POST', '/api/admin?a=feedback-delete', { cookie, headers: ADMIN, body: { key: moved.json.key } })).status, 200);
+  assert.equal((await go('GET', '/api/admin?a=feedback&status=done', { cookie })).json.items.length, 0);
+
+  // two admin tabs: saving with an out-of-date version is refused instead of overwriting
+  const current = (await go('GET', '/api/admin?a=overview', { cookie })).json.config;
+  const stale = await go('POST', '/api/admin?a=save-config', { cookie, headers: ADMIN, body: { config: current, expectedUpdatedAt: '2000-01-01T00:00:00.000Z' } });
+  assert.equal(stale.status, 409);
+  const fine = await go('POST', '/api/admin?a=save-config', { cookie, headers: ADMIN, body: { config: current, expectedUpdatedAt: current.updatedAt } });
+  assert.equal(fine.status, 200);
+
+  // junk input never crashes the server
+  assert.equal((await go('POST', '/api/feedback', { body: null })).status, 400);
+  assert.equal((await go('GET', '/api/admin?a=me', { cookie: 'sd_admin=%E0%A4%A' })).json.authed, false);
+  assert.equal((await go('GET', '/css/..%2fserver.js')).status, 404);
+  assert.equal((await go('GET', '/css/..%2flib%2fauth.js')).status, 404);
 
   // sign out clears the cookie
   const out = await go('POST', '/api/admin?a=logout', { cookie, headers: ADMIN, body: {} });

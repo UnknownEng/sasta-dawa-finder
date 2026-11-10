@@ -36,13 +36,14 @@
     toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
   }
 
-  async function api(action, body) {
+  async function api(action, body, params) {
     const opts = { method: body ? 'POST' : 'GET', credentials: 'same-origin', headers: { 'X-SD-Admin': '1' }, cache: 'no-store' };
     if (body) {
       opts.headers['Content-Type'] = 'application/json';
       opts.body = JSON.stringify(body);
     }
-    const res = await fetch('/api/admin?a=' + encodeURIComponent(action), opts);
+    const qs = new URLSearchParams({ a: action, ...(params || {}) });
+    const res = await fetch('/api/admin?' + qs.toString(), opts);
     let data = {};
     try { data = await res.json(); } catch (e) { /* empty */ }
     if (res.status === 401 && action !== 'login') {
@@ -117,13 +118,14 @@
   function renderOverview() {
     const o = state.overview;
     const d = o.data;
-    const open = state.feedback.filter((f) => f.status !== 'done').length;
+    const open = state.openCount;
+    const full = o.feedback && open >= o.feedback.max;
     $('#ov-stats').innerHTML = [
       ['Medicines listed', d.products.toLocaleString('en-PK'), 'DRAP-registered products'],
       ['Same-formula groups', d.formulas.toLocaleString('en-PK'), 'where cheaper brands are compared'],
       ['Prices updated to', fmtDate(d.latest_price_date), 'downloaded ' + fmtDate((d.synced_at || '').slice(0, 10))],
       ['Price fixes active', String(Object.keys(state.cfg.overrides).length), 'your corrections'],
-      ['Open reports', String(open), open ? 'waiting in the inbox' : 'all caught up', open ? 'attn' : ''],
+      ['Open reports', String(open), full ? 'inbox full: new reports are refused until you clear some' : open ? 'waiting in the inbox' : 'all caught up', open ? 'attn' : ''],
     ]
       .map(([k, v, sub, cls]) => `<div class="ad-stat ${cls || ''}"><small>${esc(k)}</small><b>${esc(v)}</b><span>${esc(sub)}</span></div>`)
       .join('');
@@ -174,7 +176,21 @@
       .join('');
   }
 
-  $$('[data-filter]').forEach((b) => b.addEventListener('click', () => { state.filter = b.dataset.filter; renderInbox(); }));
+  $$('[data-filter]').forEach((b) =>
+    b.addEventListener('click', async () => {
+      state.filter = b.dataset.filter;
+      if (state.filter === 'all' && !state.doneLoaded) {
+        try {
+          const done = await api('feedback', null, { status: 'done' });
+          state.feedback = state.feedback.concat(done.items || []);
+          state.doneLoaded = true;
+        } catch (err) {
+          toast(err.message, true);
+        }
+      }
+      renderInbox();
+    })
+  );
 
   $('#inbox-list').addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-act]');
@@ -192,12 +208,18 @@
     try {
       if (act === 'delete') {
         await api('feedback-delete', { key });
+        const gone = state.feedback.find((f) => f.key === key);
+        if (gone && gone.status !== 'done') state.openCount = Math.max(0, state.openCount - 1);
         state.feedback = state.feedback.filter((f) => f.key !== key);
         toast('Report deleted');
       } else {
-        await api('feedback-update', { key, status: act === 'done' ? 'done' : 'new' });
+        const out = await api('feedback-update', { key, status: act === 'done' ? 'done' : 'new' });
         const f = state.feedback.find((x) => x.key === key);
-        if (f) f.status = act === 'done' ? 'done' : 'new';
+        if (f) {
+          f.status = act === 'done' ? 'done' : 'new';
+          f.key = out.key || key;
+        }
+        state.openCount = Math.max(0, state.openCount + (act === 'done' ? -1 : 1));
         toast(act === 'done' ? 'Marked as done' : 'Reopened');
       }
       renderInbox();
@@ -375,7 +397,8 @@
     const btns = $$('#settings-save, #pf-save');
     btns.forEach((b) => (b.disabled = true));
     try {
-      const out = await api('save-config', { config: cfg });
+      // send the version we loaded, so a save from another tab/device is never silently overwritten
+      const out = await api('save-config', { config: cfg, expectedUpdatedAt: state.cfg.updatedAt || null });
       state.cfg = out.config;
       toast(msg);
     } catch (err) {
@@ -394,6 +417,8 @@
     state.overview = ov;
     state.cfg = ov.config;
     state.feedback = fb.items || [];
+    state.openCount = ov.feedback ? ov.feedback.open : state.feedback.length;
+    state.doneLoaded = false;
     $('#booting').hidden = true;
     $('#login').hidden = true;
     $('#panel').hidden = false;
