@@ -1,1276 +1,823 @@
 /**
- * Sasta Dawa Finder - Application Controller with Plain Language & Maverick Tech Ventures Branding
- * Handles UI interactions, search autocomplete, category filtering, translation, rendering, and URL states.
+ * Sasta Dawa Finder - application controller (routing, rendering, My Medicines).
  */
-
 (function () {
   'use strict';
 
-  // DOM Elements
-  const searchInput = document.getElementById('search-input');
-  const clearBtn = document.getElementById('clear-btn');
-  const searchBtn = document.getElementById('search-btn');
-  const autocompleteList = document.getElementById('autocomplete-list');
-  const resultsView = document.getElementById('results-view');
-  const selectedMedicineCard = document.getElementById('selected-medicine-card');
-  const savingsSpotlight = document.getElementById('savings-spotlight');
-  const alternativesToolbar = document.getElementById('alternatives-toolbar');
-  const alternativesCount = document.getElementById('alternatives-count');
-  const alternativesList = document.getElementById('alternatives-list');
-  const zeroAlternativesCard = document.getElementById('zero-alternatives-card');
-  const zeroAlternativesDesc = document.getElementById('zero-alternatives-desc');
-  const zeroBackBtn = document.getElementById('zero-back-btn');
-  const noResultsView = document.getElementById('no-results-view');
-  const noResultsQueryMsg = document.getElementById('no-results-query-msg');
-  const noResultsResetBtn = document.getElementById('no-results-reset-btn');
-  const exploreView = document.getElementById('explore-view');
-  const popularGrid = document.getElementById('popular-medicines-grid');
-  const sortSelect = document.getElementById('sort-select');
-  const categoryPillsContainer = document.getElementById('category-pills-container');
-  const langEnBtn = document.getElementById('lang-en-btn');
-  const langUrBtn = document.getElementById('lang-ur-btn');
-  const copyrightYearEl = document.getElementById('copyright-year');
-  const nearbyStoresSection = document.getElementById('nearby-stores-section');
-  const storeLocationBar = document.getElementById('store-location-bar');
-  const storesGrid = document.getElementById('stores-grid');
-  const closeStoresBtn = document.getElementById('close-stores-btn');
-
-  let currentMedicine = null;
-  let currentCategory = 'all';
-  let activeSuggestionIndex = -1;
-  let currentSuggestions = [];
-  let cachedUserCoords = null;
-  let currentStoresQuery = 'Karachi';
-
-  /**
-   * Escape HTML utility to prevent XSS.
-   */
-  function escapeHtml(str) {
-    if (typeof str !== 'string') return '';
-    return str
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
-
-  /**
-   * Translation helper.
-   */
-  function t(key, params) {
-    if (window.SastaI18n && typeof window.SastaI18n.t === 'function') {
-      return window.SastaI18n.t(key, params);
-    }
-    return key;
-  }
-
-  /**
-   * Format currency in PKR.
-   */
-  function formatPKR(val) {
-    if (typeof val !== 'number' || isNaN(val)) return 'PKR 0.00';
-    return `PKR ${val.toFixed(2)}`;
-  }
-
-  /**
-   * Format unit display label (e.g. tablet, capsule, puff).
-   */
-  function formatUnitLabel(dosageForm) {
-    const form = (dosageForm || '').toLowerCase();
-    if (form.includes('tablet')) return t('unit_tablet');
-    if (form.includes('capsule')) return t('unit_capsule');
-    if (form.includes('inhaler')) return t('unit_puff');
-    if (form.includes('syrup') || form.includes('suspension')) return t('unit_syrup');
-    if (form.includes('cream') || form.includes('ointment') || form.includes('gel')) return t('unit_cream');
-    if (form.includes('drop')) return t('unit_drop');
-    if (form.includes('sachet')) return t('unit_sachet');
-    if (form.includes('bottle')) return t('unit_bottle');
-    return t('unit_generic');
-  }
-
-  /**
-   * Initialize App.
-   */
-  async function init() {
-    try {
-      // Dynamic copyright year
-      if (copyrightYearEl) {
-        copyrightYearEl.textContent = new Date().getFullYear();
-      }
-
-      if (window.SastaI18n) {
-        window.SastaI18n.initLanguage();
-      }
-
-      const data = await window.MedicineDataLoader.loadMedicines();
-      window.SastaSearch.init(data);
-
-      updateLanguageUI();
-      renderCategoryPills();
-      renderPopularMedicines();
-      setupEventListeners();
-      checkUrlState();
-    } catch (err) {
-      console.error('Initialization error:', err);
-      if (noResultsQueryMsg) {
-        noResultsQueryMsg.textContent = 'Failed to load medicine database. Please refresh the page.';
-      }
-      showNoResultsView();
-    }
-  }
-
-  /**
-   * Switch Language (en / ur).
-   */
-  function switchLanguage(lang) {
-    if (!window.SastaI18n) return;
-    window.SastaI18n.setLanguage(lang);
-    updateLanguageUI();
-    renderCategoryPills();
-
-    if (currentMedicine) {
-      renderSelectedMedicine(currentMedicine);
-      renderAlternatives(currentMedicine, sortSelect.value);
-    } else {
-      renderPopularMedicines();
-    }
-  }
-
-  /**
-   * Updates all DOM text content and dir attribute to match active language.
-   */
-  function updateLanguageUI() {
-    const lang = window.SastaI18n ? window.SastaI18n.getLanguage() : 'en';
-    const isUr = lang === 'ur';
-
-    // Set document direction and lang
-    document.documentElement.setAttribute('dir', isUr ? 'rtl' : 'ltr');
-    document.documentElement.setAttribute('lang', lang);
-
-    // Update Language toggle buttons
-    if (langEnBtn && langUrBtn) {
-      if (isUr) {
-        langUrBtn.classList.add('active');
-        langEnBtn.classList.remove('active');
-      } else {
-        langEnBtn.classList.add('active');
-        langUrBtn.classList.remove('active');
-      }
-    }
-
-    // Update site title
-    const siteTitleEl = document.getElementById('site-title-el');
-    if (siteTitleEl) {
-      if (isUr) {
-        siteTitleEl.innerHTML = `سستی دوا تلاش کار <span class="site-title-urdu">پاکستان</span>`;
-      } else {
-        siteTitleEl.innerHTML = `Sasta Dawa Finder <span class="site-title-urdu" dir="rtl">سستی دوا</span>`;
-      }
-    }
-
-    // Update Search input placeholder
-    if (searchInput) {
-      searchInput.setAttribute('placeholder', t('search_placeholder'));
-    }
-
-    // Update all elements with data-i18n attribute
-    document.querySelectorAll('[data-i18n]').forEach((el) => {
-      const key = el.getAttribute('data-i18n');
-      if (key) {
-        el.textContent = t(key);
-      }
-    });
-  }
-
-  /**
-   * Renders the category priority filter bar.
-   */
-  function renderCategoryPills() {
-    if (!categoryPillsContainer || !window.SastaSearch) return;
-
-    const categories = window.SastaSearch.getCategories();
-    const lang = window.SastaI18n ? window.SastaI18n.getLanguage() : 'en';
-    const isUr = lang === 'ur';
-
-    categoryPillsContainer.innerHTML = categories
-      .map((cat) => {
-        const name = isUr ? cat.name_ur : cat.name_en;
-        const isActive = cat.id === currentCategory;
-        const activeClass = isActive ? 'cat-pill active' : 'cat-pill';
-        return `
-          <button type="button" class="${activeClass}" data-cat-id="${cat.id}">
-            <span aria-hidden="true">${cat.icon}</span>
-            <span>${name}</span>
-            <span class="cat-count">${cat.count}</span>
-          </button>
-        `;
-      })
-      .join('');
-
-    // Attach click listeners to category pills
-    categoryPillsContainer.querySelectorAll('.cat-pill').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const catId = btn.getAttribute('data-cat-id');
-        selectCategory(catId);
-      });
-    });
-  }
-
-  /**
-   * Handles user selecting a category.
-   */
-  function selectCategory(catId) {
-    currentCategory = catId;
-    renderCategoryPills();
-
-    // If currently on explore view, re-filter popular medicines
-    if (exploreView && exploreView.style.display !== 'none') {
-      renderPopularMedicines();
-    } else if (searchInput.value.trim().length > 0) {
-      performSearch(searchInput.value.trim(), true);
-    } else {
-      showExploreView();
-      renderPopularMedicines();
-    }
-  }
-
-  /**
-   * Renders the explore/popular medicines grid on the homepage.
-   */
-  function renderPopularMedicines() {
-    if (!popularGrid) return;
-    const popular = window.SastaSearch.getPopularMedicines(8, currentCategory);
-
-    if (popular.length === 0) {
-      popularGrid.innerHTML = `
-        <div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 1.5rem;">
-          No common medicines listed in this category yet.
-        </div>
-      `;
-      return;
-    }
-
-    popularGrid.innerHTML = popular
-      .map((med) => {
-        const unit = formatUnitLabel(med.dosage_form);
-        return `
-        <div class="popular-card" data-med-id="${escapeHtml(med.id)}" role="button" tabindex="0">
-          <div class="pop-name">${escapeHtml(med.brand_name)}</div>
-          <div class="pop-salt">${escapeHtml(med.generic_name)} ${escapeHtml(med.strength)}</div>
-          <div class="pop-meta">
-            <span>${escapeHtml(med.manufacturer)}</span>
-            <span class="pop-price">${formatPKR(med.unit_price_pkr)} / ${unit}</span>
-          </div>
-        </div>
-      `;
-      })
-      .join('');
-  }
-
-  /**
-   * Accessible Toast Notification helper (Success and Error messages)
-   */
-  function showToast(message, type = 'success') {
-    const container = document.getElementById('toast-container');
-    if (!container) return;
-    const toast = document.createElement('div');
-    toast.className = `toast-message toast-${type}`;
-    const icon = type === 'success' ? '✓' : '⚠️';
-    toast.innerHTML = `
-      <span class="toast-icon" aria-hidden="true">${icon}</span>
-      <div class="toast-content">${escapeHtml(message)}</div>
-      <button type="button" class="toast-close-btn" aria-label="Dismiss notification">✕</button>
-    `;
-    const closeBtn = toast.querySelector('.toast-close-btn');
-    if (closeBtn) {
-      closeBtn.addEventListener('click', () => toast.remove());
-    }
-    container.appendChild(toast);
-    setTimeout(() => {
-      if (toast.parentNode) {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateY(-10px)';
-        setTimeout(() => toast.remove(), 250);
-      }
-    }, 4000);
-  }
-
-  function showSuccessMessage(msg) {
-    showToast(msg, 'success');
-  }
-
-  function showErrorMessage(msg) {
-    showToast(msg, 'error');
-  }
-
-  /**
-   * Setup UI Event Listeners.
-   */
-  function setupEventListeners() {
-    // Clickable Logo (Fix 17)
-    const siteLogoLink = document.getElementById('site-logo-link');
-    if (siteLogoLink) {
-      siteLogoLink.addEventListener('click', (e) => {
-        const isHomePage = window.location.pathname === '/' || window.location.pathname.endsWith('index.html');
-        if (isHomePage) {
-          e.preventDefault();
-          searchInput.value = '';
-          if (clearBtn) clearBtn.style.display = 'none';
-          closeAutocomplete();
-          showExploreView();
-          window.location.hash = '';
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-          showSuccessMessage('Returned to Medicine Finder Home.');
-        }
-      });
-    }
-
-    // Mobile Menu Toggle & Navigation Drawer (Fix 3 & Fix 15)
-    const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
-    const mobileNavDrawer = document.getElementById('mobile-nav-drawer');
-    const mobileNavBackdrop = document.getElementById('mobile-nav-backdrop');
-    const drawerCloseBtn = document.getElementById('drawer-close-btn');
-
-    function openMobileMenu() {
-      if (!mobileNavDrawer) return;
-      mobileNavDrawer.removeAttribute('hidden');
-      if (mobileNavBackdrop) mobileNavBackdrop.removeAttribute('hidden');
-      requestAnimationFrame(() => {
-        mobileNavDrawer.classList.add('active');
-        if (mobileNavBackdrop) mobileNavBackdrop.classList.add('active');
-      });
-      if (mobileMenuToggle) {
-        mobileMenuToggle.setAttribute('aria-expanded', 'true');
-      }
-    }
-
-    function closeMobileMenu() {
-      if (!mobileNavDrawer) return;
-      mobileNavDrawer.classList.remove('active');
-      if (mobileNavBackdrop) mobileNavBackdrop.classList.remove('active');
-      if (mobileMenuToggle) {
-        mobileMenuToggle.setAttribute('aria-expanded', 'false');
-      }
-      setTimeout(() => {
-        mobileNavDrawer.setAttribute('hidden', '');
-        if (mobileNavBackdrop) mobileNavBackdrop.setAttribute('hidden', '');
-      }, 300);
-    }
-
-    if (mobileMenuToggle) {
-      mobileMenuToggle.addEventListener('click', () => {
-        const isOpen = mobileMenuToggle.getAttribute('aria-expanded') === 'true';
-        if (isOpen) {
-          closeMobileMenu();
-        } else {
-          openMobileMenu();
-        }
-      });
-    }
-
-    if (drawerCloseBtn) {
-      drawerCloseBtn.addEventListener('click', closeMobileMenu);
-    }
-
-    if (mobileNavBackdrop) {
-      mobileNavBackdrop.addEventListener('click', closeMobileMenu);
-    }
-
-    document.querySelectorAll('.mobile-nav-link').forEach((link) => {
-      link.addEventListener('click', () => {
-        closeMobileMenu();
-      });
-    });
-
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && mobileMenuToggle && mobileMenuToggle.getAttribute('aria-expanded') === 'true') {
-        closeMobileMenu();
-      }
-    });
-
-    // Language Switch Buttons
-    if (langEnBtn) {
-      langEnBtn.addEventListener('click', () => switchLanguage('en'));
-    }
-    if (langUrBtn) {
-      langUrBtn.addEventListener('click', () => switchLanguage('ur'));
-    }
-
-    // Search input typing
-    searchInput.addEventListener('input', handleSearchInput);
-
-    // Keyboard navigation in search input
-    searchInput.addEventListener('keydown', handleSearchKeydown);
-
-    // Search button
-    searchBtn.addEventListener('click', () => {
-      const query = searchInput.value.trim();
-      if (query) {
-        performSearch(query);
-      }
-    });
-
-    // Clear button
-    clearBtn.addEventListener('click', () => {
-      searchInput.value = '';
-      clearBtn.style.display = 'none';
-      closeAutocomplete();
-      searchInput.focus();
-      showExploreView();
-      window.location.hash = '';
-    });
-
-    // Close autocomplete on click outside
-    document.addEventListener('click', (e) => {
-      if (!searchInput.contains(e.target) && !autocompleteList.contains(e.target)) {
-        closeAutocomplete();
-      }
-    });
-
-    // Quick pills click
-    document.querySelectorAll('.pill-btn[data-search]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const query = btn.getAttribute('data-search');
-        searchInput.value = query;
-        clearBtn.style.display = 'flex';
-        performSearch(query);
-      });
-    });
-
-    // Popular medicine card click
-    popularGrid.addEventListener('click', (e) => {
-      const card = e.target.closest('.popular-card');
-      if (card) {
-        const medId = card.getAttribute('data-med-id');
-        selectMedicineById(medId);
-      }
-    });
-
-    popularGrid.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        const card = e.target.closest('.popular-card');
-        if (card) {
-          e.preventDefault();
-          const medId = card.getAttribute('data-med-id');
-          selectMedicineById(medId);
-        }
-      }
-    });
-
-    // Sort select change
-    sortSelect.addEventListener('change', () => {
-      if (currentMedicine) {
-        renderAlternatives(currentMedicine, sortSelect.value);
-      }
-    });
-
-    // Zero alternatives back button
-    zeroBackBtn.addEventListener('click', () => {
-      searchInput.focus();
-      searchInput.select();
-    });
-
-    // No results reset button
-    noResultsResetBtn.addEventListener('click', () => {
-      searchInput.value = '';
-      clearBtn.style.display = 'none';
-      showExploreView();
-      window.location.hash = '';
-    });
-
-    // Browser navigation back/forward hash changes
-    window.addEventListener('hashchange', checkUrlState);
-
-    // Nearby Stores Section Toggles
-    document.addEventListener('click', (e) => {
-      const nearbyBtn = e.target.closest('#med-card-nearby-btn') || e.target.closest('#spotlight-nearby-btn') || e.target.closest('.nearby-stores-toggle-btn');
-      if (nearbyBtn) {
-        e.preventDefault();
-        openNearbyStoresSection();
-      }
-
-      const closeBtn = e.target.closest('#close-stores-btn');
-      if (closeBtn) {
-        e.preventDefault();
-        closeNearbyStoresSection();
-      }
-    });
-  }
-
-  /**
-   * Checks URL hash and displays state (e.g. #med=id or #q=term)
-   */
-  function checkUrlState() {
-    const hash = window.location.hash.slice(1);
-    if (!hash) {
-      if (!currentMedicine) showExploreView();
-      return;
-    }
-
-    const params = new URLSearchParams(hash);
-    if (params.has('med')) {
-      const medId = params.get('med');
-      selectMedicineById(medId, false);
-    } else if (params.has('q')) {
-      const q = params.get('q');
-      searchInput.value = q;
-      clearBtn.style.display = 'flex';
-      performSearch(q, false);
-    }
-  }
-
-  /**
-   * Handles user typing in search input (autocomplete suggestions).
-   */
-  function handleSearchInput(e) {
-    const query = e.target.value;
-    activeSuggestionIndex = -1;
-
-    if (query.trim().length > 0) {
-      clearBtn.style.display = 'flex';
-    } else {
-      clearBtn.style.display = 'none';
-      closeAutocomplete();
-      return;
-    }
-
-    const matches = window.SastaSearch.search(query, {
-      limit: 8,
-      category: currentCategory,
-    });
-    currentSuggestions = matches;
-
-    if (matches.length === 0) {
-      autocompleteList.innerHTML = `
-        <div class="suggestion-item" style="cursor: default;">
-          <div class="suggestion-info">
-            <span class="suggestion-name" style="color: var(--text-muted);">${escapeHtml(query)}</span>
-            <span class="suggestion-meta">${t('no_results_title')}</span>
-          </div>
-        </div>
-      `;
-      openAutocomplete();
-      return;
-    }
-
-    autocompleteList.innerHTML = matches
-      .map((med, index) => {
-        const unit = formatUnitLabel(med.dosage_form);
-        return `
-        <div class="suggestion-item" data-index="${index}" data-med-id="${escapeHtml(med.id)}" role="option">
-          <div class="suggestion-info">
-            <span class="suggestion-name">${escapeHtml(med.brand_name)} <span style="font-weight: 400; color: var(--text-muted); font-size: 0.9rem;">(${escapeHtml(med.strength)})</span></span>
-            <span class="suggestion-meta">${escapeHtml(med.generic_name)} • ${escapeHtml(med.manufacturer)}</span>
-          </div>
-          <span class="suggestion-badge">${formatPKR(med.unit_price_pkr)} / ${unit}</span>
-        </div>
-      `;
-      })
-      .join('');
-
-    // Attach click handlers to suggestions
-    autocompleteList.querySelectorAll('.suggestion-item[data-med-id]').forEach((item) => {
-      item.addEventListener('click', () => {
-        const medId = item.getAttribute('data-med-id');
-        selectMedicineById(medId);
-        closeAutocomplete();
-      });
-    });
-
-    openAutocomplete();
-  }
-
-  /**
-   * Handles keyboard navigation in search input (ArrowUp, ArrowDown, Enter, Esc).
-   */
-  function handleSearchKeydown(e) {
-    const items = autocompleteList.querySelectorAll('.suggestion-item[data-med-id]');
-
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      if (!isAutocompleteOpen()) {
-        handleSearchInput({ target: searchInput });
-        return;
-      }
-      activeSuggestionIndex = (activeSuggestionIndex + 1) % items.length;
-      updateActiveSuggestion(items);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      if (!isAutocompleteOpen()) return;
-      activeSuggestionIndex = (activeSuggestionIndex - 1 + items.length) % items.length;
-      updateActiveSuggestion(items);
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      if (isAutocompleteOpen() && activeSuggestionIndex >= 0 && items[activeSuggestionIndex]) {
-        const medId = items[activeSuggestionIndex].getAttribute('data-med-id');
-        selectMedicineById(medId);
-        closeAutocomplete();
-      } else {
-        const query = searchInput.value.trim();
-        if (query) {
-          closeAutocomplete();
-          performSearch(query);
-        }
-      }
-    } else if (e.key === 'Escape') {
-      closeAutocomplete();
-    }
-  }
-
-  function updateActiveSuggestion(items) {
-    items.forEach((item, idx) => {
-      if (idx === activeSuggestionIndex) {
-        item.classList.add('active');
-        item.scrollIntoView({ block: 'nearest' });
-      } else {
-        item.classList.remove('active');
-      }
-    });
-  }
-
-  function openAutocomplete() {
-    autocompleteList.classList.add('open');
-    searchInput.setAttribute('aria-expanded', 'true');
-  }
-
-  function closeAutocomplete() {
-    autocompleteList.classList.remove('open');
-    searchInput.setAttribute('aria-expanded', 'false');
-    activeSuggestionIndex = -1;
-  }
-
-  function isAutocompleteOpen() {
-    return autocompleteList.classList.contains('open');
-  }
-
-  /**
-   * Performs search for a given string query.
-   */
-  function performSearch(query, updateHash = true) {
-    const results = window.SastaSearch.search(query, {
-      category: currentCategory,
-    });
-
-    if (results.length === 0) {
-      showNoResultsView(query);
-      if (updateHash) {
-        window.location.hash = `q=${encodeURIComponent(query)}`;
-      }
-      return;
-    }
-
-    const topResult = results[0];
-    selectMedicineById(topResult.id, updateHash);
-  }
-
-  /**
-   * Selects and renders a medicine by its unique ID.
-   */
-  function selectMedicineById(medId, updateHash = true) {
-    const med = window.SastaSearch.getById(medId);
-    if (!med) {
-      showNoResultsView(medId);
-      return;
-    }
-
-    currentMedicine = med;
-    searchInput.value = med.brand_name;
-    clearBtn.style.display = 'flex';
-    closeAutocomplete();
-
-    if (updateHash) {
-      window.location.hash = `med=${encodeURIComponent(med.id)}`;
-    }
-
-    const breadcrumbCurrentLabel = document.getElementById('breadcrumb-current-label');
-    if (breadcrumbCurrentLabel) {
-      breadcrumbCurrentLabel.textContent = `${med.brand_name} (${med.strength || ''}) - Price & Alternatives`;
-    }
-
-    renderSelectedMedicine(med);
-    renderAlternatives(med, sortSelect.value);
-    showResultsView();
-  }
-
-  /**
-   * Renders the details card of the searched medicine.
-   * Uses simple, plain language with no technical "Formula ID" jargon.
-   */
-  function renderSelectedMedicine(med) {
-    const unit = formatUnitLabel(med.dosage_form);
-    let badgeHtml = '';
-
-    if (med.confidence === 'unverified' || !med.verified) {
-      badgeHtml = `<span class="badge-status unverified">${t('unverified_warning')}</span>`;
-    } else if (med.price_is_estimate) {
-      badgeHtml = `<span class="badge-status estimate">${t('approx_estimate')}</span>`;
-    }
-
-    selectedMedicineCard.innerHTML = `
-      <div class="medicine-header">
-        <div class="med-brand-block">
-          <h2>${escapeHtml(med.brand_name)} ${badgeHtml}</h2>
-          <div class="med-generic">
-            <span class="med-generic-label">${t('results_formula')}</span>
-            <strong>${escapeHtml(med.generic_name)} (${escapeHtml(med.strength)})</strong>
-          </div>
-        </div>
-        <div class="med-price-block">
-          <div class="unit-price-label">${t('results_est_price')}</div>
-          <div class="unit-price-val">${formatPKR(med.unit_price_pkr)} <span class="unit-price-sub">/ ${unit}</span></div>
-          <div class="pack-price-val">${formatPKR(med.pack_price_pkr)} ${t('results_pack_of')} ${med.pack_size} ${escapeHtml(med.pack_unit)}</div>
-        </div>
-      </div>
-
-      <div class="medicine-grid">
-        <div class="info-item">
-          <span class="info-label">${t('results_dosage')}</span>
-          <span class="info-value">${escapeHtml(med.dosage_form)}</span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">${t('results_manufacturer')}</span>
-          <span class="info-value">${escapeHtml(med.manufacturer)}</span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">${t('results_category')}</span>
-          <span class="info-value">${escapeHtml(med.category)}</span>
-        </div>
-      </div>
-
-      <div class="med-actions-footer">
-        <button type="button" class="nearby-stores-toggle-btn" id="med-card-nearby-btn" aria-label="${t('find_nearby_stores_btn')}">
-          <span aria-hidden="true">📍</span> <span>${t('find_nearby_stores_btn')}</span>
-        </button>
-      </div>
-    `;
-  }
-
-  /**
-   * Builds formatted WhatsApp share text in English or Urdu with medicine comparison and medical disclaimer.
-   */
-  function buildWhatsAppShareText(med, alt, unit) {
-    const formulaStr = `${alt.generic_name} ${alt.strength}`;
-    let text = t('share_msg_header');
-    text += t('share_msg_original', {
-      brand: med.brand_name,
-      mfg: med.manufacturer,
-      price: formatPKR(med.unit_price_pkr),
-      unit: unit,
-    });
-    text += t('share_msg_alt', {
-      altBrand: alt.brand_name,
-      altMfg: alt.manufacturer,
-      altPrice: formatPKR(alt.unit_price_pkr),
-      unit: unit,
-      percent: alt.percent_savings,
-      diff: formatPKR(alt.unit_difference_pkr),
-      formula: formulaStr,
-    });
-    text += t('share_msg_disclaimer');
-    return text;
-  }
-
-  /**
-   * Renders the generic alternatives list, savings banner, and sort controls.
-   */
-  function renderAlternatives(med, sortBy = 'price_asc') {
-    const result = window.SastaSearch.getAlternatives(med, { sortBy });
-    const alternatives = result.alternatives;
-    const cheapest = result.cheapestAlternative;
-    const unit = formatUnitLabel(med.dosage_form);
-
-    // 1. Savings Spotlight Banner (Understandable in under 2 seconds)
-    if (cheapest && cheapest.is_cheaper && cheapest.percent_savings > 0) {
-      savingsSpotlight.style.display = 'flex';
-      const spotlightTitle = t('spotlight_title', { percent: cheapest.percent_savings });
-      const spotlightDesc = t('spotlight_desc', {
-        from: escapeHtml(med.brand_name),
-        to: escapeHtml(cheapest.brand_name),
-        mfg: escapeHtml(cheapest.manufacturer),
-        savings: formatPKR(cheapest.unit_difference_pkr),
-        unit,
-      });
-
-      const shareText = buildWhatsAppShareText(med, cheapest, unit);
-      const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
-
-      savingsSpotlight.innerHTML = `
-        <div class="spotlight-left">
-          <div class="spotlight-icon" aria-hidden="true">💰</div>
-          <div>
-            <div class="spotlight-title">${spotlightTitle}</div>
-            <div class="spotlight-desc">${spotlightDesc}</div>
-          </div>
-        </div>
-        <div class="spotlight-right">
-          <div class="spotlight-badge">
-            ${t('spotlight_cheapest_label')} ${formatPKR(cheapest.unit_price_pkr)} / ${unit}
-          </div>
-          <div class="spotlight-action-buttons">
-            <a href="${whatsappUrl}" target="_blank" rel="noopener noreferrer" class="whatsapp-share-btn" aria-label="${t('share_whatsapp_title')}">
-              <span aria-hidden="true">💬</span> ${t('share_whatsapp')}
-            </a>
-            <button type="button" class="nearby-stores-toggle-btn spotlight-nearby-btn" id="spotlight-nearby-btn" aria-label="${t('find_nearby_stores_btn')}">
-              <span aria-hidden="true">📍</span> <span>${t('find_nearby_stores_btn')}</span>
-            </button>
-          </div>
-        </div>
-      `;
-    } else {
-      savingsSpotlight.style.display = 'none';
-      savingsSpotlight.innerHTML = '';
-    }
-
-    // 2. Alternatives Toolbar & List
-    if (alternatives.length > 0) {
-      alternativesToolbar.style.display = 'flex';
-      const brandsText = window.SastaI18n && window.SastaI18n.getLanguage() === 'ur'
-        ? `${alternatives.length} متبادل ملے`
-        : `${alternatives.length} brand${alternatives.length > 1 ? 's' : ''} found`;
-      alternativesCount.textContent = brandsText;
-      zeroAlternativesCard.style.display = 'none';
-
-      const minPrice = Math.min(...alternatives.map((a) => a.unit_price_pkr));
-
-      alternativesList.innerHTML = alternatives
-        .map((alt) => {
-          const isCheapestBrand = alt.unit_price_pkr === minPrice && alt.unit_price_pkr < med.unit_price_pkr;
-          const altUnit = formatUnitLabel(alt.dosage_form);
-
-          let savingsBadgeHtml = '';
-          if (alt.is_cheaper) {
-            savingsBadgeHtml = `
-              <span class="savings-tag cheaper" role="status">
-                <span aria-hidden="true">📉</span>
-                <strong>${t('badge_cheaper')}:</strong> ${t('save_percent', { percent: alt.percent_savings, amount: formatPKR(alt.unit_difference_pkr), unit: altUnit })}
-              </span>
-            `;
-          } else if (alt.is_more_expensive) {
-            const extra = Math.abs(alt.unit_difference_pkr);
-            savingsBadgeHtml = `
-              <span class="savings-tag more-expensive" role="status">
-                <strong>${t('badge_more_expensive')}:</strong> ${t('more_expensive', { amount: formatPKR(extra), unit: altUnit })}
-              </span>
-            `;
-          } else {
-            savingsBadgeHtml = `
-              <span class="savings-tag same" role="status">
-                <strong>${t('badge_same')}:</strong> ${t('same_price', { amount: formatPKR(alt.unit_price_pkr), unit: altUnit })}
-              </span>
-            `;
-          }
-
-          const cardClass = isCheapestBrand ? 'alt-card is-cheapest' : 'alt-card';
-          const ribbonHtml = isCheapestBrand ? `<div class="cheapest-ribbon">${t('badge_best_value')}</div>` : '';
-
-          const altShareText = buildWhatsAppShareText(med, alt, altUnit);
-          const altWhatsAppUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(altShareText)}`;
-
-          return `
-          <div class="${cardClass}" data-med-id="${escapeHtml(alt.id)}">
-            ${ribbonHtml}
-            <div class="alt-card-header">
-              <div class="alt-brand-group">
-                <h4>${escapeHtml(alt.brand_name)}</h4>
-                <div class="alt-manufacturer">${escapeHtml(alt.manufacturer)}</div>
-              </div>
-              <div class="alt-pricing-group">
-                <div class="alt-unit-price">${formatPKR(alt.unit_price_pkr)} <span class="alt-unit-price-sub">/ ${altUnit}</span></div>
-                <div class="alt-pack-info">${formatPKR(alt.pack_price_pkr)} ${t('results_pack_of')} ${alt.pack_size}</div>
-              </div>
-            </div>
-            <div class="alt-card-footer">
-              <div class="same-salt-badge">
-                <span aria-hidden="true">✓</span> ${t('same_salt_formula')} <strong>${escapeHtml(alt.generic_name)} ${escapeHtml(alt.strength)}</strong>
-              </div>
-              <div class="alt-footer-actions">
-                <div>${savingsBadgeHtml}</div>
-                ${alt.is_cheaper ? `
-                <a href="${altWhatsAppUrl}" target="_blank" rel="noopener noreferrer" class="whatsapp-share-btn-mini" aria-label="${t('share_whatsapp_title')}">
-                  <span aria-hidden="true">💬</span> ${t('share_whatsapp')}
-                </a>` : ''}
-              </div>
-            </div>
-          </div>
-        `;
-        })
-        .join('');
-    } else {
-      // 3. Zero Alternatives Found
-      alternativesToolbar.style.display = 'none';
-      alternativesList.innerHTML = '';
-      zeroAlternativesCard.style.display = 'block';
-      zeroAlternativesDesc.innerHTML = t('zero_alt_desc', {
-        formula: `${escapeHtml(med.generic_name)} ${escapeHtml(med.strength)}`,
-        mfg: escapeHtml(med.manufacturer),
-      });
-    }
-  }
-
-  /**
-   * Opens the nearby stores section and initiates location resolution.
-   */
-  async function openNearbyStoresSection() {
-    if (!nearbyStoresSection) return;
-    nearbyStoresSection.style.display = 'block';
-    nearbyStoresSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-    if (cachedUserCoords) {
-      renderStoresFromCoordinates(cachedUserCoords.latitude, cachedUserCoords.longitude);
-    } else {
-      renderNearbyStoresLocationPrompt();
-    }
-  }
-
-  function closeNearbyStoresSection() {
-    if (nearbyStoresSection) {
-      nearbyStoresSection.style.display = 'none';
-    }
-  }
-
-  /**
-   * Renders the initial friendly location permission prompt.
-   */
-  function renderNearbyStoresLocationPrompt() {
-    if (!storeLocationBar) return;
-    const popularCities = ['Karachi', 'Lahore', 'Islamabad', 'Rawalpindi', 'Faisalabad', 'Multan', 'Peshawar', 'Quetta', 'Hyderabad', 'Gujranwala', 'Sialkot', 'Abbottabad'];
-
-    storeLocationBar.innerHTML = `
-      <div class="location-prompt-box">
-        <div class="location-prompt-content">
-          <span class="location-prompt-icon" aria-hidden="true">📍</span>
-          <div class="location-prompt-text">
-            <strong>${t('location_prompt_text')}</strong>
-          </div>
-        </div>
-        <div class="location-prompt-actions">
-          <button type="button" class="btn-location-action" id="request-location-btn">
-            <span aria-hidden="true">🎯</span> <span>${t('find_nearby_stores_btn')}</span>
-          </button>
-          <button type="button" class="btn-location-secondary" id="manual-location-toggle-btn">
-            <span>${t('manual_area_btn')}</span>
-          </button>
-        </div>
-      </div>
-      <div class="store-quick-cities" style="margin-top: 0.75rem;">
-        <span class="store-quick-cities-label">${t('quick_cities_label')}</span>
-        <div class="store-city-chips-row">
-          ${popularCities
-            .map((c) => {
-              const isActive = c.toLowerCase() === (currentStoresQuery || '').toLowerCase();
-              return `<button type="button" class="store-city-chip ${isActive ? 'active' : ''}" data-city="${c}">${c}</button>`;
-            })
-            .join('')}
-        </div>
-      </div>
-    `;
-
-    const requestLocationBtn = document.getElementById('request-location-btn');
-    if (requestLocationBtn) {
-      requestLocationBtn.addEventListener('click', handleRequestLocation);
-    }
-
-    const manualLocationToggleBtn = document.getElementById('manual-location-toggle-btn');
-    if (manualLocationToggleBtn) {
-      manualLocationToggleBtn.addEventListener('click', () => {
-        renderNearbyStoresDeniedFallback();
-      });
-    }
-
-    // Quick city chips listener
-    storeLocationBar.querySelectorAll('.store-city-chip').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const city = btn.getAttribute('data-city');
-        if (city) {
-          currentStoresQuery = city;
-          storeLocationBar.querySelectorAll('.store-city-chip').forEach((b) => b.classList.remove('active'));
-          btn.classList.add('active');
-          handleManualAreaSearch(city);
-        }
-      });
-    });
-
-    // Pre-populate with default stores while user decides
-    handleManualAreaSearch(currentStoresQuery);
-  }
-
-  /**
-   * Renders fallback manual area search box when location is denied or user opts for manual search.
-   */
-  function renderNearbyStoresDeniedFallback(msg) {
-    if (!storeLocationBar) return;
-    const alertMsg = msg || t('location_denied_msg');
-
-    const popularCities = ['Karachi', 'Lahore', 'Islamabad', 'Rawalpindi', 'Faisalabad', 'Multan', 'Peshawar', 'Quetta', 'Hyderabad', 'Gujranwala', 'Sialkot', 'Abbottabad'];
-
-    storeLocationBar.innerHTML = `
-      <div class="location-denied-box">
-        <p class="location-denied-msg">${alertMsg}</p>
-        <form class="manual-area-form" id="manual-area-form" onsubmit="return false;">
-          <input
-            type="text"
-            id="manual-area-input"
-            class="manual-area-input"
-            placeholder="${t('manual_area_placeholder')}"
-            value="${escapeHtml(currentStoresQuery)}"
-            aria-label="City or area name in Pakistan"
-          />
-          <button type="button" id="manual-area-submit-btn" class="manual-area-submit-btn">
-            ${t('manual_area_btn')}
-          </button>
-        </form>
-        <div class="store-quick-cities">
-          <span class="store-quick-cities-label">${t('quick_cities_label')}</span>
-          <div class="store-city-chips-row">
-            ${popularCities
-              .map((c) => {
-                const isActive = c.toLowerCase() === (currentStoresQuery || '').toLowerCase();
-                return `<button type="button" class="store-city-chip ${isActive ? 'active' : ''}" data-city="${c}">${c}</button>`;
-              })
-              .join('')}
-          </div>
-        </div>
-      </div>
-    `;
-
-    const manualInput = document.getElementById('manual-area-input');
-    const manualSubmitBtn = document.getElementById('manual-area-submit-btn');
-
-    const submitAction = () => {
-      const val = manualInput ? manualInput.value.trim() : '';
-      if (val) {
-        currentStoresQuery = val;
-        handleManualAreaSearch(val);
-      }
-    };
-
-    if (manualSubmitBtn) {
-      manualSubmitBtn.addEventListener('click', submitAction);
-    }
-    if (manualInput) {
-      manualInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          submitAction();
-        }
-      });
-    }
-
-    // Quick city chips listener
-    storeLocationBar.querySelectorAll('.store-city-chip').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const city = btn.getAttribute('data-city');
-        if (city) {
-          currentStoresQuery = city;
-          if (manualInput) manualInput.value = city;
-          storeLocationBar.querySelectorAll('.store-city-chip').forEach((b) => b.classList.remove('active'));
-          btn.classList.add('active');
-          handleManualAreaSearch(city);
-        }
-      });
-    });
-  }
-
-  /**
-   * Handles user tapping "Allow Location".
-   */
-  async function handleRequestLocation() {
-    if (!window.SastaNearbyStores) return;
-    if (storeLocationBar) {
-      storeLocationBar.innerHTML = `
-        <div class="stores-loading-indicator">
-          <span class="loading-spinner" aria-hidden="true">⏳</span>
-          <span>${t('stores_loading')}</span>
-        </div>
-      `;
-    }
-
-    const res = await window.SastaNearbyStores.requestCurrentPosition();
-
-    if (res.success && res.coords) {
-      cachedUserCoords = res.coords;
-      if (storeLocationBar) {
-        storeLocationBar.innerHTML = `
-          <div class="location-success-badge">
-            <span aria-hidden="true">✓</span> Location detected. Showing closest medical stores:
-          </div>
-        `;
-      }
-      renderStoresFromCoordinates(res.coords.latitude, res.coords.longitude);
-    } else {
-      // Permission denied or error -> graceful fallback
-      renderNearbyStoresDeniedFallback();
-      handleManualAreaSearch(currentStoresQuery);
-    }
-  }
-
-  /**
-   * Renders stores based on GPS coordinates.
-   */
-  function renderStoresFromCoordinates(lat, lng) {
-    if (!window.SastaNearbyStores) return;
-    const stores = window.SastaNearbyStores.findStoresNearCoordinates(lat, lng, 12);
-    renderStoresList(stores, { lat, lng });
-  }
-
-  /**
-   * Searches stores by city or area name.
-   */
-  function handleManualAreaSearch(area) {
-    if (!window.SastaNearbyStores) return;
-    const stores = window.SastaNearbyStores.findStoresByCityOrArea(area, 12);
-    renderStoresList(stores, { query: area });
-  }
-
-  /**
-   * Renders store cards with call buttons (tel:), directions buttons, and Live Google Maps integration.
-   */
-  function renderStoresList(stores, context = {}) {
-    // Generate live Google Maps search URL
-    let liveGmapsUrl = 'https://www.google.com/maps/search/pharmacy+medical+store+near+me/';
-    if (window.SastaNearbyStores && typeof window.SastaNearbyStores.getLiveGoogleMapsSearchUrl === 'function') {
-      if (context.lat && context.lng) {
-        liveGmapsUrl = window.SastaNearbyStores.getLiveGoogleMapsSearchUrl(context.lat, context.lng);
-      } else {
-        liveGmapsUrl = window.SastaNearbyStores.getLiveGoogleMapsSearchUrl(null, null, context.query || currentStoresQuery);
-      }
-    }
-
-    // Render Live Google Maps CTA banner
-    const liveGmapsContainer = document.getElementById('live-gmaps-container');
-    if (liveGmapsContainer) {
-      const activeLocation = context.query || (context.lat ? 'your current GPS location' : currentStoresQuery);
-      liveGmapsContainer.innerHTML = `
-        <div class="live-gmaps-banner">
-          <div class="live-gmaps-info">
-            <span class="live-gmaps-badge">${t('live_gmaps_badge')}</span>
-            <h4 class="live-gmaps-title">${t('live_gmaps_title')}</h4>
-            <p class="live-gmaps-desc">${t('live_gmaps_desc')}</p>
-          </div>
-          <a href="${escapeHtml(liveGmapsUrl)}" target="_blank" rel="noopener noreferrer" class="live-gmaps-btn" id="live-gmaps-btn" aria-label="${t('live_gmaps_btn')}">
-            <span aria-hidden="true">🗺️</span> <span>${t('live_gmaps_btn')}</span>
-          </a>
-        </div>
-        <div class="stores-meta-bar">
-          <span class="stores-count-tag">${t('showing_stores_count', { count: stores ? stores.length : 0, location: escapeHtml(activeLocation) })}</span>
-        </div>
-      `;
-    }
-
-    if (!storesGrid) return;
-    if (!stores || stores.length === 0) {
-      storesGrid.innerHTML = `
-        <div class="no-stores-message">${t('no_stores_found')}</div>
-      `;
-      return;
-    }
-
-    storesGrid.innerHTML = stores
-      .map((store) => {
-        const distanceText = store.distance_km !== null && store.distance_km !== undefined
-          ? t('store_distance_km', { distance: store.distance_km })
-          : '';
-
-        // Call Button: Only render if phone number is available
-        const callBtnHtml = store.tel_link
-          ? `<a href="tel:${escapeHtml(store.tel_link)}" class="store-btn store-call-btn" aria-label="${t('store_call_btn')} ${escapeHtml(store.name)}"><span aria-hidden="true">📞</span> ${t('store_call_btn')}</a>`
-          : '';
-
-        // Directions Button: Opens Google Maps with coordinates
-        const directionsBtnHtml = `
-          <a href="${escapeHtml(store.directions_url)}" target="_blank" rel="noopener noreferrer" class="store-btn store-dir-btn" aria-label="${t('store_directions_btn')} ${escapeHtml(store.name)}"><span aria-hidden="true">🗺️</span> ${t('store_directions_btn')}</a>
-        `;
-
-        return `
-          <div class="store-card" data-store-id="${escapeHtml(store.id)}">
-            <div class="store-card-header">
-              <div class="store-name-group">
-                <h4 class="store-name">${escapeHtml(store.name)}</h4>
-                <div class="store-address">${escapeHtml(store.address)}</div>
-              </div>
-              ${distanceText ? `<span class="store-distance-badge">${distanceText}</span>` : ''}
-            </div>
-            <div class="store-card-meta">
-              ${store.phone ? `<span class="store-phone"><span aria-hidden="true">☎️</span> ${escapeHtml(store.phone)}</span>` : '<span class="store-phone-na">No phone listed</span>'}
-              ${store.open_hours ? `<span class="store-hours"><span aria-hidden="true">🕒</span> ${escapeHtml(store.open_hours)}</span>` : ''}
-            </div>
-            <div class="store-actions">
-              ${callBtnHtml}
-              ${directionsBtnHtml}
-            </div>
-          </div>
-        `;
-      })
-      .join('');
-  }
-
-  /**
-   * UI View State Toggles.
-   */
-  function showResultsView() {
-    resultsView.classList.add('active');
-    noResultsView.style.display = 'none';
-    exploreView.style.display = 'none';
-    closeNearbyStoresSection();
-    window.scrollTo({ top: searchInput.offsetTop - 20, behavior: 'smooth' });
-  }
-
-  function showNoResultsView(query = '') {
-    resultsView.classList.remove('active');
-    noResultsView.style.display = 'block';
-    exploreView.style.display = 'none';
-    closeNearbyStoresSection();
-    if (noResultsQueryMsg) {
-      noResultsQueryMsg.textContent = query
-        ? t('no_results_desc', { query: escapeHtml(query) })
-        : t('no_results_desc', { query: '' });
-    }
-    showErrorMessage(`No medicine found matching "${query || 'search'}".`);
-  }
-
-  function showExploreView() {
-    resultsView.classList.remove('active');
-    noResultsView.style.display = 'none';
-    exploreView.style.display = 'block';
-    closeNearbyStoresSection();
-    currentMedicine = null;
-    const breadcrumbCurrentLabel = document.getElementById('breadcrumb-current-label');
-    if (breadcrumbCurrentLabel) {
-      breadcrumbCurrentLabel.textContent = 'Pakistan Medicine Price & Generic Guide';
-    }
-  }
-
-  // Expose for testing & external programmatic use
-  window.SastaApp = {
-    init,
-    performSearch,
-    selectMedicineById,
-    selectCategory,
-    switchLanguage,
-    renderAlternatives,
-    showResultsView,
-    showNoResultsView,
-    showExploreView,
-    openNearbyStoresSection,
-    closeNearbyStoresSection,
-    handleRequestLocation,
-    handleManualAreaSearch,
-    renderStoresList,
-    showSuccessMessage,
-    showErrorMessage,
+  const I18N = window.SDI18n;
+  const t = I18N.t;
+  const $ = (sel, el) => (el || document).querySelector(sel);
+  const $$ = (sel, el) => [...(el || document).querySelectorAll(sel)];
+
+  const state = {
+    ds: null,
+    engine: null,
+    route: { name: 'home' },
+    lastQuery: '',
+    suggestions: [],
+    activeSuggestion: -1,
+    categoryLimit: 30,
+    altSort: 'unit',
   };
 
-  // Initialize and expose promise
-  const initPromise = init();
-  window.__APP_INIT_PROMISE__ = initPromise;
+  // ------------------------------------------------------------------------
+  // Storage helpers (never throw)
+  // ------------------------------------------------------------------------
+  function store(key, fallback) {
+    try {
+      const v = localStorage.getItem(key);
+      return v ? JSON.parse(v) : fallback;
+    } catch (e) {
+      return fallback;
+    }
+  }
+  function save(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* ignore */ }
+  }
 
-  // Register Service Worker for offline PWA functionality
-  if (typeof window !== 'undefined' && 'serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js').catch(() => {
-        // SW registration optional / gracefully ignored if blocked
-      });
+  // ------------------------------------------------------------------------
+  // Formatting
+  // ------------------------------------------------------------------------
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  function rs(v) {
+    if (typeof v !== 'number' || !isFinite(v)) return 'Rs —';
+    const digits = v >= 1000 ? 0 : v >= 100 ? 0 : 2;
+    return 'Rs ' + v.toLocaleString('en-PK', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  }
+
+  function unitWord(med) {
+    if (!med) return t('unit_pack');
+    if (med.unit === 'unit') {
+      if (/capsule/i.test(med.form)) return t('unit_capsule');
+      if (/sachet/i.test(med.form)) return I18N.getLang() === 'ur' ? 'ساشے' : 'sachet';
+      if (/suppositor/i.test(med.form)) return I18N.getLang() === 'ur' ? 'سپوزیٹری' : 'suppository';
+      return t('unit_unit');
+    }
+    return t('unit_' + med.unit) || med.unit;
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso + 'T00:00:00Z');
+    if (isNaN(d)) return iso;
+    return d.toLocaleDateString(I18N.getLang() === 'ur' ? 'ur-PK' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+  }
+
+  function medTitle(med) {
+    const s = med.strength && !med.name.includes(med.strength) ? ' ' + med.strength : '';
+    return med.name + s;
+  }
+
+  function medMeta(med) {
+    return [med.form, med.pack, med.manufacturer].filter(Boolean).join(' · ');
+  }
+
+  function catIcon(icon) {
+    return `<svg class="ic"><use href="#c-${esc(icon || 'pill')}"/></svg>`;
+  }
+
+  function catName(cat) {
+    return I18N.getLang() === 'ur' ? cat.ur : cat.en;
+  }
+
+  function highlight(text, q) {
+    const s = esc(text);
+    const qq = String(q || '').trim();
+    if (qq.length < 2) return s;
+    const i = s.toLowerCase().indexOf(qq.toLowerCase());
+    if (i < 0) return s;
+    return s.slice(0, i) + '<mark>' + s.slice(i, i + qq.length) + '</mark>' + s.slice(i + qq.length);
+  }
+
+  let toastTimer;
+  function toast(msg) {
+    const el = $('#toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+  }
+
+  // ------------------------------------------------------------------------
+  // My Medicines (cabinet) & recents
+  // ------------------------------------------------------------------------
+  const cabinet = {
+    list() {
+      return store('sd_cabinet', []).filter((x) => state.engine && state.engine.byId(x.id));
+    },
+    has(id) {
+      return store('sd_cabinet', []).some((x) => x.id === id);
+    },
+    add(id) {
+      const list = store('sd_cabinet', []);
+      if (list.some((x) => x.id === id)) return false;
+      const med = state.engine.byId(id);
+      list.push({ id, qty: med && med.unit === 'unit' ? 1 : 1 });
+      save('sd_cabinet', list);
+      updateCabinetBadge();
+      return true;
+    },
+    remove(id) {
+      save('sd_cabinet', store('sd_cabinet', []).filter((x) => x.id !== id));
+      updateCabinetBadge();
+    },
+    replace(oldId, newId) {
+      const list = store('sd_cabinet', []);
+      const item = list.find((x) => x.id === oldId);
+      if (!item) return;
+      if (list.some((x) => x.id === newId)) {
+        save('sd_cabinet', list.filter((x) => x.id !== oldId));
+      } else {
+        item.id = newId;
+        save('sd_cabinet', list);
+      }
+      updateCabinetBadge();
+    },
+    setQty(id, qty) {
+      const list = store('sd_cabinet', []);
+      const item = list.find((x) => x.id === id);
+      if (item) item.qty = Math.max(0, Math.min(99, qty));
+      save('sd_cabinet', list);
+    },
+  };
+
+  /**
+   * Monthly cost of a cabinet entry. qty = units per day for tablets/capsules,
+   * otherwise packs per month. `asMed` prices the same quantity with another
+   * (same-formula) product, scaled to the original pack size.
+   */
+  function monthlyCost(med, qty, asMed) {
+    const p = asMed || med;
+    if (med.unit === 'unit') return p.unitPrice * qty * 30;
+    return p.unitPrice * med.units * qty;
+  }
+
+  function updateCabinetBadge() {
+    const n = store('sd_cabinet', []).length;
+    ['#cabinet-count', '#cabinet-count-m'].forEach((s) => {
+      const el = $(s);
+      if (!el) return;
+      el.textContent = n;
+      el.hidden = n === 0;
     });
   }
+
+  function pushRecent(id) {
+    const list = store('sd_recent', []).filter((x) => x !== id);
+    list.unshift(id);
+    save('sd_recent', list.slice(0, 10));
+  }
+
+  // ------------------------------------------------------------------------
+  // Routing
+  // ------------------------------------------------------------------------
+  const VIEWS = ['home', 'search', 'category', 'medicine', 'cabinet', 'empty'];
+
+  function parseHash() {
+    const h = decodeURIComponent(location.hash.replace(/^#\/?/, ''));
+    const [name, ...rest] = h.split('/');
+    const arg = rest.join('/');
+    if (name === 'search' && arg) return { name: 'search', q: arg };
+    if (name === 'medicine' && arg) return { name: 'medicine', id: arg };
+    if (name === 'category' && arg) return { name: 'category', id: arg };
+    if (name === 'my-medicines') return { name: 'cabinet' };
+    return { name: 'home' };
+  }
+
+  function go(path) {
+    if (location.hash === '#' + path) render();
+    else location.hash = path;
+  }
+
+  function showView(name) {
+    VIEWS.forEach((v) => {
+      const el = $('#view-' + v);
+      if (el) el.hidden = v !== name;
+    });
+    $$('[data-route]').forEach((a) => a.classList.toggle('active', a.dataset.route === (name === 'cabinet' ? 'cabinet' : name === 'home' ? 'home' : '')));
+  }
+
+  function render() {
+    if (!state.engine) return;
+    const r = parseHash();
+    state.route = r;
+    closeSuggest();
+    if (r.name === 'search') renderSearch(r.q);
+    else if (r.name === 'medicine') renderMedicine(r.id);
+    else if (r.name === 'category') renderCategory(r.id, true);
+    else if (r.name === 'cabinet') renderCabinet();
+    else renderHome();
+    window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
+  }
+
+  // ------------------------------------------------------------------------
+  // Home
+  // ------------------------------------------------------------------------
+  function renderHome() {
+    showView('home');
+    document.title = 'Sasta Dawa Finder — Compare medicine prices & find cheaper generics in Pakistan';
+    const { engine, ds } = state;
+
+    // quick chips
+    const chips = engine.popular(9);
+    $('#quick-chips').innerHTML = chips
+      .map((m) => `<a class="chip" href="#/medicine/${encodeURIComponent(m.id)}">${esc(m.name)}</a>`)
+      .join('');
+
+    $('#data-stamp').textContent = t('data_stamp', {
+      products: ds.items.length.toLocaleString('en-PK'),
+      date: fmtDate(ds.meta.latest_price_date),
+    });
+
+    // recent
+    const recent = store('sd_recent', []).map((id) => engine.byId(id)).filter(Boolean);
+    $('#recent-block').hidden = recent.length === 0;
+    $('#recent-list').innerHTML = recent
+      .map((m) => `<a class="recent-card" href="#/medicine/${encodeURIComponent(m.id)}"><b>${esc(medTitle(m))}</b><span>${esc(m.generic)} · ${rs(m.unitPrice)}/${esc(unitWord(m))}</span></a>`)
+      .join('');
+
+    // categories
+    const counts = engine.categoryCounts();
+    $('#cat-grid').innerHTML = ds.categories
+      .filter((c) => (counts.get(c.id) || 0) > 0 && c.id !== 'other')
+      .map((c) => `<a class="cat-card" href="#/category/${c.id}"><span class="cat-ic">${catIcon(c.icon)}</span><span><span class="cat-name">${esc(catName(c))}</span><br><span class="cat-n">${(counts.get(c.id) || 0).toLocaleString('en-PK')}</span></span></a>`)
+      .join('');
+
+    // deals
+    const deals = engine.topSavings(6);
+    $('#deal-grid').innerHTML = deals.length
+      ? deals
+        .map(({ med, s }) => {
+          const u = unitWord(med);
+          return `<a class="deal" href="#/medicine/${encodeURIComponent(med.id)}">
+            <div class="deal-top"><div><div class="deal-name">${esc(medTitle(med))}</div><div class="deal-gen">${esc(med.generic)} · ${esc(med.form)}</div></div>
+            <span class="save-pill">−${s.percent}%</span></div>
+            <div class="deal-compare">
+              <span class="lbl">${esc(med.name)}</span><span class="val num">${rs(med.unitPrice)}/${esc(u)}</span>
+              <span class="lbl cheap">${esc(s.cheapest.name)}</span><span class="val num cheap">${rs(s.cheapest.unitPrice)}/${esc(u)}</span>
+            </div></a>`;
+        })
+        .join('')
+      : '';
+    $('#deal-grid').closest('.block').hidden = deals.length === 0;
+  }
+
+  // ------------------------------------------------------------------------
+  // Search results
+  // ------------------------------------------------------------------------
+  function resultRow(med, q, ctx, packs) {
+    const s = state.engine.savings(med);
+    const tags = [];
+    if (s && s.percent >= 5) tags.push(`<span class="tag save">${esc(t('save_upto', { pct: s.percent }))}</span>`);
+    const g = med.group ? (state.ds.groups.get(med.group) || []).length : 1;
+    if (g > 1) tags.push(`<span class="tag">${esc(t('brands_n', { n: g }))}</span>`);
+    if (packs > 1) tags.push(`<span class="tag">${esc(t('pack_sizes', { n: packs }))}</span>`);
+    return `<a class="result" href="#/medicine/${encodeURIComponent(med.id)}">
+      <div><div class="r-name">${highlight(med.name, q)} <span class="r-strength">${esc(med.strength)}</span></div>
+      <div class="r-meta">${highlight(med.generic, q)} · ${esc(med.form)} · ${esc(med.pack)}</div>
+      ${tags.length ? `<div class="r-tags">${tags.join('')}</div>` : ''}</div>
+      <div class="r-price"><b class="num">${rs(med.unitPrice)}</b><span>${esc(t('per_unit', { unit: unitWord(med) }))}</span></div>
+    </a>`;
+  }
+
+  function renderSearch(q) {
+    state.lastQuery = q;
+    const input = $('#search-input');
+    if (document.activeElement !== input) input.value = q;
+    updateSearchButtons();
+    const raw = state.engine.search(q, { limit: 200 });
+    if (!raw.length) return renderNotFound(q);
+    // One row per brand + strength + form (cheapest pack per unit), with a count of pack sizes
+    const byKey = new Map();
+    for (const r of raw) {
+      const k = r.med.name + '|' + r.med.strength + '|' + r.med.form;
+      const prev = byKey.get(k);
+      if (!prev) byKey.set(k, { ...r, packs: 1 });
+      else {
+        prev.packs++;
+        if (r.med.unitPrice < prev.med.unitPrice) prev.med = r.med;
+      }
+    }
+    const results = [...byKey.values()].slice(0, 80);
+    showView('search');
+    document.title = `${q} — prices & cheaper alternatives | Sasta Dawa Finder`;
+    $('#search-title').textContent = t('results_for', { q });
+    $('#search-sub').textContent = t('results_count', { n: results.length >= 80 ? '80+' : results.length });
+    $('#search-results').innerHTML =
+      results.map((r) => resultRow(r.med, q, null, r.packs)).join('') +
+      (results.length >= 80 ? `<p class="more-note">${esc(t('results_more', { n: 80 }))}</p>` : '');
+  }
+
+  function renderNotFound(q) {
+    showView('empty');
+    $('#empty-title').textContent = t('not_found_t', { q });
+    $('#empty-sub').textContent = t('not_found_d');
+    const dym = state.engine.didYouMean(q, 6);
+    $('#empty-suggest').innerHTML = dym.length
+      ? `<span class="muted small" style="width:100%">${esc(t('did_you_mean'))}</span>` +
+        dym.map((d) => `<a class="chip" href="#/search/${encodeURIComponent(d)}">${esc(d)}</a>`).join('')
+      : '';
+    $('#empty-ask').onclick = () => window.SDAssistantUI && window.SDAssistantUI.open(q);
+  }
+
+  // ------------------------------------------------------------------------
+  // Category
+  // ------------------------------------------------------------------------
+  function renderCategory(id, reset) {
+    const cat = state.ds.categories.find((c) => c.id === id);
+    if (!cat) return go('/');
+    if (reset) {
+      state.categoryLimit = 30;
+      $('#category-filter').value = '';
+      const forms = state.engine.categoryForms(id);
+      $('#category-form').innerHTML =
+        `<option value="">${esc(t('all_forms'))}</option>` +
+        forms.map((f) => `<option value="${esc(f.form)}">${esc(f.form)} (${f.count})</option>`).join('');
+    }
+    showView('category');
+    document.title = `${cat.en} medicines — prices in Pakistan | Sasta Dawa Finder`;
+    $('#category-title').textContent = catName(cat);
+    $('#category-filter').placeholder = t('filter_placeholder');
+    const fams = state.engine.categoryFamilies(id, { filter: $('#category-filter').value, form: $('#category-form').value });
+    const products = fams.reduce((n, f) => n + f.count, 0);
+    $('#category-sub').textContent = t('cat_count', { n: fams.length.toLocaleString('en-PK'), p: products.toLocaleString('en-PK') });
+    const shown = fams.slice(0, state.categoryLimit);
+    $('#category-list').innerHTML = shown
+      .map((f) => {
+        const c = f.cheapest;
+        const u = unitWord(c);
+        const brands = f.count === 1 ? t('brand_1') : t('brands_n', { n: f.count });
+        const range = f.count > 1 && f.max > f.min ? `${rs(f.min)} – ${rs(f.max)}` : rs(f.min);
+        return `<a class="group-row" href="#/medicine/${encodeURIComponent(c.id)}">
+          <div class="g-name">${esc(f.generic)} <span class="muted">${esc(f.strength)}</span></div>
+          <div class="g-meta">${esc(f.form)} · ${esc(brands)}${f.count > 1 ? ' · ' + esc(range) : ''}</div>
+          <div class="g-price"><b class="num">${rs(f.min)}</b><span class="muted">${esc(t('per_unit', { unit: u }))}</span></div>
+        </a>`;
+      })
+      .join('');
+    $('#category-more').hidden = fams.length <= state.categoryLimit;
+  }
+
+  // ------------------------------------------------------------------------
+  // Medicine detail
+  // ------------------------------------------------------------------------
+  const NARROW_THERAPEUTIC = /levothyroxine|thyroxine|warfarin|phenytoin|carbamazepine|valpro|lithium|digoxin|tacrolimus|ciclosporin|cyclosporine|amiodarone|lamotrigine|levetiracetam|clozapine|theophylline|methotrexate/i;
+
+  function renderMedicine(id) {
+    const { engine } = state;
+    const med = engine.byId(id);
+    if (!med) return renderNotFound(id.replace(/-\d+$/, '').replace(/-/g, ' '));
+    showView('medicine');
+    pushRecent(med.id);
+    document.title = `${medTitle(med)} ${med.form} price in Pakistan — cheaper alternatives | Sasta Dawa Finder`;
+    $('#medicine-back').setAttribute('href', state.lastQuery ? '#/search/' + encodeURIComponent(state.lastQuery) : '#/');
+
+    const u = unitWord(med);
+    const inCab = cabinet.has(med.id);
+    const cat = state.ds.categories.find((c) => c.id === med.category);
+    $('#med-hero').innerHTML = `
+      <div class="mh-top">
+        <div>
+          <h1 class="mh-name">${esc(medTitle(med))}</h1>
+          <p class="mh-product">${esc(med.product)}</p>
+        </div>
+        ${cat && cat.id !== 'other' ? `<a class="cat-ic" href="#/category/${cat.id}" title="${esc(catName(cat))}" aria-label="${esc(catName(cat))}">${catIcon(cat.icon)}</a>` : ''}
+      </div>
+      <div class="mh-formula"><small>${esc(t('formula'))}</small><b>${esc(med.generic)}${med.strength ? ' — ' + esc(med.strength) : ''}</b></div>
+      <div class="mh-prices">
+        <div class="mh-price"><small>${esc(t('pack_price'))}</small><b class="num">${rs(med.price)}</b></div>
+        <div class="mh-price"><small>${esc(t('unit_price', { unit: u }))}</small><b class="num">${med.unit === 'pack' ? '—' : rs(med.unitPrice)}</b></div>
+      </div>
+      ${'{{SAVINGS}}'}
+      <dl class="mh-facts">
+        <dt>${esc(t('form_label'))}</dt><dd>${esc(med.form)}</dd>
+        <dt>${esc(t('pack_label'))}</dt><dd>${esc(med.pack || '—')}</dd>
+        <dt>${esc(t('maker'))}</dt><dd>${esc(med.manufacturer || '—')}</dd>
+        <dt>${esc(t('effective'))}</dt><dd>${esc(fmtDate(med.effective))}</dd>
+        <dt>${esc(t('reg_no'))}</dt><dd>${esc(med.reg || '—')}</dd>
+      </dl>
+      <div class="mh-actions">
+        <button type="button" class="btn ${inCab ? 'btn-soft' : 'btn-primary'}" id="btn-cabinet">
+          <svg class="ic"><use href="#${inCab ? 'i-check' : 'i-plus'}"/></svg><span>${esc(t(inCab ? 'in_cabinet' : 'add_cabinet'))}</span></button>
+        <button type="button" class="btn btn-ghost" id="btn-share"><svg class="ic"><use href="#i-share"/></svg><span>${esc(t('share'))}</span></button>
+        <a class="btn btn-ghost" href="https://www.google.com/maps/search/pharmacy+near+me" target="_blank" rel="noopener"><svg class="ic"><use href="#i-map"/></svg><span>${esc(t('find_pharmacy'))}</span></a>
+      </div>`;
+
+    const onCabinet = () => {
+      if (cabinet.has(med.id)) {
+        cabinet.remove(med.id);
+        toast(t('removed'));
+      } else {
+        cabinet.add(med.id);
+        toast(t('added'));
+      }
+      renderMedicine(med.id);
+    };
+
+    // savings
+    const s = engine.savings(med);
+    const alts = engine.alternatives(med, state.altSort);
+    let savingsHtml = '';
+    if (s && s.percent >= 1) {
+      savingsHtml = `<div class="savings"><span class="big">−${s.percent}%</span><div>
+        <p class="s-title">${esc(t('save_banner', { pct: s.percent, name: s.cheapest.name, price: rs(s.cheapest.unitPrice), unit: u })).replace(esc(s.cheapest.name), `<a href="#/medicine/${encodeURIComponent(s.cheapest.id)}">${esc(s.cheapest.name)}</a>`)}</p>
+        ${med.unit !== 'pack' ? `<p class="s-sub">${esc(t('save_detail', { pack: rs(s.perPack), units: med.units + ' ' + u }))}</p>` : ''}
+      </div></div>`;
+    } else if (alts.length > 1) {
+      savingsHtml = `<div class="savings neutral"><svg class="ic"><use href="#i-check"/></svg><p class="s-title">${esc(t('cheapest_already'))}</p></div>`;
+    }
+    let noticeHtml = '';
+    if (NARROW_THERAPEUTIC.test(med.generic) && alts.length > 1) {
+      noticeHtml = `<div class="notice"><svg class="ic"><use href="#i-alert"/></svg><span>${esc(t('switch_warning'))}</span></div>`;
+    }
+    $('#med-hero').innerHTML = $('#med-hero').innerHTML.replace('{{SAVINGS}}', savingsHtml);
+    $('#btn-cabinet').onclick = onCabinet;
+    $('#btn-share').onclick = () => shareMedicine(med);
+    $('#med-savings').innerHTML = noticeHtml;
+
+    // strengths
+    const str = engine.strengths(med);
+    $('#med-strengths').innerHTML = str.length
+      ? `<div class="strengths"><h3>${esc(t('strengths_title', { generic: med.generic }))}</h3><div class="strength-chips">${str
+        .map(({ med: m, count }) => `<a class="strength-chip" href="#/medicine/${encodeURIComponent(m.id)}"><b>${esc(m.strength || m.name)} · ${esc(m.form)}</b><span>${esc(count > 1 ? t('from_price', { price: rs(m.unitPrice) }) : rs(m.unitPrice))}/${esc(unitWord(m))}</span></a>`)
+        .join('')}</div></div>`
+      : '';
+
+    renderAlternatives(med);
+  }
+
+  function renderAlternatives(med) {
+    const alts = state.engine.alternatives(med, state.altSort);
+    const u = unitWord(med);
+    $('#alt-count').textContent = alts.length;
+    $('#alt-sort').value = state.altSort;
+    if (alts.length <= 1) {
+      $('#alt-list').innerHTML = `<div class="alt-empty"><p>${esc(t('no_alts'))}</p>${state.engine.strengths(med).length ? `<p class="small">${esc(t('no_alts_hint'))}</p>` : ''}</div>`;
+      return;
+    }
+    const max = Math.max(...alts.map((a) => a.unitPrice));
+    const minPrice = Math.min(...alts.map((a) => a.unitPrice));
+    $('#alt-list').innerHTML = alts
+      .map((a) => {
+        const isCur = a.id === med.id;
+        const pct = med.unitPrice > 0 ? Math.round(((a.unitPrice - med.unitPrice) / med.unitPrice) * 100) : 0;
+        const delta = isCur
+          ? `<span class="tag brand">${esc(t('this_one'))}</span>`
+          : pct < 0
+            ? `<span class="alt-delta down">${esc(t('cheaper_by', { pct: -pct }))}</span>`
+            : pct > 0
+              ? `<span class="alt-delta up">${esc(t('costlier_by', { pct }))}</span>`
+              : `<span class="alt-delta">${esc(t('same_price'))}</span>`;
+        const cheapest = a.unitPrice === minPrice;
+        return `<a class="alt${isCur ? ' current' : ''}${cheapest ? ' cheapest' : ''}" href="#/medicine/${encodeURIComponent(a.id)}">
+          <div class="alt-name">${esc(a.name)} ${cheapest ? `<span class="tag save">${esc(t('cheapest_tag'))}</span>` : ''} ${delta}</div>
+          <div class="alt-meta">${esc(a.manufacturer)} · ${esc(a.pack)} · ${rs(a.price)}</div>
+          <div class="alt-price"><b class="num">${a.unit === 'pack' ? rs(a.price) : rs(a.unitPrice)}</b><span>${esc(t('per_unit', { unit: u }))}</span></div>
+          <div class="alt-bar" aria-hidden="true"><i style="width:${Math.max(4, Math.round((a.unitPrice / max) * 100))}%"></i></div>
+        </a>`;
+      })
+      .join('');
+  }
+
+  function shareText(med) {
+    const s = state.engine.savings(med);
+    const u = unitWord(med);
+    let txt = `${medTitle(med)} (${med.generic}) — ${rs(med.price)} / ${med.pack} [DRAP MRP]`;
+    if (s) txt += `\nSame formula, cheaper: ${s.cheapest.name} — ${rs(s.cheapest.unitPrice)}/${u} vs ${rs(med.unitPrice)}/${u} (save ${s.percent}%)`;
+    txt += '\nAsk your pharmacist before switching.';
+    return txt;
+  }
+
+  async function shareMedicine(med) {
+    const url = location.origin + location.pathname + '#/medicine/' + encodeURIComponent(med.id);
+    const text = shareText(med);
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: medTitle(med), text, url });
+        return;
+      } catch (e) {
+        if (e && e.name === 'AbortError') return;
+      }
+    }
+    window.open('https://wa.me/?text=' + encodeURIComponent(text + '\n' + url), '_blank', 'noopener');
+  }
+
+  // ------------------------------------------------------------------------
+  // My Medicines view
+  // ------------------------------------------------------------------------
+  function renderCabinet() {
+    showView('cabinet');
+    document.title = 'My Medicines — monthly cost planner | Sasta Dawa Finder';
+    const list = cabinet.list();
+    const body = $('#cabinet-body');
+    if (!list.length) {
+      body.innerHTML = `<div class="empty"><div class="empty-ic"><svg class="ic"><use href="#i-list"/></svg></div>
+        <h2 class="view-title">${esc(t('cabinet_empty_t'))}</h2><p class="view-sub">${esc(t('cabinet_empty_d'))}</p>
+        <div class="chips center" style="margin-top:16px">${state.engine.popular(6).map((m) => `<a class="chip" href="#/medicine/${encodeURIComponent(m.id)}">${esc(m.name)}</a>`).join('')}</div></div>`;
+      return;
+    }
+    let now = 0;
+    let best = 0;
+    const rows = list.map(({ id, qty }) => {
+      const med = state.engine.byId(id);
+      const cheap = state.engine.cheapest(med);
+      const costNow = monthlyCost(med, qty);
+      const costBest = monthlyCost(med, qty, cheap);
+      now += costNow;
+      best += Math.min(costNow, costBest);
+      const perDay = med.unit === 'unit';
+      const saving = costNow - costBest;
+      return `<div class="cab-item" data-id="${esc(id)}">
+        <div><div class="cab-name"><a href="#/medicine/${encodeURIComponent(id)}">${esc(medTitle(med))}</a></div>
+          <div class="cab-meta">${esc(med.generic)} · ${esc(med.form)} · ${rs(perDay ? med.unitPrice : med.price)}/${esc(perDay ? unitWord(med) : t('unit_pack'))}</div></div>
+        <div class="cab-qty">
+          <div class="stepper"><button type="button" class="icon-btn ghost sm" data-act="dec" aria-label="Less"><svg class="ic"><use href="#i-minus"/></svg></button>
+          <input type="number" inputmode="decimal" min="0" max="99" step="${perDay ? 0.5 : 1}" value="${qty}" aria-label="Quantity">
+          <button type="button" class="icon-btn ghost sm" data-act="inc" aria-label="More"><svg class="ic"><use href="#i-plus"/></svg></button></div>
+          <span class="stepper-label">${esc(perDay ? t('per_day') : t('packs_month'))}</span>
+          <button type="button" class="icon-btn ghost sm" data-act="remove" aria-label="${esc(t('remove'))}"><svg class="ic"><use href="#i-trash"/></svg></button>
+        </div>
+        <div class="cab-cost"><b class="num">${rs(costNow)}</b><span>${esc(t('per_month'))}</span></div>
+        ${cheap.id !== med.id && saving > 0.5 ? `<div class="cab-switch"><span>${esc(t('switch_to', { name: cheap.name }))}: <b class="num">${rs(costBest)}</b>/${esc(t('per_month'))}</span>
+          <span><a href="#/medicine/${encodeURIComponent(cheap.id)}">${esc(t('view_details'))}</a> · <button type="button" class="btn btn-save sm" data-act="switch" data-to="${esc(cheap.id)}">${esc(t('switch_save', { amount: rs(saving) }))}</button></span></div>` : ''}
+      </div>`;
+    });
+    const saveAmt = Math.max(0, now - best);
+    body.innerHTML = `
+      <div class="cab-summary">
+        <div class="stat"><small>${esc(t('monthly_now'))}</small><b class="num">${rs(now)}</b></div>
+        <div class="stat"><small>${esc(t('monthly_cheapest'))}</small><b class="num">${rs(best)}</b></div>
+        <div class="stat good"><small>${esc(t('monthly_save'))}</small><b class="num">${rs(saveAmt)}</b><div class="sub">${esc(t('yearly_save', { amount: rs(saveAmt * 12) }))}</div></div>
+      </div>
+      <div class="cab-list">${rows.join('')}</div>
+      <div class="cab-tools">
+        <button type="button" class="btn btn-ghost" id="cab-share"><svg class="ic"><use href="#i-share"/></svg>${esc(t('share_list'))}</button>
+        <button type="button" class="btn btn-ghost" id="cab-print"><svg class="ic"><use href="#i-print"/></svg>${esc(t('print_list'))}</button>
+      </div>
+      <p class="cab-note">${esc(t('cabinet_note'))}</p>`;
+
+    $$('.cab-item', body).forEach((row) => {
+      const id = row.dataset.id;
+      const input = $('input', row);
+      const step = parseFloat(input.step) || 1;
+      row.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-act]');
+        if (!btn) return;
+        const act = btn.dataset.act;
+        if (act === 'inc') cabinet.setQty(id, (parseFloat(input.value) || 0) + step);
+        else if (act === 'dec') cabinet.setQty(id, (parseFloat(input.value) || 0) - step);
+        else if (act === 'remove') { cabinet.remove(id); toast(t('removed')); }
+        else if (act === 'switch') { cabinet.replace(id, btn.dataset.to); }
+        renderCabinet();
+      });
+      input.addEventListener('change', () => {
+        cabinet.setQty(id, parseFloat(input.value) || 0);
+        renderCabinet();
+      });
+    });
+    $('#cab-print').onclick = () => window.print();
+    $('#cab-share').onclick = () => {
+      const lines = cabinet.list().map(({ id, qty }) => {
+        const m = state.engine.byId(id);
+        const c = state.engine.cheapest(m);
+        return `• ${medTitle(m)} (${m.generic}) — ${rs(monthlyCost(m, qty))}/month` + (c.id !== m.id ? ` → ${c.name}: ${rs(monthlyCost(m, qty, c))}/month` : '');
+      });
+      const text = `My medicines (DRAP prices)\n${lines.join('\n')}\nPossible saving: ${rs(saveAmt)}/month\n— Sasta Dawa Finder`;
+      window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank', 'noopener');
+    };
+  }
+
+  // ------------------------------------------------------------------------
+  // Search box + autocomplete
+  // ------------------------------------------------------------------------
+  function updateSearchButtons() {
+    const has = $('#search-input').value.trim().length > 0;
+    $('#search-clear').hidden = !has;
+  }
+
+  function closeSuggest() {
+    const box = $('#suggest');
+    box.hidden = true;
+    box.innerHTML = '';
+    state.suggestions = [];
+    state.activeSuggestion = -1;
+    $('#search-input').setAttribute('aria-expanded', 'false');
+  }
+
+  function renderSuggest(q) {
+    if (!state.engine || q.trim().length < 2) return closeSuggest();
+    const list = state.engine.suggest(q, 8);
+    state.suggestions = list;
+    state.activeSuggestion = -1;
+    const box = $('#suggest');
+    if (!list.length) {
+      const dym = state.engine.didYouMean(q, 4);
+      if (!dym.length) return closeSuggest();
+      box.innerHTML = `<li class="sg-head" role="presentation">${esc(t('did_you_mean'))}</li>` + dym.map((d) => `<li role="option" data-q="${esc(d)}"><div class="sg-main"><div class="sg-name">${esc(d)}</div></div></li>`).join('');
+    } else {
+      box.innerHTML = list
+        .map((m, i) => `<li role="option" id="sg-${i}" data-id="${esc(m.id)}" aria-selected="false">
+          <div class="sg-main"><div class="sg-name">${highlight(m.name, q)} <span class="muted">${esc(m.strength)}</span></div>
+          <div class="sg-meta">${highlight(m.generic, q)} · ${esc(m.form)}</div></div>
+          <div class="sg-price num">${rs(m.unitPrice)}<small>${esc(t('per_unit', { unit: unitWord(m) }))}</small></div></li>`)
+        .join('');
+    }
+    box.hidden = false;
+    $('#search-input').setAttribute('aria-expanded', 'true');
+  }
+
+  function moveSuggest(dir) {
+    const items = $$('#suggest li[role="option"]');
+    if (!items.length) return;
+    state.activeSuggestion = (state.activeSuggestion + dir + items.length) % items.length;
+    items.forEach((li, i) => li.setAttribute('aria-selected', i === state.activeSuggestion ? 'true' : 'false'));
+    const active = items[state.activeSuggestion];
+    active.scrollIntoView({ block: 'nearest' });
+    $('#search-input').setAttribute('aria-activedescendant', active.id || '');
+  }
+
+  function pickSuggestion(li) {
+    if (!li) return;
+    if (li.dataset.id) {
+      state.lastQuery = $('#search-input').value.trim();
+      go('/medicine/' + encodeURIComponent(li.dataset.id));
+    } else if (li.dataset.q) {
+      $('#search-input').value = li.dataset.q;
+      go('/search/' + encodeURIComponent(li.dataset.q));
+    }
+    closeSuggest();
+    $('#search-input').blur();
+  }
+
+  function setupSearch() {
+    const input = $('#search-input');
+    let timer;
+    input.addEventListener('input', () => {
+      updateSearchButtons();
+      clearTimeout(timer);
+      timer = setTimeout(() => renderSuggest(input.value), 60);
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown') { e.preventDefault(); moveSuggest(1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); moveSuggest(-1); }
+      else if (e.key === 'Escape') closeSuggest();
+      else if (e.key === 'Enter' && state.activeSuggestion >= 0) {
+        e.preventDefault();
+        pickSuggestion($$('#suggest li[role="option"]')[state.activeSuggestion]);
+      }
+    });
+    input.addEventListener('focus', () => input.value.trim().length >= 2 && renderSuggest(input.value));
+    $('#suggest').addEventListener('mousedown', (e) => {
+      const li = e.target.closest('li[role="option"]');
+      if (li) { e.preventDefault(); pickSuggestion(li); }
+    });
+    document.addEventListener('click', (e) => { if (!e.target.closest('#search')) closeSuggest(); });
+    $('#search-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const q = input.value.trim();
+      if (!q) return input.focus();
+      closeSuggest();
+      input.blur();
+      go('/search/' + encodeURIComponent(q));
+    });
+    $('#search-clear').addEventListener('click', () => {
+      input.value = '';
+      updateSearchButtons();
+      closeSuggest();
+      input.focus();
+    });
+
+    // Voice search (Chrome / Android): great for brand names that are hard to spell
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SR) {
+      const mic = $('#search-mic');
+      mic.hidden = false;
+      mic.addEventListener('click', () => {
+        const rec = new SR();
+        rec.lang = 'en-PK';
+        rec.interimResults = false;
+        rec.maxAlternatives = 1;
+        mic.classList.add('active');
+        rec.onresult = (ev) => {
+          const said = ev.results[0][0].transcript.replace(/[.?!]$/, '');
+          input.value = said;
+          updateSearchButtons();
+          go('/search/' + encodeURIComponent(said));
+        };
+        rec.onend = () => mic.classList.remove('active');
+        rec.onerror = () => mic.classList.remove('active');
+        rec.start();
+      });
+    }
+  }
+
+  // ------------------------------------------------------------------------
+  // Language & theme
+  // ------------------------------------------------------------------------
+  function applyLanguage() {
+    const lang = I18N.getLang();
+    document.documentElement.lang = lang;
+    document.documentElement.dir = lang === 'ur' ? 'rtl' : 'ltr';
+    $$('[data-i18n]').forEach((el) => (el.textContent = t(el.dataset.i18n)));
+    $$('[data-lang]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.lang === lang ? 'true' : 'false'));
+    $('#search-input').placeholder = t('search_placeholder');
+    $('#assistant-text').placeholder = t('as_placeholder');
+    if (state.ds) {
+      $('#footer-source').textContent = t('footer_source', { date: fmtDate((state.ds.meta.synced_at || '').slice(0, 10)) });
+    }
+  }
+
+  function applyTheme(theme) {
+    const root = document.documentElement;
+    const resolved = theme || (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    root.setAttribute('data-theme', resolved);
+    $('#theme-toggle use').setAttribute('href', resolved === 'dark' ? '#i-sun' : '#i-moon');
+  }
+
+  // ------------------------------------------------------------------------
+  // Init
+  // ------------------------------------------------------------------------
+  function setupGlobal() {
+    $$('[data-lang]').forEach((b) =>
+      b.addEventListener('click', () => {
+        I18N.setLang(b.dataset.lang);
+        applyLanguage();
+        render();
+        window.SDAssistantUI && window.SDAssistantUI.refresh();
+      })
+    );
+    $('#theme-toggle').addEventListener('click', () => {
+      const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      save('sd_theme', next);
+      applyTheme(next);
+    });
+    $('#recent-clear').addEventListener('click', () => {
+      save('sd_recent', []);
+      renderHome();
+    });
+    $('#alt-sort').addEventListener('change', (e) => {
+      state.altSort = e.target.value;
+      const med = state.engine.byId(state.route.id);
+      if (med) renderAlternatives(med);
+    });
+    let ft;
+    $('#category-filter').addEventListener('input', () => {
+      clearTimeout(ft);
+      ft = setTimeout(() => { state.categoryLimit = 30; renderCategory(state.route.id, false); }, 120);
+    });
+    $('#category-form').addEventListener('change', () => { state.categoryLimit = 30; renderCategory(state.route.id, false); });
+    $('#category-more').addEventListener('click', () => { state.categoryLimit += 30; renderCategory(state.route.id, false); });
+    window.addEventListener('hashchange', render);
+  }
+
+  async function init() {
+    I18N.initLang();
+    applyTheme(store('sd_theme', null));
+    applyLanguage();
+    setupGlobal();
+    setupSearch();
+    updateCabinetBadge();
+    const yr = $('#copyright-year');
+    if (yr) yr.textContent = new Date().getFullYear();
+    try {
+      state.ds = await window.SDData.load('data/medicines.json');
+      state.engine = window.SDSearch.createEngine(state.ds);
+    } catch (e) {
+      console.error(e);
+      $('#loading').innerHTML = `<span>${esc(t('load_error'))}</span>`;
+      return;
+    }
+    $('#loading').hidden = true;
+    applyLanguage();
+    updateCabinetBadge();
+    render();
+    if (window.SDAssistantUI) window.SDAssistantUI.init({ engine: state.engine, ds: state.ds, app: api });
+  }
+
+  const api = {
+    state,
+    go,
+    rs,
+    unitWord,
+    medTitle,
+    medMeta,
+    esc,
+    toast,
+    cabinet,
+    monthlyCost,
+    render,
+    renderCabinet,
+  };
+  window.SDApp = api;
+
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  }
+
+  api.ready = document.readyState === 'loading'
+    ? new Promise((resolve) => document.addEventListener('DOMContentLoaded', () => resolve(init())))
+    : init();
 })();
