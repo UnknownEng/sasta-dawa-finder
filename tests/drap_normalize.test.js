@@ -105,3 +105,23 @@ test('no doubled ingredient names from titles, salt forms or misspellings', asyn
     assert.equal(N.normalizeIngredientName('Injection Cefazolin'), 'cefazolin');
   });
 });
+
+// "eq. to" followed by an amount, salts with their own amount, and amounts written before the name.
+test('salt-equivalent amounts and amount-first text keep the right ingredients', async (t) => {
+  const names = (comp, product) => N.parseComposition(comp, product || '').map((i) => [i.name, i.amount ? N.formatAmount(i.amount) : null]);
+  await t.test('"Salt 0.64 mg eq. to Base 0.5 mg" counts the base once', () => {
+    assert.deepEqual(names('Diprosan CreamEach gm contains:Betamethasone Dipropionate 0.64 mg eq. to Betamethasone 0.5 mg.'), [['betamethasone', '0.5mg']]);
+  });
+  await t.test('"eq. to <amount> of X" never drops the next ingredient', () => {
+    const ing = names('Each vial contains: Ceftolozane ... lgm (eq. to 1.147g of ceftolozane sulfate) Tazobactam ... 0.5g (eq. to 0.537g of tazobactam sodium)');
+    assert.ok(ing.some(([n]) => n === 'tazobactam'), JSON.stringify(ing));
+    const iohexol = names('Each ml contains:- Iohexol …. 755mg (Equivalent to 350mg of iodine)');
+    assert.ok(iohexol.every(([n]) => !/^to\b/.test(n)), JSON.stringify(iohexol));
+  });
+  await t.test('amount written before the name still parses (keeps the title when that reads better)', () => {
+    const ing = N.parseComposition('Insulin Glargine: Each ml contains 100 units insulin glargine* (equi mL;', 'Insulin Glargine Injection');
+    assert.equal(ing.length, 1);
+    assert.equal(ing[0].name, 'insulin glargine');
+    assert.ok(ing[0].amount, 'has a strength');
+  });
+});
