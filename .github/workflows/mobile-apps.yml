@@ -43,6 +43,8 @@ jobs:
     name: Android
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: write   # to publish the APK behind the website's download button
     env:
       HAS_SIGNING: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
     steps:
@@ -89,6 +91,21 @@ jobs:
           printf '%s' "$KEYSTORE_B64" | base64 --decode > "$SD_KEYSTORE_PATH"
           ./gradlew bundleRelease assembleRelease --no-daemon
           rm -f "$SD_KEYSTORE_PATH"
+
+      - name: Publish APK for the website's download button
+        # Always the same link: https://github.com/<owner>/<repo>/releases/download/android/SastaDawa.apk
+        if: env.HAS_SIGNING == 'true' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk SastaDawa.apk
+          NOTES="Latest Android app (version ${MARKETING_VERSION}, build ${{ github.run_number }}). Download SastaDawa.apk on your phone and open it to install."
+          if gh release view android >/dev/null 2>&1; then
+            gh release edit android --title "Sasta Dawa for Android" --notes "$NOTES" --latest
+          else
+            gh release create android --title "Sasta Dawa for Android" --notes "$NOTES" --latest --target "$GITHUB_SHA"
+          fi
+          gh release upload android SastaDawa.apk --clobber
 
       - name: Collect files
         run: |

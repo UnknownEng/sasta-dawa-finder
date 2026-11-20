@@ -626,7 +626,21 @@ body.as-open .fab { display: none; }
    Print (My Medicines list)
    -------------------------------------------------------------------------- */
 
+.hs-app { margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--line-strong); display: grid; gap: 6px; }
+.hs-app-btn { justify-content: center; gap: 8px; width: 100%; }
+.hs-app-note { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--muted); }
+.app-banner { display: none; align-items: center; gap: 12px; margin: 14px 0 4px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.app-banner-text { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.app-banner-text b { font-size: 15px; }
+.app-banner-sub { font-size: 12.5px; color: var(--muted); line-height: 1.4; }
+.app-banner-btn { flex-shrink: 0; gap: 6px; }
+@media (max-width: 979px) { .app-banner { display: flex; } }
+/* Phones: iPhones get the Add-to-Home-Screen tip instead of the APK button (set in app.js) */
+.is-ios .app-android { display: none !important; }
+.not-ios .app-banner .app-ios-tip { display: none; }
+
 /* ---- Android / iOS app (js/native.js adds .native to <html>) ---- */
+.native .app-get { display: none !important; }
 .native .topbar { padding-top: max(env(safe-area-inset-top), var(--safe-area-inset-top, 0px)); }
 .native .mobile-nav { padding-bottom: max(env(safe-area-inset-bottom), var(--safe-area-inset-bottom, 0px)); }
 .native body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
