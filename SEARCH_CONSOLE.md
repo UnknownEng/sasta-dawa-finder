@@ -41,3 +41,5 @@ Check **Pages** (indexed vs not) and **Performance** (searches that show the sit
   Search words are never sent.
 - App installs: the page `/app/installed` (each visitor = one install that was actually opened).
 - App daily users: the page `/app/active` (visitors per day = daily active users).
+- App downloads: the page `/download` (every "Download" button goes through it, then starts the APK).
+  GitHub's own counter resets each time a new APK is built, so use this one for totals.
