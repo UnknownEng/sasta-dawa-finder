@@ -32,7 +32,9 @@ function build() {
     .readFileSync(indexPath, 'utf8')
     .replace(/<span id="copyright-year">\d+<\/span>/, `<span id="copyright-year">${new Date().getFullYear()}</span>`)
     // The app has its own icon and splash screen; the web manifest only matters on the website.
-    .replace(/\s*<link rel="manifest"[^>]*>/, '');
+    .replace(/\s*<link rel="manifest"[^>]*>/, '')
+    // Web analytics is for the website; the app counts installs/active users itself (js/native.js).
+    .replace(/\s*<script data-sd-analytics[^>]*>[\s\S]*?<\/script>/g, '');
   fs.writeFileSync(indexPath, html);
 
   let count = 0;

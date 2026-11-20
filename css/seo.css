@@ -1,0 +1,44 @@
+/* Search-engine pages (/dawa, /formula, /browse): light, fast, readable on phones. */
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#1d2433;background:#f6f7f9;line-height:1.55;font-size:16px}
+a{color:#1d4ed8}a:hover{color:#13294b}
+.wrap{max-width:1040px;margin:0 auto;padding:0 18px}
+.top{background:#13294b;color:#fff}
+.top-in{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:60px}
+.brand{display:flex;align-items:center;gap:10px;color:#fff;text-decoration:none;font-weight:800;font-size:18px}
+.brand:hover{color:#fff}
+.btn{display:inline-block;background:#f4a340;color:#13294b;font-weight:800;text-decoration:none;border-radius:10px;padding:10px 16px;min-height:44px;line-height:24px}
+.btn:hover{background:#ffb75e;color:#13294b}
+.btn.ghost{background:transparent;border:2px solid #13294b;color:#13294b}
+.btn.small{padding:6px 12px;min-height:36px;font-size:14px}
+.top .btn{padding:8px 14px}
+.crumbs{font-size:14px;color:#4a5568;margin:18px 0 4px}
+h1{font-size:30px;line-height:1.2;margin:10px 0 8px;color:#13294b}
+h2{font-size:20px;margin:0 0 6px;color:#13294b}
+h2 small{font-weight:600;color:#4a5568;font-size:15px}
+h3{font-size:16px;margin:14px 0 6px}
+.lead{font-size:17px;margin:0 0 6px}
+.ur{font-family:"Noto Nastaliq Urdu","Jameel Noori Nastaleeq",serif;font-size:20px;line-height:2;margin:0 0 12px;color:#13294b}
+.variant{background:#fff;border:1px solid #e3e6ec;border-radius:14px;padding:16px 18px;margin:14px 0}
+.facts{margin:0 0 6px;color:#2d3748}
+.warn{background:#fff4e5;border:1px solid #f4c27a;border-radius:10px;padding:8px 12px;margin:8px 0}
+.ok{color:#2d3748;margin:8px 0}
+.tbl{overflow-x:auto;margin:6px 0 10px}
+table{border-collapse:collapse;width:100%;font-size:15px;min-width:620px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #edf0f4;vertical-align:top}
+th{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#4a5568;background:#f8f9fb}
+td.num,th.num{text-align:right;white-space:nowrap}
+tr.best td{background:#fff8ec}
+.tag{display:inline-block;background:#f4a340;color:#13294b;border-radius:999px;padding:0 8px;font-size:12px;font-weight:800}
+.more{color:#4a5568;font-size:14px}
+.cta{background:#13294b;color:#fff;border-radius:14px;padding:18px 20px;margin:22px 0 10px}
+.cta p{margin:0 0 10px}
+.cta .btn.ghost{border-color:#fff;color:#fff}
+.cta-row{display:flex;flex-wrap:wrap;gap:10px}
+.note{font-size:14px;color:#4a5568}
+.list{list-style:none;padding:0;margin:10px 0;display:grid;gap:6px}
+.list li span{color:#4a5568;font-size:14px}
+.list.cols{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+.foot{border-top:1px solid #e3e6ec;margin-top:28px;padding:16px 0 28px;font-size:14px;color:#4a5568}
+.az a{display:inline-block;min-width:26px;padding:2px 4px;text-align:center}
+@media (max-width:600px){h1{font-size:24px}.top .btn{display:none}}

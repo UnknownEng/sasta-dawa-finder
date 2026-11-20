@@ -9,11 +9,12 @@
     "test": "node --test tests/*.test.js",
     "sync-data": "node scripts/sync_drap.js",
     "build-data": "node scripts/sync_drap.js --build-only",
-    "sitemap": "node scripts/generate_sitemap.js",
+    "sitemap": "node scripts/build_seo.js public",
     "build:app": "node scripts/build_app.js",
     "app:sync": "node scripts/build_app.js && npx cap sync",
     "app:android": "npm run app:sync && npx cap open android",
-    "app:ios": "npm run app:sync && npx cap open ios"
+    "app:ios": "npm run app:sync && npx cap open ios",
+    "build:seo": "node scripts/build_seo.js public"
   },
   "keywords": [
     "medicine",

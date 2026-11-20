@@ -74,6 +74,10 @@
     ]
   }
   </script>
+  <!-- Vercel Web Analytics (cookieless). Page views are sent by js/app.js for each screen, since
+       the app uses #/hash routes. The Android/iOS build strips this (scripts/build_app.js). -->
+  <script data-sd-analytics>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+  <script data-sd-analytics defer src="/_vercel/insights/script.js" data-disable-auto-track="1"></script>
 </head>
 <body>
   <a href="#main" class="skip-link" data-i18n="skip_to_content">Skip to content</a>
@@ -355,7 +359,7 @@
           </div>
           <button type="button" class="link-btn footer-fb" id="footer-feedback" data-i18n="footer_feedback">Send a suggestion</button>
           <a class="footer-link app-get" href="https://github.com/UnknownEng/sasta-dawa-finder/releases/download/android/SastaDawa.apk" rel="noopener" data-i18n="footer_app">Android app</a>
-          <a class="footer-link" href="https://sasta-dawa-finder.vercel.app/privacy.html" data-i18n="footer_privacy">Privacy policy</a>
+          <a class="footer-link" href="https://sasta-dawa-finder.vercel.app/privacy" data-i18n="footer_privacy">Privacy policy</a>
         </div>
         <div>
           <p class="footer-h" data-i18n="footer_emergency">Emergency</p>
@@ -363,6 +367,7 @@
           <a class="footer-link" href="tel:115">Edhi 115</a>
         </div>
       </div>
+      <p class="footer-az app-hide"><span data-i18n="footer_browse">Browse all medicines:</span> <a href="/browse/a">A</a> <a href="/browse/b">B</a> <a href="/browse/c">C</a> <a href="/browse/d">D</a> <a href="/browse/e">E</a> <a href="/browse/f">F</a> <a href="/browse/g">G</a> <a href="/browse/h">H</a> <a href="/browse/i">I</a> <a href="/browse/j">J</a> <a href="/browse/k">K</a> <a href="/browse/l">L</a> <a href="/browse/m">M</a> <a href="/browse/n">N</a> <a href="/browse/o">O</a> <a href="/browse/p">P</a> <a href="/browse/q">Q</a> <a href="/browse/r">R</a> <a href="/browse/s">S</a> <a href="/browse/t">T</a> <a href="/browse/u">U</a> <a href="/browse/v">V</a> <a href="/browse/w">W</a> <a href="/browse/x">X</a> <a href="/browse/y">Y</a> <a href="/browse/z">Z</a> <a href="/browse/0-9">0-9</a> · <a href="/formula" data-i18n="footer_formulas">All formulas</a></p>
       <p class="footer-copy">&copy; <span id="copyright-year">2026</span> Maverick Tech Ventures</p>
     </div>
   </footer>

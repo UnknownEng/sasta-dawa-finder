@@ -223,6 +223,23 @@
     else if (r.name === 'cabinet') renderCabinet();
     else renderHome();
     window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
+    trackView(r);
+  }
+
+  // Vercel Web Analytics: the site uses #/hash routes, which analytics can't see, so report each
+  // screen as a path. Search words are left out on purpose. Website only (the app has no script).
+  let lastViewPath = null;
+  function trackView(r) {
+    if (NATIVE || typeof window.va !== 'function') return;
+    let route = '/';
+    let path = '/';
+    if (r.name === 'medicine') { route = '/medicine/[id]'; path = '/medicine/' + r.id; }
+    else if (r.name === 'category') { route = '/category/[id]'; path = '/category/' + r.id; }
+    else if (r.name === 'search') { route = '/search'; path = '/search'; }
+    else if (r.name === 'cabinet') { route = '/my-medicines'; path = '/my-medicines'; }
+    if (path === lastViewPath) return;
+    lastViewPath = path;
+    try { window.va('pageview', { route, path }); } catch (e) { /* analytics must never break the page */ }
   }
 
   // ------------------------------------------------------------------------

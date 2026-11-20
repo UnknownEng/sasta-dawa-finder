@@ -12,8 +12,9 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 const OUT = path.join(ROOT, 'public');
 
-const FILES = ['index.html', '404.html', 'privacy.html', 'favicon.ico', 'manifest.json', 'robots.txt', 'sitemap.xml', 'sw.js'];
-const DIRS = ['css', 'js', 'icons', 'data', 'unonenginerrunon'];
+const FILES = ['index.html', '404.html', 'privacy.html', 'favicon.ico', 'manifest.json', 'robots.txt', 'sw.js'];
+const DIRS_APP = 'app'; // tiny pages the mobile app loads to count installs / daily users
+const DIRS = ['css', 'js', 'icons', 'data', 'unonenginerrunon', DIRS_APP];
 
 function build() {
   fs.rmSync(OUT, { recursive: true, force: true });
@@ -27,6 +28,10 @@ function build() {
   const indexPath = path.join(OUT, 'index.html');
   const html = fs.readFileSync(indexPath, 'utf8').replace(/<span id="copyright-year">\d+<\/span>/, `<span id="copyright-year">${new Date().getFullYear()}</span>`);
   fs.writeFileSync(indexPath, html);
+
+  // Pages Google can index (one per brand and per formula) + sitemap.xml
+  const seo = require('./build_seo').build(OUT);
+  console.log(`SEO: ${seo.brands} brand pages, ${seo.formulas} formula pages, sitemap ${seo.urls} URLs`);
 
   let count = 0;
   const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).forEach((e) => (e.isDirectory() ? walk(path.join(dir, e.name)) : count++));
