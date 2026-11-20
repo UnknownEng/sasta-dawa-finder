@@ -24,7 +24,7 @@ const S = require('../js/search.js');
 
 const ROOT = path.resolve(__dirname, '..');
 const SITE = 'https://sasta-dawa-finder.vercel.app';
-const APK = 'https://github.com/UnknownEng/sasta-dawa-finder/releases/download/android/SastaDawa.apk';
+const APK = '/download'; // counts the click in Vercel Analytics, then starts the APK download
 
 // Same list the app warns on (js/app.js): switching brand needs a doctor.
 const NARROW_THERAPEUTIC = /levothyroxine|thyroxine|warfarin|phenytoin|carbamazepine|valpro|lithium|digoxin|tacrolimus|ciclosporin|cyclosporine|amiodarone|lamotrigine|levetiracetam|clozapine|theophylline|methotrexate/i;

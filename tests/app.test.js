@@ -205,7 +205,12 @@ test('website: Android download button points at the published APK; hidden insid
   const dom = new JSDOM(html);
   const links = [...dom.window.document.querySelectorAll('a.app-get, .app-get a')].map((a) => a.getAttribute('href'));
   assert.ok(links.length >= 3, 'side card, phone banner and footer link');
-  for (const l of links) assert.equal(l, url);
+  for (const l of links) assert.equal(l, '/download', 'goes through /download so clicks are counted');
+  const dl = fs.readFileSync(path.join(root, 'download.html'), 'utf8');
+  assert.ok(dl.includes(url), '/download sends people to the published APK');
+  assert.match(dl, /_vercel\/insights\/script\.js/);
+  assert.match(dl, /noindex/);
+  assert.ok(require('../scripts/build_public').FILES.includes('download.html'));
   assert.match(fs.readFileSync(path.join(root, 'css/style.css'), 'utf8'), /\.native \.app-get(, \.native \.app-hide)?\s*\{\s*display:\s*none/);
   const wf = fs.readFileSync(path.join(root, '.github/workflows/mobile-apps.yml'), 'utf8');
   assert.match(wf, /gh release upload android SastaDawa\.apk --clobber/);
