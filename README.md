@@ -32,6 +32,11 @@ active ingredients, strength and dosage form, cheapest first.
   - Never gives dose or diagnosis advice; emergency messages get Rescue 1122 / Edhi 115 immediately.
 - **English / اردو** with full right-to-left layout, **dark mode**, installable **PWA** that works offline.
 
+## Android & iOS apps
+
+The site is also packaged as Android and iOS apps (Capacitor): offline medicine data, daily medicine reminders and the
+native share sheet. GitHub Actions builds the APK/AAB and uploads iOS builds to TestFlight. See **[MOBILE_APPS.md](MOBILE_APPS.md)**.
+
 ## Run it
 
 ```bash

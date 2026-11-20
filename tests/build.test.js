@@ -10,7 +10,7 @@ test('build_public copies only the website', () => {
   const list = [];
   const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).forEach((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : list.push(path.relative(out, path.join(d, e.name)).split(path.sep).join('/'))));
   walk(out);
-  for (const must of ['index.html', 'sw.js', 'data/medicines.json', 'js/app.js', 'css/style.css', 'unonenginerrunon/index.html', 'unonenginerrunon/admin.js']) {
+  for (const must of ['index.html', 'privacy.html', 'sw.js', 'data/medicines.json', 'js/app.js', 'css/style.css', 'unonenginerrunon/index.html', 'unonenginerrunon/admin.js']) {
     assert.ok(list.includes(must), must);
   }
   for (const f of list) {

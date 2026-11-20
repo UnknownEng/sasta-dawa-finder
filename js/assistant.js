@@ -571,7 +571,8 @@
     }
 
     async function askAI(text) {
-      const res = await fetch('api/chat', {
+      const N = window.SDNative;
+      const res = await fetch(N ? N.apiUrl('api/chat') : 'api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: ui.history.slice(-12), lang: lang(), context: ui.context }),
@@ -721,7 +722,7 @@
     // The page already loaded the site settings (/api/config), which say whether AI answers
     // are on, so there's no extra server call per visit.
     async function detectAI() {
-      if (!location.protocol.startsWith('http')) return false;
+      if (!window.SDNative && !location.protocol.startsWith('http')) return false;
       const site = ui.app && ui.app.state && ui.app.state.site;
       return !!(site && site.ai);
     }

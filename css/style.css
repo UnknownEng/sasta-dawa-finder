@@ -626,6 +626,20 @@ body.as-open .fab { display: none; }
    Print (My Medicines list)
    -------------------------------------------------------------------------- */
 
+/* ---- Android / iOS app (js/native.js adds .native to <html>) ---- */
+.native .topbar { padding-top: max(env(safe-area-inset-top), var(--safe-area-inset-top, 0px)); }
+.native .mobile-nav { padding-bottom: max(env(safe-area-inset-bottom), var(--safe-area-inset-bottom, 0px)); }
+.native body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
+.rem-card { margin: 16px 0 8px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); display: grid; gap: 10px; }
+.rem-head { display: flex; gap: 10px; align-items: flex-start; }
+.rem-head .ic { flex: none; width: 22px; height: 22px; margin-top: 2px; color: var(--brand, #0f5c54); }
+.rem-head p { margin: 2px 0 0; color: var(--muted); font-size: .9rem; }
+.rem-times { align-items: center; flex-wrap: wrap; }
+.rem-chip { gap: 6px; }
+.rem-x { border: 0; background: none; color: inherit; font-size: 1.1rem; line-height: 1; padding: 0 2px; cursor: pointer; }
+.rem-add { position: relative; gap: 6px; }
+.rem-add input[type="time"] { border: 0; background: transparent; color: inherit; font: inherit; }
+
 @media print {
   .topbar, .mobile-nav, .fab, .assistant, .footer, .cab-tools, .back-link, .stepper button { display: none !important; }
   body { background: #fff; }
