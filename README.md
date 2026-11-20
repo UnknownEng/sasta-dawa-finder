@@ -152,4 +152,4 @@ tests/                  node:test suites
 Prices are DRAP-notified maximum retail prices and can change; pharmacies may sell for less. This website does not give
 medical advice. Always confirm with a licensed pharmacist or doctor before switching or stopping a medicine.
 
-Made by Maverick Tech Ventures.
+Made by Maverick Technologies.

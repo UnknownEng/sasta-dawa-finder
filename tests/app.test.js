@@ -288,3 +288,40 @@ test('SEO build: brand and formula pages Google can index, with a sitemap', () =
   assert.equal(vercel.cleanUrls, true);
   fs.rmSync(out, { recursive: true, force: true });
 });
+
+test('medicine pages: search box suggests Panadol for "pana" and opens its page', async () => {
+  const os = require('os');
+  const out = fs.mkdtempSync(path.join(os.tmpdir(), 'sd-sug-'));
+  require('../scripts/build_seo').build(out);
+  const index = JSON.parse(fs.readFileSync(path.join(out, 'data', 'search-index.json'), 'utf8'));
+  const html = fs.readFileSync(path.join(out, 'dawa', 'lipitor.html'), 'utf8');
+  assert.match(html, /id="seo-search"/);
+  assert.match(html, /\/js\/seo-search\.js/);
+  assert.match(html, /\+92 339 3202419/);
+  const dom = new JSDOM(html, { runScripts: 'outside-only', url: 'https://sasta-dawa-finder.vercel.app/dawa/lipitor' });
+  const w = dom.window;
+  w.fetch = async () => ({ ok: true, json: async () => index });
+  w.eval(fs.readFileSync(path.join(root, 'js/seo-search.js'), 'utf8'));
+  const input = w.document.querySelector('#seo-search input');
+  input.value = 'pana';
+  input.dispatchEvent(new w.Event('input'));
+  await new Promise((r) => setTimeout(r, 20));
+  const links = [...w.document.querySelectorAll('#seo-suggest a')];
+  assert.ok(links.length > 0);
+  assert.equal(links[0].getAttribute('href'), '/dawa/panadol');
+  fs.rmSync(out, { recursive: true, force: true });
+});
+
+test('footer: new contact details and company name; no raw text keys', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.match(html, /tel:\+923393202419/);
+  assert.match(html, /mavericktech\.pk@gmail\.com/);
+  assert.match(html, /Maverick Technologies/);
+  assert.doesNotMatch(html, /3273202419|ahmedmansoorrind|Maverick Tech Ventures|footer-az/);
+  const i18n = require('../js/i18n.js');
+  for (const el of new JSDOM(html).window.document.querySelectorAll('[data-i18n]')) {
+    const k = el.getAttribute('data-i18n');
+    assert.ok(i18n.STRINGS.en[k] && i18n.STRINGS.ur[k], 'missing text for ' + k);
+  }
+  assert.match(fs.readFileSync(path.join(root, 'lib/config.js'), 'utf8'), /\+92 339 3202419/);
+});
