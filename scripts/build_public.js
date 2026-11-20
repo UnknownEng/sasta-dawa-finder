@@ -12,7 +12,7 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 const OUT = path.join(ROOT, 'public');
 
-const FILES = ['index.html', '404.html', 'favicon.ico', 'manifest.json', 'robots.txt', 'sitemap.xml', 'sw.js'];
+const FILES = ['index.html', '404.html', 'privacy.html', 'favicon.ico', 'manifest.json', 'robots.txt', 'sitemap.xml', 'sw.js'];
 const DIRS = ['css', 'js', 'icons', 'data', 'unonenginerrunon'];
 
 function build() {

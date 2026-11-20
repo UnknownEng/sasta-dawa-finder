@@ -27,3 +27,6 @@ public/
 
 # Admin panel data when running locally (settings, visitor reports)
 .data/
+
+# Mobile app build output
+www/

@@ -1,0 +1,184 @@
+# Builds the Android and iOS apps (Capacitor) from the website code.
+#
+# Always:   Android debug APK (install on any phone to test), iOS simulator build (checks it compiles).
+# With the Android signing secrets: signed release AAB (upload to Google Play) + signed APK.
+# With the Apple secrets:            signed iOS build uploaded straight to App Store Connect / TestFlight.
+#
+# Run it from the Actions tab ("Mobile apps" → Run workflow), or it runs on pushes to main
+# that touch the app. Secrets and store setup: see MOBILE_APPS.md.
+name: Mobile apps
+
+on:
+  workflow_dispatch:
+    inputs:
+      upload_ios:
+        description: 'Upload the iOS build to TestFlight (needs the Apple secrets)'
+        type: boolean
+        default: true
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'js/**'
+      - 'css/**'
+      - 'data/**'
+      - 'icons/**'
+      - 'android/**'
+      - 'ios/**'
+      - 'capacitor.config.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/build_app.js'
+      - '.github/workflows/mobile-apps.yml'
+
+concurrency:
+  group: mobile-apps-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MARKETING_VERSION: '1.0.0'
+
+jobs:
+  android:
+    name: Android
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      HAS_SIGNING: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Install and test
+        run: |
+          npm ci
+          npm test
+
+      - name: Bundle web files into the Android project
+        run: |
+          npm run build:app
+          npx cap sync android
+
+      - name: Debug APK
+        working-directory: android
+        env:
+          SD_VERSION_CODE: ${{ github.run_number }}
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Release AAB + APK (signed)
+        if: env.HAS_SIGNING == 'true'
+        working-directory: android
+        env:
+          SD_VERSION_CODE: ${{ github.run_number }}
+          SD_KEYSTORE_PATH: ${{ runner.temp }}/upload.jks
+          SD_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          SD_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          SD_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$SD_KEYSTORE_PATH"
+          ./gradlew bundleRelease assembleRelease --no-daemon
+          rm -f "$SD_KEYSTORE_PATH"
+
+      - name: Collect files
+        run: |
+          mkdir -p out
+          cp android/app/build/outputs/apk/debug/app-debug.apk "out/SastaDawa-${MARKETING_VERSION}-${{ github.run_number }}-debug.apk"
+          if [ -f android/app/build/outputs/bundle/release/app-release.aab ]; then
+            cp android/app/build/outputs/bundle/release/app-release.aab "out/SastaDawa-${MARKETING_VERSION}-${{ github.run_number }}-playstore.aab"
+            cp android/app/build/outputs/apk/release/app-release.apk "out/SastaDawa-${MARKETING_VERSION}-${{ github.run_number }}-release.apk"
+          fi
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-${{ github.run_number }}
+          path: out/*
+          if-no-files-found: error
+
+  ios:
+    name: iOS
+    runs-on: macos-latest
+    timeout-minutes: 45
+    env:
+      HAS_APPLE: ${{ secrets.ASC_KEY_P8 != '' && secrets.ASC_KEY_ID != '' && secrets.ASC_ISSUER_ID != '' && secrets.APPLE_TEAM_ID != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Bundle web files into the iOS project
+        run: |
+          npm run build:app
+          npx cap sync ios
+
+      - name: Simulator build (no signing; checks the app compiles)
+        if: env.HAS_APPLE != 'true'
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/dd" CODE_SIGNING_ALLOWED=NO build
+          cd "$RUNNER_TEMP/dd/Build/Products/Release-iphonesimulator" && zip -qry "$GITHUB_WORKSPACE/SastaDawa-simulator.app.zip" App.app
+
+      - uses: actions/upload-artifact@v4
+        if: env.HAS_APPLE != 'true'
+        with:
+          name: ios-simulator-${{ github.run_number }}
+          path: SastaDawa-simulator.app.zip
+
+      - name: Archive, sign and upload to TestFlight
+        if: env.HAS_APPLE == 'true' && (github.event_name != 'workflow_dispatch' || inputs.upload_ios)
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          # ASC_KEY_P8 = the full text of the AuthKey_XXXX.p8 file from App Store Connect.
+          KEY="$RUNNER_TEMP/AuthKey_${ASC_KEY_ID}.p8"
+          printf '%s\n' "$ASC_KEY_P8" > "$KEY"
+          AUTH=(-allowProvisioningUpdates -authenticationKeyPath "$KEY" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
+
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_STYLE=Automatic \
+            MARKETING_VERSION="$MARKETING_VERSION" CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            "${AUTH[@]}" archive
+
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>${TEAM_ID}</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>uploadSymbols</key><true/>
+          </dict></plist>
+          PLIST
+
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" -exportPath "$RUNNER_TEMP/export" \
+            "${AUTH[@]}"
+          rm -f "$KEY"
+          echo "Uploaded build ${{ github.run_number }} to App Store Connect. It shows up in TestFlight after Apple finishes processing (usually 5–30 minutes)." >> "$GITHUB_STEP_SUMMARY"

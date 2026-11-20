@@ -9,6 +9,12 @@
   const $ = (sel, el) => (el || document).querySelector(sel);
   const $$ = (sel, el) => [...(el || document).querySelectorAll(sel)];
 
+  // Inside the Android/iOS app (js/native.js) pages come from the phone, so API calls and
+  // share links point at the live site. On the website NATIVE is null and nothing changes.
+  const NATIVE = window.SDNative || null;
+  const apiUrl = (p) => (NATIVE ? NATIVE.apiUrl(p) : p);
+  const canUseApi = () => !!NATIVE || location.protocol.startsWith('http');
+
   const state = {
     ds: null,
     engine: null,
@@ -508,8 +514,10 @@
   }
 
   async function shareMedicine(med) {
-    const url = location.origin + location.pathname + '#/medicine/' + encodeURIComponent(med.id);
+    const hash = '#/medicine/' + encodeURIComponent(med.id);
+    const url = NATIVE ? NATIVE.webUrl(hash) : location.origin + location.pathname + hash;
     const text = shareText(med);
+    if (NATIVE && (await NATIVE.share({ title: medTitle(med), text, url }))) return;
     if (navigator.share) {
       try {
         await navigator.share({ title: medTitle(med), text, url });
@@ -533,6 +541,7 @@
       body.innerHTML = `<div class="empty"><div class="empty-ic"><svg class="ic"><use href="#i-list"/></svg></div>
         <h2 class="view-title">${esc(t('cabinet_empty_t'))}</h2><p class="view-sub">${esc(t('cabinet_empty_d'))}</p>
         <div class="chips center" style="margin-top:16px">${state.engine.popular(6).map((m) => `<a class="chip" href="#/medicine/${encodeURIComponent(m.id)}">${esc(m.name)}</a>`).join('')}</div></div>`;
+      if (NATIVE) NATIVE.reminders.refresh(reminderText());
       return;
     }
     let now = 0;
@@ -569,9 +578,10 @@
         <div class="stat good"><small>${esc(t('monthly_save'))}</small><b class="num">${rs(saveAmt)}</b><div class="sub">${esc(t('yearly_save', { amount: rs(saveAmt * 12) }))}</div></div>
       </div>
       <div class="cab-list">${rows.join('')}</div>
+      ${NATIVE ? reminderCard() : ''}
       <div class="cab-tools">
         <button type="button" class="btn btn-ghost" id="cab-share"><svg class="ic"><use href="#i-share"/></svg>${esc(t('share_list'))}</button>
-        <button type="button" class="btn btn-ghost" id="cab-print"><svg class="ic"><use href="#i-print"/></svg>${esc(t('print_list'))}</button>
+        ${NATIVE ? '' : `<button type="button" class="btn btn-ghost" id="cab-print"><svg class="ic"><use href="#i-print"/></svg>${esc(t('print_list'))}</button>`}
       </div>
       <p class="cab-note">${esc(t('cabinet_note'))}</p>`;
 
@@ -594,16 +604,75 @@
         renderCabinet();
       });
     });
-    $('#cab-print').onclick = () => window.print();
-    $('#cab-share').onclick = () => {
+    if ($('#cab-print')) $('#cab-print').onclick = () => window.print();
+    if (NATIVE) setupReminders(body);
+    $('#cab-share').onclick = async () => {
       const lines = cabinet.list().map(({ id, qty }) => {
         const m = state.engine.byId(id);
         const c = state.engine.cheapest(m);
         return `• ${medTitle(m)} (${m.generic}) — ${rs(monthlyCost(m, qty))}/month` + (c.id !== m.id ? ` → ${c.name}: ${rs(monthlyCost(m, qty, c))}/month` : '');
       });
       const text = `My medicines (DRAP prices)\n${lines.join('\n')}\nPossible saving: ${rs(saveAmt)}/month\n— Sasta Dawa Finder`;
+      if (NATIVE && (await NATIVE.share({ title: t('share_list'), text, url: NATIVE.webUrl('') }))) return;
       window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank', 'noopener');
     };
+  }
+
+  // ------------------------------------------------------------------------
+  // Daily reminders (app only, see js/native.js)
+  // ------------------------------------------------------------------------
+  function reminderText() {
+    const names = cabinet.list().map(({ id }) => state.engine.byId(id)).filter(Boolean).map((m) => m.name);
+    const shown = names.slice(0, 4).join(', ') + (names.length > 4 ? ' +' + (names.length - 4) : '');
+    return { title: t('reminder_notif_title'), body: names.length ? t('reminder_notif_body', { list: shown }) : t('reminder_notif_body_empty') };
+  }
+
+  function fmtTime(hhmm) {
+    const [h, m] = hhmm.split(':').map(Number);
+    const d = new Date(2000, 0, 1, h, m);
+    try {
+      return d.toLocaleTimeString(I18N.getLang && I18N.getLang() === 'ur' ? 'ur-PK' : 'en-PK', { hour: 'numeric', minute: '2-digit' });
+    } catch (e) {
+      return hhmm;
+    }
+  }
+
+  function reminderCard() {
+    const r = NATIVE.reminders.get();
+    const chips = r.times.map((tm) => `<span class="chip rem-chip">${esc(fmtTime(tm))}<button type="button" class="rem-x" data-rem-del="${esc(tm)}" aria-label="${esc(t('remove'))}">×</button></span>`).join('');
+    const canAdd = r.times.length < NATIVE.reminders.MAX_TIMES;
+    const nextTime = ['09:00', '21:00', '14:00', '18:00', '07:00'].find((x) => !r.times.includes(x)) || '12:00';
+    return `<div class="rem-card" id="rem-card">
+      <div class="rem-head"><svg class="ic"><use href="#i-clock"/></svg><div><b>${esc(t('reminder_title'))}</b>
+        <p>${esc(r.times.length ? t('reminder_on') : t('reminder_desc'))}</p></div></div>
+      <div class="chips rem-times">${chips}
+        ${canAdd ? `<label class="chip rem-add"><span>+ ${esc(t('reminder_add'))}</span><input type="time" id="rem-new" value="${nextTime}" aria-label="${esc(t('reminder_add'))}"></label>
+        <button type="button" class="btn btn-save sm" id="rem-save">${esc(t('reminder_set'))}</button>` : ''}
+      </div>
+    </div>`;
+  }
+
+  function setupReminders(body) {
+    const card = $('#rem-card', body);
+    if (!card) return;
+    const apply = async (times, msg) => {
+      const ok = await NATIVE.reminders.set(times, reminderText());
+      toast(ok ? msg : t('reminder_blocked'));
+      renderCabinet();
+    };
+    card.addEventListener('click', (e) => {
+      const del = e.target.closest('[data-rem-del]');
+      if (del) {
+        apply(NATIVE.reminders.get().times.filter((x) => x !== del.dataset.remDel), t('reminder_removed'));
+        return;
+      }
+      if (e.target.closest('#rem-save')) {
+        const v = $('#rem-new', card).value;
+        if (!NATIVE.reminders.validTime(v)) return;
+        apply(NATIVE.reminders.get().times.concat(v), t('reminder_saved', { time: fmtTime(v) }));
+      }
+    });
+    NATIVE.reminders.refresh(reminderText());
   }
 
   // ------------------------------------------------------------------------
@@ -773,11 +842,11 @@
    * browser received, so price fixes and hidden products still apply.
    */
   async function fetchSiteConfig() {
-    if (!location.protocol.startsWith('http')) return null;
+    if (!canUseApi()) return null;
     try {
       const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
       const timer = setTimeout(() => ctrl && ctrl.abort(), 8000);
-      const res = await fetch('api/config', { cache: 'no-cache', ...(ctrl ? { signal: ctrl.signal } : {}) });
+      const res = await fetch(apiUrl('api/config'), { cache: 'no-cache', ...(ctrl ? { signal: ctrl.signal } : {}) });
       clearTimeout(timer);
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const cfg = await res.json();
@@ -873,7 +942,7 @@
       status.className = 'fb-status';
       status.hidden = false;
       try {
-        const res = await fetch('api/feedback', {
+        const res = await fetch(apiUrl('api/feedback'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -994,7 +1063,7 @@
   };
   window.SDApp = api;
 
-  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  if (!NATIVE && 'serviceWorker' in navigator && location.protocol.startsWith('http')) {
     window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   }
 
