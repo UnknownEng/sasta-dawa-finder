@@ -1,60 +1,43 @@
-# Google Search Console Verification & Submission Guide — Sasta Dawa Finder
+# Getting Sasta Dawa Finder on Google (free)
 
-## 1. Overview
-This document provides the standard operating procedure for submitting and verifying **Sasta Dawa Finder** (`https://sastadawafinder.pk`) on **Google Search Console (GSC)** and **Bing Webmaster Tools** to ensure complete, rapid indexing and crawl health. Built by Maverick Tech Ventures.
+Live site: `https://sasta-dawa-finder.vercel.app/`
 
----
+## What Google can index
 
-## 2. Property Verification Methods
+The app itself uses `#/` routes, which Google ignores. So the build (`scripts/build_seo.js`, run by
+`scripts/build_public.js`) also writes plain static pages that Google can read:
 
-### Method 1: HTML Meta Tag (Configured in `<head>` of `index.html`)
-The site includes the verification meta tag in `index.html`:
-```html
-<meta name="google-site-verification" content="google-site-verification-sastadawafinder-pk-2026">
-```
-*Steps to complete*:
-1. Navigate to [Google Search Console](https://search.google.com/search-console).
-2. Choose **URL prefix** property: `https://sastadawafinder.pk`.
-3. Select **HTML tag** as the verification method.
-4. Replace the placeholder token `google-site-verification-sastadawafinder-pk-2026` with your unique GSC verification hash if provided.
-5. Click **Verify**.
+| URL | What it is |
+| --- | --- |
+| `/dawa/<brand>` | One page per brand, e.g. `/dawa/panadol`: DRAP price for every strength and cheaper brands with the same formula |
+| `/formula/<salt>` | One page per formula, e.g. `/formula/atorvastatin`: every brand, cheapest first |
+| `/browse/<letter>`, `/formula` | A–Z indexes so every page is reachable by links |
+| `/sitemap.xml` | Every page above, regenerated on every deploy |
 
-### Method 2: DNS TXT Record (Recommended for Root Domain)
-Add the following TXT record to your DNS provider (Cloudflare / Namecheap / Route53):
-```
-Type: TXT
-Host: @
-Value: google-site-verification=<your-unique-token>
-TTL: 3600
-```
+`vercel.json` has `cleanUrls: true`, so `/dawa/panadol.html` is served as `/dawa/panadol`.
 
----
+## Search Console setup (one time)
 
-## 3. Sitemap Submission
-1. In the Search Console dashboard, select **Sitemaps** from the left-hand navigation under **Indexing**.
-2. Under "Add a new sitemap", enter:
-   ```
-   https://sastadawafinder.pk/sitemap.xml
-   ```
-3. Click **Submit**.
-4. Confirm the status changes to **Success** (Green).
+1. Open https://search.google.com/search-console and sign in.
+2. Add property → **URL prefix** → `https://sasta-dawa-finder.vercel.app/`
+   (a Domain property is not possible on a `vercel.app` address).
+3. Verify with **HTML tag**: copy the `content="..."` value Google gives and add this line inside `<head>` of `index.html`:
+   `<meta name="google-site-verification" content="PASTE_TOKEN_HERE">`
+   Push, wait for Vercel to deploy, then press **Verify**.
+4. **Sitemaps** → submit `sitemap.xml`.
+5. **URL Inspection** → paste `https://sasta-dawa-finder.vercel.app/` and a few brand pages (e.g. `/dawa/panadol`) → **Request indexing**.
 
----
+Then do the same on Bing Webmaster Tools (https://www.bing.com/webmasters): choose **Import from Google Search Console**.
+Bing also feeds DuckDuckGo and Yahoo.
 
-## 4. URL Inspection & Priority Indexing
-To request immediate indexing for high-priority pages:
-1. Paste `https://sastadawafinder.pk/` into the top search bar ("Inspect any URL in https://sastadawafinder.pk").
-2. Click **Test Live URL** to confirm Googlebot receives:
-   - HTTP Status: `200 OK`
-   - Page fetch: Successful
-   - Mobile Usability: Page is usable on mobile
-   - Structured Data: Detected `FAQPage`, `BreadcrumbList`, and `MedicalWebPage`
-3. Click **Request Indexing**.
+## What to expect
 
----
+New sites usually take days to weeks to get indexed, and 11k pages are crawled gradually.
+Check **Pages** (indexed vs not) and **Performance** (searches that show the site) every week.
 
-## 5. Monitoring & Maintenance Schedule
-- **Coverage / Page Indexing**: Review weekly for 0 "Discovered - currently not indexed" or "Soft 404" errors.
-- **Core Web Vitals**: Monitor LCP (< 2.5s), INP (< 200ms), and CLS (< 0.1).
-- **Rich Results**: Verify that FAQ snippets appear with green valid checkmarks in the Enhancements tab.
-- **Robots.txt Tester**: Ensure `User-agent: Googlebot` has full access to `css/`, `js/`, and icon assets.
+## Analytics
+
+- Website: Vercel → project → **Analytics**. Pages show as `/`, `/medicine/[id]`, `/search`, `/dawa/...`.
+  Search words are never sent.
+- App installs: the page `/app/installed` (each visitor = one install that was actually opened).
+- App daily users: the page `/app/active` (visitors per day = daily active users).

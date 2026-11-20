@@ -640,7 +640,9 @@ body.as-open .fab { display: none; }
 .not-ios .app-banner .app-ios-tip { display: none; }
 
 /* ---- Android / iOS app (js/native.js adds .native to <html>) ---- */
-.native .app-get { display: none !important; }
+.native .app-get, .native .app-hide { display: none !important; }
+.footer-az { font-size: 13px; color: var(--muted); line-height: 2; margin: 14px 0 0; }
+.footer-az a { display: inline-block; min-width: 22px; text-align: center; color: inherit; }
 .native .topbar { padding-top: max(env(safe-area-inset-top), var(--safe-area-inset-top, 0px)); }
 .native .mobile-nav { padding-bottom: max(env(safe-area-inset-bottom), var(--safe-area-inset-bottom, 0px)); }
 .native body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }

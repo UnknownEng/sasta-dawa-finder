@@ -17,6 +17,7 @@
 
   const SITE = 'https://sasta-dawa-finder.vercel.app/';
   const REMINDER_KEY = 'sd_reminders';
+  const USAGE_KEY = 'sd_usage';
   const REMINDER_BASE_ID = 7100;
   const MAX_TIMES = 4;
 
@@ -207,6 +208,50 @@
     },
   };
 
+  // ------------------------------------------------------------------------
+  // Counting real installs and daily users (no SDK, nothing personal sent)
+  // ------------------------------------------------------------------------
+  // On the first launch the app loads SITE/app/installed in a hidden frame, and at most once a day
+  // SITE/app/active. Vercel Web Analytics (cookieless) then shows installs that were actually
+  // opened, not just downloaded, and daily active users. No ID, no medicines, no device details
+  // beyond what any web page visit has.
+  function today() {
+    const d = new Date();
+    return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+  }
+  function ping(kind, onDone) {
+    try {
+      const f = document.createElement('iframe');
+      f.src = SITE + 'app/' + kind;
+      f.title = 'usage count';
+      f.setAttribute('aria-hidden', 'true');
+      f.tabIndex = -1;
+      f.style.cssText = 'position:absolute;width:1px;height:1px;left:-9999px;top:-9999px;border:0;opacity:0';
+      let done = false;
+      f.addEventListener('load', () => {
+        if (done) return;
+        done = true;
+        onDone();
+        setTimeout(() => f.remove(), 10000); // let the analytics beacon finish first
+      });
+      document.body.appendChild(f);
+    } catch (e) { /* counting must never break the app */ }
+  }
+  function countUsage() {
+    if (navigator.onLine === false) return; // try again next launch
+    let st = {};
+    try { st = JSON.parse(localStorage.getItem(USAGE_KEY) || '{}') || {}; } catch (e) { st = {}; }
+    const save = () => { try { localStorage.setItem(USAGE_KEY, JSON.stringify(st)); } catch (e) { /* ignore */ } };
+    const active = () => {
+      if (st.active === today()) return;
+      ping('active', () => { st.active = today(); save(); });
+    };
+    if (!st.installed) ping('installed', () => { st.installed = today(); save(); active(); });
+    else active();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(countUsage, 1500));
+  else setTimeout(countUsage, 1500);
+
   window.SDNative = {
     isNative: true,
     platform,
@@ -216,5 +261,6 @@
     openExternal,
     share,
     reminders,
+    countUsage,
   };
 })();

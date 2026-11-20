@@ -206,11 +206,80 @@ test('website: Android download button points at the published APK; hidden insid
   const links = [...dom.window.document.querySelectorAll('a.app-get, .app-get a')].map((a) => a.getAttribute('href'));
   assert.ok(links.length >= 3, 'side card, phone banner and footer link');
   for (const l of links) assert.equal(l, url);
-  assert.match(fs.readFileSync(path.join(root, 'css/style.css'), 'utf8'), /\.native \.app-get\s*\{\s*display:\s*none/);
+  assert.match(fs.readFileSync(path.join(root, 'css/style.css'), 'utf8'), /\.native \.app-get(, \.native \.app-hide)?\s*\{\s*display:\s*none/);
   const wf = fs.readFileSync(path.join(root, '.github/workflows/mobile-apps.yml'), 'utf8');
   assert.match(wf, /gh release upload android SastaDawa\.apk --clobber/);
   const i18n = require('../js/i18n.js');
   for (const k of ['app_android', 'app_android_note', 'app_ios_note', 'footer_app', 'app_banner_t', 'app_banner_d', 'app_banner_btn']) {
     assert.ok(i18n.STRINGS.en[k] && i18n.STRINGS.ur[k], k);
   }
+});
+
+test('app: counts a real install once, then at most one active ping a day', async () => {
+  const { w, d } = await bootApp();
+  const frames = () => [...d.querySelectorAll('iframe')].map((f) => f.getAttribute('src'));
+  w.SDNative.countUsage();
+  assert.deepEqual(frames().filter((s) => s.endsWith('app/installed')), [SITE + 'app/installed']);
+  d.querySelector('iframe[src$="app/installed"]').dispatchEvent(new w.Event('load'));
+  assert.ok(frames().includes(SITE + 'app/active'), 'active ping after install');
+  d.querySelector('iframe[src$="app/active"]').dispatchEvent(new w.Event('load'));
+  const st = JSON.parse(w.localStorage.getItem('sd_usage'));
+  assert.ok(st.installed && st.active);
+  // Same day, next launch: nothing more is sent.
+  d.querySelectorAll('iframe').forEach((f) => f.remove());
+  w.SDNative.countUsage();
+  assert.equal(d.querySelectorAll('iframe').length, 0);
+  // Next day: one active ping, no second install.
+  w.localStorage.setItem('sd_usage', JSON.stringify({ installed: st.installed, active: '2000-1-1' }));
+  w.SDNative.countUsage();
+  assert.deepEqual(frames(), [SITE + 'app/active']);
+});
+
+test('app: no web analytics inside the app; website reports one page view per screen', async () => {
+  const { build } = require('../scripts/build_app');
+  const html = fs.readFileSync(path.join(build(), 'index.html'), 'utf8');
+  assert.doesNotMatch(html, /_vercel\/insights|data-sd-analytics/);
+
+  const src = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.match(src, /_vercel\/insights\/script\.js" data-disable-auto-track="1"/);
+  const dom = new JSDOM(src, { runScripts: 'outside-only', url: 'http://localhost/' });
+  const w = dom.window;
+  const views = [];
+  w.va = (cmd, data) => { if (cmd === 'pageview') views.push(data); };
+  w.scrollTo = () => {};
+  w.matchMedia = () => ({ matches: false, addEventListener() {} });
+  w.HTMLElement.prototype.scrollIntoView = function () {};
+  const data = fixtureJson();
+  w.fetch = async (url) => (String(url).includes('medicines.json') ? { ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(data)) } : { ok: false, status: 404, json: async () => ({}) });
+  for (const s of ['js/native.js', 'js/i18n.js', 'js/data.js', 'js/search.js', 'js/assistant.js', 'js/app.js']) w.eval(fs.readFileSync(path.join(root, s), 'utf8'));
+  await w.SDApp.ready;
+  const id = w.SDApp.state.engine.popular(1)[0].id;
+  w.location.hash = '#/medicine/' + encodeURIComponent(id);
+  await tick();
+  w.location.hash = '#/search/panadol';
+  await tick();
+  assert.equal(JSON.stringify(views.map((v) => v.path)), JSON.stringify(['/', '/medicine/' + id, '/search']));
+  assert.equal(views[1].route, '/medicine/[id]');
+});
+
+test('SEO build: brand and formula pages Google can index, with a sitemap', () => {
+  const os = require('os');
+  const out = fs.mkdtempSync(path.join(os.tmpdir(), 'sd-seo-'));
+  const r = require('../scripts/build_seo').build(out);
+  assert.ok(r.brands > 5000 && r.formulas > 1000, JSON.stringify(r));
+  const panadol = fs.readFileSync(path.join(out, 'dawa', 'panadol.html'), 'utf8');
+  assert.match(panadol, /<title>Panadol price in Pakistan/);
+  assert.match(panadol, /<link rel="canonical" href="https:\/\/sasta-dawa-finder\.vercel\.app\/dawa\/panadol">/);
+  assert.match(panadol, /"@type":"Drug"/);
+  assert.match(panadol, /href="\/dawa\/viodol"/, 'links to the cheaper brand page');
+  assert.match(panadol, /href="\/#\/medicine\//, 'deep link into the app');
+  assert.match(panadol, /_vercel\/insights\/script\.js/);
+  const map = fs.readFileSync(path.join(out, 'sitemap.xml'), 'utf8');
+  assert.equal((map.match(/<url>/g) || []).length, r.urls);
+  assert.match(map, /\/dawa\/panadol</);
+  assert.doesNotMatch(map, /#/, 'no hash URLs in the sitemap');
+  assert.ok(fs.existsSync(path.join(out, 'browse', 'p.html')) && fs.existsSync(path.join(out, 'formula.html')));
+  const vercel = JSON.parse(fs.readFileSync(path.join(root, 'vercel.json'), 'utf8'));
+  assert.equal(vercel.cleanUrls, true);
+  fs.rmSync(out, { recursive: true, force: true });
 });

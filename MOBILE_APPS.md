@@ -25,7 +25,7 @@ On the website none of this code runs (`js/native.js` switches itself off), so t
 | `android/`, `ios/` | Native projects (commit them) |
 | `assets/` | Source images for icons and splash screens |
 | `.github/workflows/mobile-apps.yml` | Builds the APK, the Play Store AAB and the iOS app on GitHub's machines |
-| `privacy.html` | Privacy policy. Both stores require one: `https://sasta-dawa-finder.vercel.app/privacy.html` |
+| `privacy.html` | Privacy policy. Both stores require one: `https://sasta-dawa-finder.vercel.app/privacy` |
 | `lib/api.js` | Now allows the app (origins `https://localhost`, `capacitor://localhost`) to call `/api/config`, `/api/chat`, `/api/feedback`, `/api/health`. Admin stays closed. |
 
 > **Deploy the website first.** The app's AI chat and feedback need the CORS change in `lib/api.js` live on Vercel.
@@ -95,7 +95,7 @@ Run the workflow again. The artifact now also has `SastaDawa-…-playstore.aab` 
 2. **Create app** → name "Sasta Dawa – Medicine Prices", free, App.
 3. Turn on **Play App Signing** (the default) and upload the `.aab`.
 4. **App content** (Policy → App content):
-   - Privacy policy: `https://sasta-dawa-finder.vercel.app/privacy.html`
+   - Privacy policy: `https://sasta-dawa-finder.vercel.app/privacy`
    - **Health apps declaration**: tick *Medical → Medical reference and education* and *Medication and pain management*
      (reminders). It's not a medical device.
    - **Data safety**: Data collected = *Personal info → Email address / Phone number* (optional, only if typed in the

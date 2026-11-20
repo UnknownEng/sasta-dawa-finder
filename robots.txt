@@ -22,8 +22,6 @@ Disallow: /tests/
 Disallow: /node_modules/
 Disallow: /scripts/
 
-# Crawl Delay
-Crawl-delay: 1
 
 # XML Sitemap Location
 Sitemap: https://sasta-dawa-finder.vercel.app/sitemap.xml
