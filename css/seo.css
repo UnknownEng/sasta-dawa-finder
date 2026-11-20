@@ -41,4 +41,13 @@ tr.best td{background:#fff8ec}
 .list.cols{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
 .foot{border-top:1px solid #e3e6ec;margin-top:28px;padding:16px 0 28px;font-size:14px;color:#4a5568}
 .az a{display:inline-block;min-width:26px;padding:2px 4px;text-align:center}
-@media (max-width:600px){h1{font-size:24px}.top .btn{display:none}}
+@media (max-width:600px){h1{font-size:24px}}
+.top-in{flex-wrap:wrap;padding-top:8px;padding-bottom:8px}
+.seo-search{position:relative;display:flex;gap:8px;flex:1 1 320px;max-width:520px}
+.seo-search input{flex:1;min-width:0;height:44px;border-radius:10px;border:0;padding:0 14px;font-size:16px;color:#1d2433}
+.seo-search .btn{padding:8px 14px;border:0;cursor:pointer;font-size:15px}
+.suggest{position:absolute;z-index:20;top:50px;left:0;right:0;margin:0;padding:4px;list-style:none;background:#fff;border-radius:12px;box-shadow:0 10px 30px rgba(19,41,75,.25);max-height:60vh;overflow:auto}
+.suggest a{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;border-radius:8px;color:#1d2433;text-decoration:none}
+.suggest .n{color:#1d2433}
+.suggest .g{color:#4a5568;font-size:13px;text-align:right}
+.suggest li.on a,.suggest a:hover{background:#fdf1e1}

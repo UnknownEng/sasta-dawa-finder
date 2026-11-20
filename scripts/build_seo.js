@@ -103,7 +103,11 @@ ${ANALYTICS}
 <body>
 <header class="top"><div class="wrap top-in">
   <a class="brand" href="/"><img src="/icons/icon.svg" alt="" width="34" height="34"><span>Sasta Dawa Finder</span></a>
-  <a class="btn" href="/">Search any medicine</a>
+  <form class="seo-search" id="seo-search" action="/" role="search" autocomplete="off">
+    <input type="search" name="q" placeholder="Search any medicine, e.g. Panadol" aria-label="Search any medicine" role="combobox" aria-autocomplete="list" aria-controls="seo-suggest" aria-expanded="false">
+    <button class="btn" type="submit">Search</button>
+    <ul id="seo-suggest" class="suggest" role="listbox" hidden></ul>
+  </form>
 </div></header>
 <main class="wrap">
 ${crumbHtml}
@@ -118,7 +122,9 @@ ${body}
 <footer class="foot"><div class="wrap">
   <p class="az"><b>Browse medicines:</b> ${LETTERS.map((l) => `<a href="/browse/${l}">${l.toUpperCase()}</a>`).join(' ')}</p>
   <p><a href="/formula">All formulas (salts)</a> · <a href="/privacy">Privacy policy</a> · <a href="/">Sasta Dawa Finder</a></p>
+  <p>Contact: <a href="tel:+923393202419">+92 339 3202419</a> · <a href="mailto:mavericktech.pk@gmail.com">mavericktech.pk@gmail.com</a> · © Maverick Technologies</p>
 </div></footer>
+<script src="/js/seo-search.js" defer></script>
 </body>
 </html>
 `;
@@ -291,6 +297,15 @@ ${blocks.join('\n')}`,
     crumbs: [{ name: 'Home', href: '/' }, { name: 'Formulas', href: '/formula' }],
   }));
   urls.push('/formula');
+
+  // ---- Suggestion list for the search box on these pages (js/seo-search.js) ---------------
+  const index = {
+    b: [...brands.entries()].map(([slug, items]) => [mostCommon(items.map((m) => m.name)), slug, mostCommon(items.map((m) => m.generic)), items.some((m) => m.popular) ? 1 : 0])
+      .sort((a, b) => a[0].localeCompare(b[0])),
+    f: [...saltNames.entries()].map(([slug, name]) => [name, slug]).sort((a, b) => a[0].localeCompare(b[0])),
+  };
+  fs.mkdirSync(path.join(OUT, 'data'), { recursive: true });
+  fs.writeFileSync(path.join(OUT, 'data', 'search-index.json'), JSON.stringify(index));
 
   // ---- Sitemap -----------------------------------------------------------------------
   const all = ['/', '/privacy'].concat(urls);
