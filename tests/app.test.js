@@ -296,7 +296,8 @@ test('medicine pages: search box suggests Panadol for "pana" and opens its page'
   const index = JSON.parse(fs.readFileSync(path.join(out, 'data', 'search-index.json'), 'utf8'));
   const html = fs.readFileSync(path.join(out, 'dawa', 'lipitor.html'), 'utf8');
   assert.match(html, /id="seo-search"/);
-  assert.match(html, /\/js\/seo-search\.js/);
+  assert.match(html, /\/js\/seo-search\.js\?v=[0-9a-f]{8}/);
+  assert.match(html, /\/css\/seo\.css\?v=[0-9a-f]{8}/);
   assert.match(html, /\+92 339 3202419/);
   const dom = new JSDOM(html, { runScripts: 'outside-only', url: 'https://sasta-dawa-finder.vercel.app/dawa/lipitor' });
   const w = dom.window;
