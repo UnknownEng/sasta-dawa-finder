@@ -29,6 +29,13 @@ const APK = '/download'; // counts the click in Vercel Analytics, then starts th
 // Same list the app warns on (js/app.js): switching brand needs a doctor.
 const NARROW_THERAPEUTIC = /levothyroxine|thyroxine|warfarin|phenytoin|carbamazepine|valpro|lithium|digoxin|tacrolimus|ciclosporin|cyclosporine|amiodarone|lamotrigine|levetiracetam|clozapine|theophylline|methotrexate/i;
 
+// Version each file by its content, so browsers (and the site's offline cache) fetch the new
+// file the moment it changes instead of showing an old copy.
+function ver(rel) {
+  return require('crypto').createHash('sha1').update(fs.readFileSync(path.join(ROOT, rel))).digest('hex').slice(0, 8);
+}
+const CSS_V = ver('css/seo.css');
+const JS_V = ver('js/seo-search.js');
 const ANALYTICS = `<script>window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments)};</script>
 <script defer src="/_vercel/insights/script.js"></script>`;
 
@@ -96,7 +103,7 @@ function page({ title, description, canonical, h1, body, jsonld, crumbs }) {
 <meta property="og:site_name" content="Sasta Dawa Finder">
 <meta name="theme-color" content="#13294B">
 <link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
-<link rel="stylesheet" href="/css/seo.css">
+<link rel="stylesheet" href="/css/seo.css?v=${CSS_V}">
 ${ld.map((o) => `<script type="application/ld+json">${JSON.stringify(o).replace(/</g, '\\u003c')}</script>`).join('\n')}
 ${ANALYTICS}
 </head>
@@ -124,7 +131,7 @@ ${body}
   <p><a href="/formula">All formulas (salts)</a> · <a href="/privacy">Privacy policy</a> · <a href="/">Sasta Dawa Finder</a></p>
   <p>Contact: <a href="tel:+923393202419">+92 339 3202419</a> · <a href="mailto:mavericktech.pk@gmail.com">mavericktech.pk@gmail.com</a> · © Maverick Technologies</p>
 </div></footer>
-<script src="/js/seo-search.js" defer></script>
+<script src="/js/seo-search.js?v=${JS_V}" defer></script>
 </body>
 </html>
 `;
