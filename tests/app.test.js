@@ -198,3 +198,19 @@ test('API: CORS only for the app origins and never for admin', async (t) => {
   assert.notEqual(adminPre.statusCode, 204);
   assert.equal(adminPre.headers['access-control-allow-origin'], undefined);
 });
+
+test('website: Android download button points at the published APK; hidden inside the app', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const url = 'https://github.com/UnknownEng/sasta-dawa-finder/releases/download/android/SastaDawa.apk';
+  const dom = new JSDOM(html);
+  const links = [...dom.window.document.querySelectorAll('a.app-get, .app-get a')].map((a) => a.getAttribute('href'));
+  assert.ok(links.length >= 3, 'side card, phone banner and footer link');
+  for (const l of links) assert.equal(l, url);
+  assert.match(fs.readFileSync(path.join(root, 'css/style.css'), 'utf8'), /\.native \.app-get\s*\{\s*display:\s*none/);
+  const wf = fs.readFileSync(path.join(root, '.github/workflows/mobile-apps.yml'), 'utf8');
+  assert.match(wf, /gh release upload android SastaDawa\.apk --clobber/);
+  const i18n = require('../js/i18n.js');
+  for (const k of ['app_android', 'app_android_note', 'app_ios_note', 'footer_app', 'app_banner_t', 'app_banner_d', 'app_banner_btn']) {
+    assert.ok(i18n.STRINGS.en[k] && i18n.STRINGS.ur[k], k);
+  }
+});

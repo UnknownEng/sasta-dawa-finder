@@ -107,6 +107,7 @@
       <symbol id="i-print" viewBox="0 0 24 24"><path d="M7 9V3h10v6M7 17H5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2"/><rect x="7" y="14" width="10" height="7"/></symbol>
       <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4M12 17h.01"/></symbol>
       <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
       <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
       <!-- category icons -->
       <symbol id="c-pain" viewBox="0 0 24 24"><path d="M14 14.8V5a2 2 0 1 0-4 0v9.8a4 4 0 1 0 4 0Z"/><path d="M12 9v7"/></symbol>
@@ -197,7 +198,21 @@
           <li><span class="hs-num">3</span><span data-i18n="step3">Show it to your pharmacist</span></li>
         </ol>
         <div class="hs-stats" id="hero-stats"></div>
+        <div class="hs-app app-get">
+          <a class="btn btn-primary hs-app-btn" id="app-download" href="https://github.com/UnknownEng/sasta-dawa-finder/releases/download/android/SastaDawa.apk" rel="noopener"><svg class="ic"><use href="#i-download"/></svg><span data-i18n="app_android">Download Android app</span></a>
+          <p class="hs-app-note" data-i18n="app_android_note">Free · works offline · daily medicine reminders. Android may ask you to allow the install — that's normal.</p>
+          <p class="hs-app-note" data-i18n="app_ios_note">iPhone: open this site in Safari → Share → Add to Home Screen.</p>
+        </div>
       </aside>
+      </div>
+
+      <div class="app-banner app-get">
+        <div class="app-banner-text">
+          <b data-i18n="app_banner_t">Get the Sasta Dawa app</b>
+          <span class="app-banner-sub app-android" data-i18n="app_banner_d">Works offline · daily medicine reminders</span>
+          <span class="app-banner-sub app-ios-tip" data-i18n="app_ios_note">iPhone: open this site in Safari → Share → Add to Home Screen.</span>
+        </div>
+        <a class="btn btn-primary app-banner-btn app-android" href="https://github.com/UnknownEng/sasta-dawa-finder/releases/download/android/SastaDawa.apk" rel="noopener"><svg class="ic"><use href="#i-download"/></svg><span data-i18n="app_banner_btn">Download</span></a>
       </div>
 
       <div id="recent-block" class="block" hidden>
@@ -339,6 +354,7 @@
             <a class="footer-link" href="mailto:ahmedmansoorrind1210@gmail.com">ahmedmansoorrind1210@gmail.com</a>
           </div>
           <button type="button" class="link-btn footer-fb" id="footer-feedback" data-i18n="footer_feedback">Send a suggestion</button>
+          <a class="footer-link app-get" href="https://github.com/UnknownEng/sasta-dawa-finder/releases/download/android/SastaDawa.apk" rel="noopener" data-i18n="footer_app">Android app</a>
           <a class="footer-link" href="https://sasta-dawa-finder.vercel.app/privacy.html" data-i18n="footer_privacy">Privacy policy</a>
         </div>
         <div>

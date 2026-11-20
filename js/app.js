@@ -1013,6 +1013,9 @@
   }
 
   async function init() {
+    const ua = navigator.userAgent || '';
+    const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    document.documentElement.classList.add(isIOS ? 'is-ios' : 'not-ios');
     I18N.initLang();
     applyTheme(store('sd_theme', 'system'));
     applyLanguage();
