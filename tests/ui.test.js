@@ -7,7 +7,7 @@ const { fixtureJson, root } = require('./helpers/fixture');
 
 const SCRIPTS = ['js/i18n.js', 'js/data.js', 'js/search.js', 'js/assistant.js', 'js/app.js'];
 
-async function boot(hash) {
+async function boot(hash, opts) {
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   const dom = new JSDOM(html, { runScripts: 'outside-only', url: 'http://localhost/' + (hash || '') });
   const w = dom.window;
@@ -17,6 +17,7 @@ async function boot(hash) {
   w.HTMLElement.prototype.scrollIntoView = function () {};
   w.fetch = async (url) => {
     if (String(url).includes('medicines.json')) return { ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(data)) };
+    if (String(url).includes('registry.json') && opts && opts.registry) return { ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(opts.registry)) };
     return { ok: false, status: 404, json: async () => ({}) };
   };
   w.open = (url) => { w.__opened = url; };
@@ -188,4 +189,71 @@ test('report a wrong price opens the form and sends it', async () => {
   assert.equal(sent.medicine_id, 'panadol-500mg-tablet-000101');
   assert.equal(sent.message, 'Charged Rs 30');
   assert.ok(d.getElementById('fb-modal').hidden, 'closes after sending');
+});
+
+// Registered brands without a DRAP price (data/registry.json)
+const REGISTRY = {
+  meta: {},
+  fields: ['reg', 'product', 'name', 'salt', 'strength', 'form', 'company'],
+  salts: [['Valsartan', 'valsartan', 0], ['Metformin', 'metformin', 1]],
+  forms: ['Tablet'],
+  companies: ['TABROS PHARMA (PVT). LTD.', 'X <b>Pharma</b>'],
+  rows: [
+    ['039772', 'Valtec 80mg Tablets', 'Valtec', 0, '80mg', 0, 0],
+    ['039773', 'Valsar 80mg Tablet', 'Valsar', 0, '80mg', 0, 0],
+    ['130001', 'Diabex 500mg Tablet', 'Diabex', 1, '500mg', 0, 1],
+  ],
+};
+const settle = () => new Promise((r) => setTimeout(r, 20));
+
+test('unpriced registered brand: search, brand page and priced alternatives', async () => {
+  const { window: w } = await boot('', { registry: REGISTRY });
+  const d = w.document;
+  await settle(); // registry loads in the background
+  await nav(w, '#/search/valtec');
+  assert.ok(visible(d, 'view-search'), 'not the "not found" page any more');
+  const row = d.querySelector('#search-results .result.unpriced');
+  assert.match(row.textContent, /Valtec/);
+  assert.match(row.textContent, /Price not set by DRAP/);
+
+  await nav(w, '#/brand/130001');
+  assert.ok(visible(d, 'view-brand'));
+  assert.match(d.getElementById('brand-hero').textContent, /Metformin/);
+  assert.ok(!d.getElementById('brand-hero').innerHTML.includes('<b>Pharma'), 'company name is escaped');
+  const alts = [...d.querySelectorAll('#brand-alt-list .result')];
+  assert.ok(alts.length >= 2);
+  assert.match(alts[0].textContent, /Neodipar/, 'cheapest same-strength brand first');
+});
+
+test('unpriced brands appear in autocomplete and open their page', async () => {
+  const { window: w } = await boot('', { registry: REGISTRY });
+  const d = w.document;
+  await settle();
+  const input = d.getElementById('search-input');
+  input.value = 'valt';
+  input.dispatchEvent(new w.Event('input'));
+  await new Promise((r) => setTimeout(r, 100));
+  const li = d.querySelector('#suggest li[data-reg="039772"]');
+  assert.ok(li, 'Valtec suggested');
+  input.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowDown' }));
+  input.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Enter' }));
+  await settle();
+  assert.ok(visible(d, 'view-brand'));
+  assert.match(d.querySelector('#brand-hero .mh-name').textContent, /Valtec 80mg/);
+});
+
+test('a brand link opened before the registry loads renders once it arrives', async () => {
+  const { window: w } = await boot('#/brand/039772', { registry: REGISTRY });
+  await settle();
+  assert.ok(visible(w.document, 'view-brand'));
+  const list = w.document.getElementById('brand-alt-list');
+  assert.match(list.textContent, /No brand with this salt/);
+  // ...but the other registered valsartan brand is listed
+  assert.ok(list.querySelector('.result.unpriced[href="#/brand/039773"]'));
+});
+
+test('without registry.json the app still works (old behaviour)', async () => {
+  const { window: w } = await boot('#/search/valtec');
+  await settle();
+  assert.ok(visible(w.document, 'view-empty'));
 });

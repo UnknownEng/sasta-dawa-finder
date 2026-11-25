@@ -9,6 +9,8 @@
     "test": "node --test tests/*.test.js",
     "sync-data": "node scripts/sync_drap.js",
     "build-data": "node scripts/sync_drap.js --build-only",
+    "sync-registry": "node scripts/sync_registry.js",
+    "build-registry": "node scripts/sync_registry.js --build-only",
     "sitemap": "node scripts/build_seo.js public",
     "build:app": "node scripts/build_app.js",
     "app:sync": "node scripts/build_app.js && npx cap sync",

@@ -109,6 +109,25 @@ The pipeline (`scripts/sync_drap.js` + `scripts/drap_normalize.js`):
 5. Groups only exact matches and removes pack-parsing outliers so savings are never exaggerated.
 6. Writes a compact columnar JSON.
 
+### Brands without a DRAP price (data/registry.json)
+
+Since the February 2024 deregulation, DRAP only sets prices for essential medicines, so thousands of common brands
+(Valtec, Starcox, Diovan, Ponstan, Nexum…) are not in the price index at all and searching them used to find nothing.
+DRAP's **Registered Drugs Index** (https://eapp.dra.gov.pk/WebProductIndex.php) lists every registered product with
+its composition, but no price.
+
+```bash
+npm run sync-registry   # reads the Registered Drugs Index (~1 request/sec) and writes data/registry.json
+npm run build-registry  # rebuild from .cache/registry/raw.json without downloading
+```
+
+Run it after `sync-data` (it skips anything that already has a DRAP price and reuses the same salt keys).
+`scripts/sync_registry.js` searches the index once per ingredient (each search returns every product containing it),
+adds new ingredients it finds along the way, then sweeps brand names to catch the rest. The app loads
+`data/registry.json` in the background: searching an unpriced brand shows its formula with a "Price not set by DRAP"
+label, and its page (`#/brand/<reg no>`) lists the priced brands with the same salt, same strength first.
+DRAP calls this list provisional, so the app says so under each brand.
+
 ## Tests
 
 ```bash
@@ -126,7 +145,7 @@ sessions, settings, price fixes, inbox, blocked paths), the Vercel build output 
 index.html              Single-page app
 css/style.css           Design system (light/dark, RTL, print)
 js/i18n.js              English / Urdu strings
-js/data.js              Loads & expands data/medicines.json (browser + Node)
+js/data.js              Loads & expands data/medicines.json and data/registry.json (browser + Node)
 js/search.js            Search, alternatives, savings, entity extraction (browser + Node)
 js/assistant.js         Dawa Assistant: offline brain + chat UI
 js/app.js               Routing, views, My Medicines
@@ -143,7 +162,9 @@ vercel.json             Vercel build, headers, functions
 sw.js                   Offline service worker
 scripts/sync_drap.js    DRAP download & dataset build
 scripts/drap_normalize.js  Composition / pack / form normalization
-data/medicines.json     Generated dataset
+scripts/sync_registry.js   DRAP Registered Drugs Index -> brands without a DRAP price
+data/medicines.json     Generated dataset (DRAP prices)
+data/registry.json      Generated dataset (registered brands without a DRAP price)
 tests/                  node:test suites
 ```
 

@@ -509,5 +509,125 @@
     };
   }
 
-  return { createEngine, normalize, editDistance };
+  /**
+   * Search over registered brands that have no DRAP price (data/registry.json), and find the
+   * priced brands with the same salt. `dataset` is the expanded price dataset (for bySalt).
+   */
+  function createRegistryIndex(registry, dataset) {
+    const items = (registry && registry.items) || [];
+    let hay = null;
+    function ensure() {
+      if (hay) return;
+      hay = items.map((m) => ({
+        name: normalize(m.name),
+        product: normalize(m.product),
+        generic: normalize(m.generic),
+        strength: normalize(m.strength).replace(/\s/g, ''),
+      }));
+    }
+
+    function scoreToken(h, t) {
+      if (/^\d+(\.\d+)?(mg|mcg|g|ml|iu|%)?$/.test(t)) {
+        if (h.strength && (h.strength === t || h.strength.startsWith(t))) return 25;
+        return h.product.includes(t) ? 15 : 0;
+      }
+      if (h.name === t) return 100;
+      if (h.name.startsWith(t)) return 85 - Math.min(10, h.name.length - t.length);
+      if ((' ' + h.name).includes(' ' + t)) return 70;
+      if (h.product.startsWith(t)) return 65;
+      if ((' ' + h.generic).includes(' ' + t)) return 40;
+      return 0;
+    }
+
+    /** Brand-name search. Returns [{ med, score }] best-first, one row per brand + strength + form. */
+    function search(query, opts) {
+      const limit = (opts && opts.limit) || 20;
+      const minScore = (opts && opts.minScore) || 0;
+      const qn = normalize(query);
+      const qt = qn.split(/[\s+\-]+/).filter(Boolean);
+      if (!qt.length || !items.length) return [];
+      ensure();
+      const res = [];
+      for (let i = 0; i < items.length; i++) {
+        // whole query against the brand name first ("metfo-x", "co-diovan")
+        if (qt.length > 1 && hay[i].name.startsWith(qn)) {
+          res.push({ med: items[i], score: (hay[i].name === qn ? 100 : 85) * qt.length });
+          continue;
+        }
+        let total = 0;
+        let ok = true;
+        for (const t of qt) {
+          const s = scoreToken(hay[i], t);
+          if (!s) { ok = false; break; }
+          total += s;
+        }
+        if (ok && total / qt.length >= minScore) res.push({ med: items[i], score: total });
+      }
+      res.sort((a, b) => b.score - a.score || a.med.name.localeCompare(b.med.name) || a.med.product.localeCompare(b.med.product));
+      const seen = new Set();
+      const out = [];
+      for (const r of res) {
+        const k = r.med.name.toLowerCase() + '|' + r.med.strength + '|' + r.med.form;
+        if (seen.has(k)) continue;
+        seen.add(k);
+        out.push(r);
+        if (out.length >= limit) break;
+      }
+      return out;
+    }
+
+    function byReg(reg) {
+      return registry && registry.byReg ? registry.byReg.get(String(reg)) || null : null;
+    }
+
+    /**
+     * Priced brands with the same salt, cheapest per unit first. Same strength + form come first
+     * (`exact: true`), then other strengths/forms of the same salt.
+     */
+    function pricedAlternatives(item) {
+      if (!item || !item.saltKey || !dataset || !dataset.bySalt) return [];
+      const list = dataset.bySalt.get(item.saltKey) || [];
+      const strength = normalize(item.strength).replace(/\s/g, '');
+      const form = String(item.form || '').toLowerCase();
+      const best = new Map();
+      for (const m of list) {
+        const k = m.name + '|' + m.strength + '|' + m.form;
+        const prev = best.get(k);
+        if (!prev || m.unitPrice < prev.unitPrice) best.set(k, m);
+      }
+      return [...best.values()]
+        .map((m) => {
+          const sameStrength = !!strength && normalize(m.strength).replace(/\s/g, '') === strength;
+          const sameForm = !!form && String(m.form).toLowerCase().split(' ')[0] === form.split(' ')[0];
+          return { med: m, exact: sameStrength && sameForm, sameStrength, sameForm };
+        })
+        .sort((a, b) => (b.exact - a.exact) || (b.sameStrength - a.sameStrength) || (b.sameForm - a.sameForm) || a.med.unitPrice - b.med.unitPrice);
+    }
+
+    /**
+     * Other registered brands with the same salt that have no DRAP price either (for salts like
+     * etoricoxib where no brand is priced). Same strength + form first, one row per brand.
+     */
+    function unpricedAlternatives(item, limit) {
+      if (!item || !item.saltKey || !registry || !registry.bySalt) return [];
+      const strength = normalize(item.strength).replace(/\s/g, '');
+      const form = String(item.form || '').toLowerCase();
+      const seen = new Set([item.name.toLowerCase() + '|' + item.strength + '|' + item.form]);
+      const out = [];
+      for (const m of registry.bySalt.get(item.saltKey) || []) {
+        const k = m.name.toLowerCase() + '|' + m.strength + '|' + m.form;
+        if (seen.has(k)) continue;
+        seen.add(k);
+        const sameStrength = !!strength && normalize(m.strength).replace(/\s/g, '') === strength;
+        const sameForm = !!form && String(m.form).toLowerCase() === form;
+        out.push({ med: m, exact: sameStrength && sameForm, sameStrength, sameForm });
+      }
+      out.sort((a, b) => (b.exact - a.exact) || (b.sameStrength - a.sameStrength) || (b.sameForm - a.sameForm) || a.med.name.localeCompare(b.med.name));
+      return out.slice(0, limit || 30);
+    }
+
+    return { warm: ensure, search, byReg, pricedAlternatives, unpricedAlternatives, size: items.length };
+  }
+
+  return { createEngine, createRegistryIndex, normalize, editDistance };
 });

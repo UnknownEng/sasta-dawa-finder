@@ -160,6 +160,47 @@
     return applied;
   }
 
+  /**
+   * Expand data/registry.json: registered brands that have no DRAP-notified price
+   * (built by scripts/sync_registry.js). Each item has no price, only the formula.
+   */
+  function expandRegistry(json) {
+    if (!json || !Array.isArray(json.rows) || !Array.isArray(json.fields)) return { meta: {}, items: [], byReg: new Map(), bySalt: new Map() };
+    const F = {};
+    json.fields.forEach((f, i) => (F[f] = i));
+    const byReg = new Map();
+    const bySalt = new Map();
+    const salts = json.salts || [];
+    const items = json.rows.map((r) => {
+      const salt = salts[r[F.salt]] || [];
+      const item = {
+        id: 'reg-' + r[F.reg],
+        reg: r[F.reg],
+        product: r[F.product],
+        name: r[F.name] || r[F.product],
+        generic: salt[0] || '',
+        saltKey: salt[1] || '',
+        strength: r[F.strength] || '',
+        form: (json.forms || [])[r[F.form]] || '',
+        manufacturer: (json.companies || [])[r[F.company]] || '',
+        unpriced: true,
+      };
+      byReg.set(String(item.reg), item);
+      if (item.saltKey) {
+        if (!bySalt.has(item.saltKey)) bySalt.set(item.saltKey, []);
+        bySalt.get(item.saltKey).push(item);
+      }
+      return item;
+    });
+    return { meta: json.meta || {}, items, byReg, bySalt };
+  }
+
+  async function loadRegistry(url) {
+    const res = await fetch(url || 'data/registry.json');
+    if (!res.ok) throw new Error('Could not load registry data (' + res.status + ')');
+    return expandRegistry(await res.json());
+  }
+
   async function load(url) {
     const res = await fetch(url || 'data/medicines.json');
     if (!res.ok) throw new Error('Could not load medicine data (' + res.status + ')');
@@ -169,5 +210,5 @@
     return expand(json);
   }
 
-  return { expand, load, slug, applyOverrides };
+  return { expand, load, slug, applyOverrides, expandRegistry, loadRegistry };
 });

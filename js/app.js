@@ -18,6 +18,7 @@
   const state = {
     ds: null,
     engine: null,
+    reg: null, // registered brands without a DRAP price (data/registry.json), loaded after start-up
     route: { name: 'home' },
     lastQuery: '',
     suggestions: [],
@@ -180,7 +181,7 @@
   // ------------------------------------------------------------------------
   // Routing
   // ------------------------------------------------------------------------
-  const VIEWS = ['home', 'search', 'category', 'medicine', 'cabinet', 'empty'];
+  const VIEWS = ['home', 'search', 'category', 'medicine', 'brand', 'cabinet', 'empty'];
 
   function parseHash() {
     let h = location.hash.replace(/^#\/?/, '');
@@ -194,6 +195,7 @@
     const arg = rest.join('/');
     if (name === 'search' && arg) return { name: 'search', q: arg };
     if (name === 'medicine' && arg) return { name: 'medicine', id: arg };
+    if (name === 'brand' && arg) return { name: 'brand', reg: arg };
     if (name === 'category' && arg) return { name: 'category', id: arg };
     if (name === 'my-medicines') return { name: 'cabinet' };
     return { name: 'home' };
@@ -219,6 +221,7 @@
     closeSuggest();
     if (r.name === 'search') renderSearch(r.q);
     else if (r.name === 'medicine') renderMedicine(r.id);
+    else if (r.name === 'brand') renderBrand(r.reg);
     else if (r.name === 'category') renderCategory(r.id, true);
     else if (r.name === 'cabinet') renderCabinet();
     else renderHome();
@@ -236,6 +239,7 @@
     if (r.name === 'medicine') { route = '/medicine/[id]'; path = '/medicine/' + r.id; }
     else if (r.name === 'category') { route = '/category/[id]'; path = '/category/' + r.id; }
     else if (r.name === 'search') { route = '/search'; path = '/search'; }
+    else if (r.name === 'brand') { route = '/brand/[reg]'; path = '/brand/' + r.reg; }
     else if (r.name === 'cabinet') { route = '/my-medicines'; path = '/my-medicines'; }
     if (path === lastViewPath) return;
     lastViewPath = path;
@@ -325,7 +329,9 @@
     if (document.activeElement !== input) input.value = q;
     updateSearchButtons();
     const raw = state.engine.search(q, { limit: 200 });
-    if (!raw.length) return renderNotFound(q);
+    // Registered brands with no DRAP price (Valtec, Starcox...): brand-name matches only
+    const unpriced = state.reg ? state.reg.search(q, { limit: 20, minScore: 60 }) : [];
+    if (!raw.length && !unpriced.length) return renderNotFound(q);
     // One row per brand + strength + form (cheapest pack per unit), with a count of pack sizes
     const byKey = new Map();
     for (const r of raw) {
@@ -341,10 +347,98 @@
     showView('search');
     document.title = `${q} — prices & cheaper alternatives | Sasta Dawa Finder`;
     $('#search-title').textContent = t('results_for', { q });
-    $('#search-sub').textContent = t('results_count', { n: results.length >= 80 ? '80+' : results.length });
+    $('#search-sub').textContent = results.length
+      ? t('results_count', { n: results.length >= 80 ? '80+' : results.length })
+      : t('unpriced_only_sub');
+    const unpricedHtml = unpriced.length
+      ? `<div class="unpriced-head"><h2>${esc(t('unpriced_title'))}</h2><p>${esc(t('unpriced_sub'))}</p></div>` +
+        unpriced.map((r) => unpricedRow(r.med, q)).join('')
+      : '';
+    // The unpriced section leads when there are no priced results, or when the unpriced brand is a
+    // clearly better name match ("valtec" also loosely matches priced valsartan products).
+    const top = unpriced[0];
+    const unpricedFirst = !results.length || (top && top.score > Math.max(...results.map((r) => r.score)));
     $('#search-results').innerHTML =
+      (unpricedFirst ? unpricedHtml : '') +
       results.map((r) => resultRow(r.med, q, null, r.packs)).join('') +
-      (results.length >= 80 ? `<p class="more-note">${esc(t('results_more', { n: 80 }))}</p>` : '');
+      (results.length >= 80 ? `<p class="more-note">${esc(t('results_more', { n: 80 }))}</p>` : '') +
+      (unpricedFirst ? '' : unpricedHtml);
+  }
+
+  /** A registered brand with no DRAP price: shows the formula and how many priced options exist. */
+  function unpricedRow(item, q) {
+    const alts = state.reg.pricedAlternatives(item);
+    const exact = alts.filter((a) => a.exact).length;
+    const tags = [`<span class="tag warn">${esc(t('no_drap_price'))}</span>`];
+    if (alts.length) tags.push(`<span class="tag save">${esc(t(exact ? 'priced_same_n' : 'priced_salt_n', { n: exact || alts.length }))}</span>`);
+    return `<a class="result unpriced" href="#/brand/${encodeURIComponent(item.reg)}">
+      <div><div class="r-name">${highlight(item.name, q)}${item.strength ? ` <span class="r-strength">${esc(item.strength)}</span>` : ''}</div>
+      <div class="r-meta">${item.generic ? highlight(item.generic, q) + ' · ' : ''}${esc(item.form)}${item.manufacturer ? ' · ' + esc(item.manufacturer) : ''}</div>
+      <div class="r-tags">${tags.join('')}</div></div>
+      <div class="r-price"><span class="np">${esc(t('price_not_set'))}</span></div>
+    </a>`;
+  }
+
+  function renderBrand(reg) {
+    const item = state.reg && state.reg.byReg(reg);
+    if (!item && !state.reg) {
+      // registry still loading: loadRegistryInBackground() renders this page again when it arrives
+      showView('brand');
+      $('#brand-hero').innerHTML = `<p class="muted">${esc(t('loading'))}</p>`;
+      $('#brand-alt-list').innerHTML = '';
+      return;
+    }
+    if (!item) return renderNotFound(String(reg));
+    showView('brand');
+    document.title = `${item.product} — formula & cheaper alternatives | Sasta Dawa Finder`;
+    $('#brand-back').setAttribute('href', state.lastQuery ? '#/search/' + encodeURIComponent(state.lastQuery) : '#/');
+    $('#brand-hero').innerHTML = `
+      <div class="mh-top"><div>
+        <h1 class="mh-name">${esc(item.name)}${item.strength ? ' ' + esc(item.strength) : ''}</h1>
+        <p class="mh-product">${esc(item.product)}</p>
+      </div></div>
+      <div class="mh-formula"><small>${esc(t('formula'))}</small><b>${esc(item.generic || t('formula_unknown'))}</b></div>
+      <div class="notice mh-noprice"><svg class="ic"><use href="#i-alert"/></svg><span>${esc(t(state.reg.pricedAlternatives(item).length ? 'unpriced_explain' : 'unpriced_explain_none'))}</span></div>
+      <dl class="mh-facts">
+        <dt>${esc(t('form_label'))}</dt><dd>${esc(item.form || '—')}</dd>
+        <dt>${esc(t('maker'))}</dt><dd>${esc(item.manufacturer || '—')}</dd>
+        <dt>${esc(t('reg_no'))}</dt><dd>${esc(item.reg)}</dd>
+      </dl>
+      <div class="mh-actions">
+        <a class="btn btn-ghost" href="https://www.google.com/maps/search/pharmacy+near+me" target="_blank" rel="noopener"><svg class="ic"><use href="#i-map"/></svg><span>${esc(t('find_pharmacy'))}</span></a>
+      </div>
+      <p class="small muted">${esc(t('registry_source'))}</p>`;
+
+    const alts = state.reg.pricedAlternatives(item);
+    const exact = alts.filter((a) => a.exact);
+    const other = alts.filter((a) => !a.exact);
+    // other registered brands with this salt that have no DRAP price either
+    const unpricedAlts = state.reg.unpricedAlternatives(item, alts.length ? 12 : 30);
+    $('#brand-alt-count').textContent = alts.length;
+    $('#brand-alt-list').innerHTML =
+      (alts.length
+        ? (exact.length ? `<p class="alt-sub">${esc(t('alts_same_strength'))}</p>` + exact.map((a) => resultRow(a.med, '')).join('') : '') +
+          (other.length ? `<p class="alt-sub">${esc(t(exact.length ? 'alts_other_strength' : 'alts_same_salt'))}</p>` + other.slice(0, 40).map((a) => resultRow(a.med, '')).join('') : '')
+        : `<div class="alt-empty"><p>${esc(t('no_priced_alts'))}</p></div>`) +
+      (unpricedAlts.length
+        ? `<p class="alt-sub">${esc(t('alts_unpriced'))}</p>` + unpricedAlts.map((a) => unpricedRow(a.med, '')).join('')
+        : '');
+  }
+
+  /** data/registry.json is optional and loads after the price list, so it never slows the first paint. */
+  async function loadRegistryInBackground() {
+    try {
+      const registry = await window.SDData.loadRegistry('data/registry.json');
+      state.reg = window.SDSearch.createRegistryIndex(registry, state.ds);
+      const warm = () => state.reg.warm();
+      if (window.requestIdleCallback) requestIdleCallback(warm, { timeout: 3000 });
+      else setTimeout(warm, 500);
+    } catch (e) {
+      console.warn('Registry not loaded', e);
+      return;
+    }
+    const r = state.route;
+    if (r && (r.name === 'search' || r.name === 'brand')) render();
   }
 
   function renderNotFound(q) {
@@ -711,11 +805,27 @@
 
   function renderSuggest(q) {
     if (!state.engine || q.trim().length < 2) return closeSuggest();
-    const list = state.engine.suggest(q, 8);
+    let list = state.engine.suggest(q, 8);
+    // Registered brands without a DRAP price (brand-name matches only). They fill the remaining
+    // slots, or go first when no priced brand NAME matches ("starc" -> Starcox before starch fluids).
+    const qn = window.SDSearch.normalize(q);
+    const pricedNameHit = list.some((m) => window.SDSearch.normalize(m.name).startsWith(qn));
+    const unpricedFirst = !pricedNameHit;
+    const room = unpricedFirst ? 5 : 8 - list.length;
+    const unpriced = state.reg && room > 0 ? state.reg.search(q, { limit: room, minScore: 70 }).map((r) => r.med) : [];
+    if (unpricedFirst && unpriced.length) list = list.slice(0, 8 - unpriced.length);
     state.suggestions = list;
     state.activeSuggestion = -1;
     const box = $('#suggest');
-    if (!list.length) {
+    const unpricedLis = unpriced
+      .map((m, i) => `<li role="option" id="sg-u${i}" data-reg="${esc(m.reg)}" aria-selected="false">
+          <div class="sg-main"><div class="sg-name">${highlight(m.name, q)} <span class="muted">${esc(m.strength)}</span></div>
+          <div class="sg-meta">${m.generic ? highlight(m.generic, q) + ' · ' : ''}${esc(m.form)}</div></div>
+          <div class="sg-price"><small>${esc(t('no_drap_price'))}</small></div></li>`)
+      .join('');
+    if (!list.length && unpriced.length) {
+      box.innerHTML = unpricedLis;
+    } else if (!list.length) {
       const dym = state.engine.didYouMean(q, 4);
       if (!dym.length) return closeSuggest();
       box.innerHTML = `<li class="sg-head" role="presentation">${esc(t('did_you_mean'))}</li>` + dym.map((d) => `<li role="option" data-q="${esc(d)}"><div class="sg-main"><div class="sg-name">${esc(d)}</div></div></li>`).join('');
@@ -726,6 +836,7 @@
           <div class="sg-meta">${highlight(m.generic, q)} · ${esc(m.form)}</div></div>
           <div class="sg-price num">${rs(m.unitPrice)}<small>${esc(t('per_unit', { unit: unitWord(m) }))}</small></div></li>`)
         .join('');
+      box.innerHTML = unpricedFirst ? unpricedLis + box.innerHTML : box.innerHTML + unpricedLis;
     }
     box.hidden = false;
     $('#search-input').setAttribute('aria-expanded', 'true');
@@ -746,6 +857,9 @@
     if (li.dataset.id) {
       state.lastQuery = $('#search-input').value.trim();
       go('/medicine/' + encodeURIComponent(li.dataset.id));
+    } else if (li.dataset.reg) {
+      state.lastQuery = $('#search-input').value.trim();
+      go('/brand/' + encodeURIComponent(li.dataset.reg));
     } else if (li.dataset.q) {
       $('#search-input').value = li.dataset.q;
       go('/search/' + encodeURIComponent(li.dataset.q));
@@ -1060,6 +1174,7 @@
     updateCabinetBadge();
     render();
     if (window.SDAssistantUI) window.SDAssistantUI.init({ engine: state.engine, ds: state.ds, app: api });
+    loadRegistryInBackground();
     // Build the search index once the page is on screen, before the visitor starts typing.
     // (If they type first, the first search builds it.)
     const warm = () => state.engine.warm && state.engine.warm();

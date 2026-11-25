@@ -677,3 +677,12 @@ body.as-open .fab { display: none; }
 .data-stamp { padding: 6px 12px 6px 10px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); width: fit-content; max-width: 100%; }
 .how { background: var(--surface); }
 @media (max-width: 719px) { .hero-band { margin-left: -4px; margin-right: -4px; border-radius: 22px; } }
+
+/* Registered brands without a DRAP price (data/registry.json) */
+.unpriced-head { margin: 18px 2px 6px; }
+.unpriced-head h2 { margin: 0; font-size: 16px; font-weight: 800; }
+.unpriced-head p { margin: 2px 0 0; color: var(--muted); font-size: 13.5px; }
+.result.unpriced { border-style: dashed; }
+.r-price .np { display: block; font-size: 13px; font-weight: 750; color: color-mix(in srgb, var(--accent) 70%, var(--ink)); }
+.alt-sub { margin: 14px 2px 4px; font-size: 13px; font-weight: 750; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+.mh-noprice { margin-top: 14px; }

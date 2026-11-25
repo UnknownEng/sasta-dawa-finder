@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Nastaliq+Urdu:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="preload" href="data/medicines.json" as="fetch" type="application/json" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=2.2.0">
+  <link rel="stylesheet" href="css/style.css?v=2.3.0">
 
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Sasta Dawa Finder">
@@ -309,6 +309,26 @@
       </div>
     </section>
 
+    <!-- REGISTERED BRAND WITHOUT A DRAP PRICE -->
+    <section id="view-brand" class="view" hidden>
+      <div class="view-head compact">
+        <a href="#/" class="back-link" id="brand-back"><svg class="ic"><use href="#i-arrow-left"/></svg><span data-i18n="back">Back</span></a>
+      </div>
+      <div class="detail-grid">
+        <div class="detail-main">
+          <article class="med-hero" id="brand-hero"></article>
+        </div>
+        <div class="detail-side">
+          <div class="panel">
+            <div class="panel-head">
+              <h2 class="panel-title"><span data-i18n="brand_alts_title">Same salt, with a DRAP price</span> <span class="pill-count" id="brand-alt-count"></span></h2>
+            </div>
+            <div id="brand-alt-list" class="alt-list result-list"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- MY MEDICINES -->
     <section id="view-cabinet" class="view" hidden>
       <div class="view-head">
@@ -431,11 +451,11 @@
     </form>
   </aside>
 
-  <script src="js/native.js?v=2.2.0"></script>
-  <script src="js/i18n.js?v=2.2.0"></script>
-  <script src="js/data.js?v=2.2.0"></script>
-  <script src="js/search.js?v=2.2.0"></script>
-  <script src="js/assistant.js?v=2.2.0"></script>
-  <script src="js/app.js?v=2.2.0"></script>
+  <script src="js/native.js?v=2.3.0"></script>
+  <script src="js/i18n.js?v=2.3.0"></script>
+  <script src="js/data.js?v=2.3.0"></script>
+  <script src="js/search.js?v=2.3.0"></script>
+  <script src="js/assistant.js?v=2.3.0"></script>
+  <script src="js/app.js?v=2.3.0"></script>
 </body>
 </html>
