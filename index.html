@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Nastaliq+Urdu:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="preload" href="data/medicines.json" as="fetch" type="application/json" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=2.3.0">
+  <link rel="stylesheet" href="css/style.css?v=2.4.0">
 
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Sasta Dawa Finder">
@@ -114,6 +114,12 @@
       <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4"/></symbol>
       <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
       <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+      <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+      <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 10v10h16V10M3 10l2-6h14l2 6M3 10h18M10 20v-5h4v5"/></symbol>
+      <symbol id="i-compare" viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="16" rx="1.5"/><rect x="14" y="4" width="7" height="16" rx="1.5"/></symbol>
+      <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13.5" r="3.5"/></symbol>
+      <symbol id="i-phone" viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1Z"/></symbol>
+      <symbol id="i-route" viewBox="0 0 24 24"><path d="M3 11 21 3l-8 18-2-8-8-2Z"/></symbol>
       <!-- category icons -->
       <symbol id="c-pain" viewBox="0 0 24 24"><path d="M14 14.8V5a2 2 0 1 0-4 0v9.8a4 4 0 1 0 4 0Z"/><path d="M12 9v7"/></symbol>
       <symbol id="c-stomach" viewBox="0 0 24 24"><path d="M9 3v4c0 2-3 2-3 6a7 7 0 0 0 7 7c3.5 0 6-2.5 6-6 0-3-2.5-4.5-5-4-1.5.3-2-1-2-2V3"/></symbol>
@@ -151,6 +157,8 @@
         <a href="#/" class="topnav-link" data-route="home" data-i18n="nav_search">Search</a>
         <a href="#/my-medicines" class="topnav-link" data-route="cabinet"><span data-i18n="nav_cabinet">My Medicines</span> <span class="count-badge" id="cabinet-count" hidden>0</span></a>
         <button type="button" class="topnav-link" id="nav-assistant" data-i18n="nav_assistant">Assistant</button>
+        <a href="/business" class="topnav-link topnav-biz" data-ext-link="business" data-i18n="nav_business">For business</a>
+        <a href="/account" class="topnav-link topnav-account" id="nav-account" data-ext-link="account"><svg class="ic" aria-hidden="true"><use href="#i-user"/></svg><span class="nav-account-label">Account</span></a>
       </nav>
       <div class="topbar-actions">
         <div class="seg" role="group" aria-label="Language">
@@ -167,6 +175,7 @@
   </header>
 
   <div id="announce" class="wrap" hidden></div>
+  <div id="pharmacy-banner" class="wrap" hidden></div>
 
   <main id="main" class="wrap">
 
@@ -189,6 +198,12 @@
             <button type="submit" class="btn btn-primary search-submit" data-i18n="search_btn">Search</button>
           </form>
           <ul id="suggest" class="suggest" role="listbox" hidden></ul>
+        </div>
+
+        <div class="rx" id="rx-block" hidden>
+          <button type="button" class="btn btn-ghost sm rx-btn" id="rx-btn"><svg class="ic" aria-hidden="true"><use href="#i-camera"/></svg><span data-i18n="rx_btn">Scan prescription</span></button>
+          <input type="file" id="rx-file" accept="image/*" capture="environment" class="sr-only" tabindex="-1" aria-label="Prescription photo">
+          <div id="rx-result" class="rx-result" role="region" aria-live="polite" hidden></div>
         </div>
 
         <div class="chips" id="quick-chips" aria-label="Popular searches"></div>
@@ -258,6 +273,7 @@
         <a href="#/" class="back-link"><svg class="ic"><use href="#i-arrow-left"/></svg><span data-i18n="back">Back</span></a>
         <h1 class="view-title" id="search-title"></h1>
         <p class="view-sub" id="search-sub" role="status"></p>
+        <p class="data-stamp page-stamp" id="search-stamp"></p>
       </div>
       <div id="search-results" class="result-list"></div>
     </section>
@@ -268,6 +284,7 @@
         <a href="#/" class="back-link"><svg class="ic"><use href="#i-arrow-left"/></svg><span data-i18n="back">Back</span></a>
         <h1 class="view-title" id="category-title"></h1>
         <p class="view-sub" id="category-sub"></p>
+        <p class="data-stamp page-stamp" id="category-stamp"></p>
         <div class="filter-row">
           <label class="field-inline"><span class="sr-only" data-i18n="filter_label">Filter</span>
             <input type="search" id="category-filter" class="input" placeholder="Filter by salt name…">
@@ -289,6 +306,7 @@
           <article class="med-hero" id="med-hero"></article>
           <div id="med-savings"></div>
           <div id="med-strengths"></div>
+          <section id="med-nearby" class="nearby" aria-labelledby="nearby-title"></section>
         </div>
         <div class="detail-side">
           <div class="panel">
@@ -339,6 +357,16 @@
       <div id="cabinet-body"></div>
     </section>
 
+    <!-- COMPARE -->
+    <section id="view-compare" class="view" hidden>
+      <div class="view-head">
+        <a href="#/" class="back-link" id="compare-back"><svg class="ic"><use href="#i-arrow-left"/></svg><span data-i18n="back">Back</span></a>
+        <h1 class="view-title" data-i18n="compare_title">Compare medicines</h1>
+        <p class="view-sub" data-i18n="compare_sub">Up to 3 medicines side by side. Prices are DRAP maximum retail prices.</p>
+      </div>
+      <div id="compare-body"></div>
+    </section>
+
     <!-- NOT FOUND -->
     <section id="view-empty" class="view" hidden>
       <div class="empty">
@@ -381,6 +409,8 @@
           <button type="button" class="link-btn footer-fb" id="footer-feedback" data-i18n="footer_feedback">Send a suggestion</button>
           <a class="footer-link app-get" href="/download" rel="noopener" data-i18n="footer_app">Android app</a>
           <a class="footer-link app-hide" href="/browse/a" data-i18n="footer_all">All medicines A–Z</a>
+          <a class="footer-link" href="/account" data-ext-link="account" data-i18n="footer_account">Your account</a>
+          <a class="footer-link" href="/business" data-ext-link="business" data-i18n="footer_business">For pharmacies, clinics &amp; companies</a>
           <a class="footer-link" href="https://sasta-dawa-finder.vercel.app/privacy" data-i18n="footer_privacy">Privacy policy</a>
         </div>
         <div>
@@ -397,7 +427,11 @@
     <a href="#/" data-route="home"><svg class="ic"><use href="#i-search"/></svg><span data-i18n="nav_search">Search</span></a>
     <a href="#/my-medicines" data-route="cabinet"><svg class="ic"><use href="#i-list"/></svg><span data-i18n="nav_cabinet">My Medicines</span><span class="count-badge" id="cabinet-count-m" hidden>0</span></a>
     <button type="button" id="nav-assistant-m"><svg class="ic"><use href="#i-chat"/></svg><span data-i18n="nav_assistant">Assistant</span></button>
+    <a href="/account" id="nav-account-m" data-ext-link="account"><svg class="ic"><use href="#i-user"/></svg><span class="nav-account-label">Account</span></a>
   </nav>
+
+  <!-- COMPARE TRAY (shown when medicines are added to compare) -->
+  <div id="compare-tray" class="compare-tray" role="region" aria-label="Compare" hidden></div>
 
   <!-- REPORT / REQUEST FORM -->
   <div id="fb-modal" class="modal" hidden>
@@ -451,11 +485,11 @@
     </form>
   </aside>
 
-  <script src="js/native.js?v=2.3.0"></script>
-  <script src="js/i18n.js?v=2.3.0"></script>
-  <script src="js/data.js?v=2.3.0"></script>
-  <script src="js/search.js?v=2.3.0"></script>
-  <script src="js/assistant.js?v=2.3.0"></script>
-  <script src="js/app.js?v=2.3.0"></script>
+  <script src="js/native.js?v=2.4.0"></script>
+  <script src="js/i18n.js?v=2.4.0"></script>
+  <script src="js/data.js?v=2.4.0"></script>
+  <script src="js/search.js?v=2.4.0"></script>
+  <script src="js/assistant.js?v=2.4.0"></script>
+  <script src="js/app.js?v=2.4.0"></script>
 </body>
 </html>

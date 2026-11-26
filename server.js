@@ -43,7 +43,7 @@ const SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'SAMEORIGIN',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Permissions-Policy': 'geolocation=(), camera=(), microphone=(self)',
+  'Permissions-Policy': 'geolocation=(self), camera=(self), microphone=(self)',
 };
 
 // ---------------------------------------------------------------------------
@@ -66,6 +66,7 @@ function get404HTML() {
 
 function send(req, res, status, body, headers, ext) {
   const h = { ...SECURITY_HEADERS, ...headers };
+  for (const k of Object.keys(h)) if (h[k] === '') delete h[k];
   const accepts = /\bgzip\b/.test(req.headers['accept-encoding'] || '');
   let payload = Buffer.isBuffer(body) ? body : Buffer.from(body);
   if (accepts && COMPRESSIBLE.has(ext) && payload.length > 1024) {
@@ -118,7 +119,7 @@ const server = http.createServer((req, res) => {
     return send(req, res, 400, 'Bad request', { 'Content-Type': 'text/plain' }, '.txt');
   }
 
-  const apiMatch = /^\/api\/([a-z]+)\/?$/.exec(pathname);
+  const apiMatch = /^\/api\/([a-z0-9]+)\/?$/.exec(pathname);
   if (apiMatch && API_ROUTES.has(apiMatch[1])) return api.handle(apiMatch[1], req, res);
   if (pathname.startsWith('/api/')) return send(req, res, 404, JSON.stringify({ error: 'Not found' }), { 'Content-Type': 'application/json' }, '.json');
 
@@ -134,6 +135,13 @@ const server = http.createServer((req, res) => {
   if (pathname === ADMIN_PATH || pathname === ADMIN_PATH + '/') {
     const html = fs.readFileSync(path.join(ROOT_DIR, 'unonenginerrunon', 'index.html'));
     return send(req, res, 200, html, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow', 'X-Frame-Options': 'DENY' }, '.html');
+  }
+
+  // Clean URLs for the account / business pages (Vercel does this with cleanUrls)
+  if (/^\/(account|business|widget|developers)$/.test(pathname)) {
+    const page = fs.readFileSync(path.join(ROOT_DIR, pathname.slice(1) + '.html'));
+    const extra = pathname === '/widget' ? { 'X-Frame-Options': '', 'Content-Security-Policy': 'frame-ancestors *' } : {};
+    return send(req, res, 200, page, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', ...extra }, '.html');
   }
 
   const filePath = path.normalize(path.join(ROOT_DIR, pathname));

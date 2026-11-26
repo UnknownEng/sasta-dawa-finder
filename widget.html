@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Medicine price checker | Sasta Dawa Finder</title>
+  <meta name="description" content="Check the official DRAP price of a medicine and see cheaper brands with the same formula.">
+  <meta name="robots" content="noindex">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <link rel="stylesheet" href="css/style.css?v=2.3.0">
+  <link rel="stylesheet" href="css/account.css?v=1.0.0">
+</head>
+<body class="widget-body">
+  <main class="widget" id="widget">
+    <header class="widget-head">
+      <div>
+        <h1 id="w-name">Medicine price checker</h1>
+        <p id="w-note">Official DRAP prices and cheaper brands with the same formula</p>
+      </div>
+    </header>
+    <div id="w-status" class="loading"><div class="spinner" aria-hidden="true"></div><span>Loading…</span></div>
+    <div id="w-app" hidden>
+      <form class="search no-print" id="w-form" role="search">
+        <label class="sr-only" for="w-q">Search a medicine</label>
+        <div class="search-box">
+          <input class="search-input" id="w-q" type="search" autocomplete="off" placeholder="e.g. Panadol, Augmentin, Omeprazole" aria-controls="w-suggest">
+          <button type="submit" class="btn btn-primary">Search</button>
+        </div>
+      </form>
+      <ul class="picker-results no-print" id="w-suggest" aria-label="Matching medicines"></ul>
+      <section id="w-result" aria-live="polite"></section>
+    </div>
+    <p class="widget-foot">Prices: DRAP maximum retail prices. Powered by <a href="https://sasta-dawa-finder.vercel.app/" target="_blank" rel="noopener">Sasta Dawa Finder</a></p>
+  </main>
+  <script src="js/data.js?v=2.3.0"></script>
+  <script src="js/search.js?v=2.3.0"></script>
+  <script src="js/widget.js?v=1.0.0"></script>
+</body>
+</html>

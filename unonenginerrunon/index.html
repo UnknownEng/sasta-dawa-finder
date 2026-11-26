@@ -18,8 +18,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Nastaliq+Urdu:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/style.css?v=2.3.0">
-  <link rel="stylesheet" href="/unonenginerrunon/admin.css?v=2.3.0">
+  <link rel="stylesheet" href="/css/style.css?v=2.4.0">
+  <link rel="stylesheet" href="/unonenginerrunon/admin.css?v=2.4.0">
 </head>
 <body class="admin">
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -49,6 +49,9 @@
           <button role="tab" data-tab="overview" aria-selected="true">Overview</button>
           <button role="tab" data-tab="inbox">Inbox <span class="count-badge" id="inbox-badge" hidden>0</span></button>
           <button role="tab" data-tab="prices">Price fixes</button>
+          <button role="tab" data-tab="users">Users</button>
+          <button role="tab" data-tab="pharmacies">Pharmacies <span class="count-badge" id="ph-badge" hidden>0</span></button>
+          <button role="tab" data-tab="payments">Payments <span class="count-badge" id="pay-badge" hidden>0</span></button>
           <button role="tab" data-tab="settings">Site settings</button>
         </nav>
         <div class="ad-top-actions">
@@ -115,6 +118,36 @@
         </div>
       </section>
 
+      <!-- USERS -->
+      <section data-pane="users" hidden>
+        <div class="ad-head row">
+          <div><h1>Users</h1><p class="muted">Every account on the site. Disable an account to block sign-in, or give someone a plan (e.g. after a bank transfer you checked yourself).</p></div>
+          <button type="button" class="btn btn-ghost sm" data-reload="users">Refresh</button>
+        </div>
+        <label class="ad-field"><span>Search by name, email, phone, role or plan</span>
+          <input type="search" id="users-search" class="input" autocomplete="off" placeholder="e.g. pharmacy, ali@, pharmacy_pro"></label>
+        <p class="muted small" id="users-count"></p>
+        <div id="users-list" class="ad-list"></div>
+      </section>
+
+      <!-- PHARMACIES -->
+      <section data-pane="pharmacies" hidden>
+        <div class="ad-head row">
+          <div><h1>Pharmacies</h1><p class="muted">Listings stay hidden from visitors until you verify them. Check the name, address and phone first (call them if unsure). Pending listings are shown first.</p></div>
+          <button type="button" class="btn btn-ghost sm" data-reload="pharmacies">Refresh</button>
+        </div>
+        <div id="ph-list" class="ad-list"></div>
+      </section>
+
+      <!-- PAYMENTS -->
+      <section data-pane="payments" hidden>
+        <div class="ad-head row">
+          <div><h1>Payments</h1><p class="muted">Manual JazzCash / Easypaisa / bank payments. Check the transaction ID in your account before approving: approving switches the plan on straight away.</p></div>
+          <button type="button" class="btn btn-ghost sm" data-reload="payments">Refresh</button>
+        </div>
+        <div id="pay-list" class="ad-list"></div>
+      </section>
+
       <!-- SETTINGS -->
       <section data-pane="settings" hidden>
         <div class="ad-head"><h1>Site settings</h1><p class="muted">Edit what visitors see. Press “Save changes” when you're done.</p></div>
@@ -147,6 +180,14 @@
             <label class="ad-field"><span>Email</span><input type="email" id="c-email" class="input" maxlength="120"></label>
             <label class="ad-field"><span>WhatsApp number (optional, with country code)</span><input type="text" id="c-wa" class="input" maxlength="40" placeholder="+923001234567"></label>
           </div>
+          <div class="ad-card">
+            <h2>Payment details (paid plans)</h2>
+            <p class="muted small">Shown to businesses on their Plan page when they pay for a plan. Leave a field empty to hide that option.</p>
+            <label class="ad-field"><span>Account title (name on the account)</span><input type="text" id="pay-title" class="input" maxlength="80" placeholder="Maverick Technologies"></label>
+            <label class="ad-field"><span>JazzCash number</span><input type="text" id="pay-jazzcash" class="input" maxlength="40" placeholder="03xx xxxxxxx"></label>
+            <label class="ad-field"><span>Easypaisa number</span><input type="text" id="pay-easypaisa" class="input" maxlength="40" placeholder="03xx xxxxxxx"></label>
+            <label class="ad-field"><span>Bank transfer details (bank, account number / IBAN)</span><textarea id="pay-bank" class="input" rows="2" maxlength="200" placeholder="Meezan Bank · PK00 MEZN 0000 0000 0000 0000"></textarea></label>
+          </div>
           <div class="ad-savebar">
             <span class="muted small" id="settings-state">No unsaved changes</span>
             <button type="submit" class="btn btn-primary" id="settings-save">Save changes</button>
@@ -158,8 +199,8 @@
 
   <div id="booting" class="loading"><div class="spinner" aria-hidden="true"></div><span>Loading…</span></div>
 
-  <script src="/js/data.js?v=2.3.0"></script>
-  <script src="/js/search.js?v=2.3.0"></script>
-  <script src="/unonenginerrunon/admin.js?v=2.3.0"></script>
+  <script src="/js/data.js?v=2.4.0"></script>
+  <script src="/js/search.js?v=2.4.0"></script>
+  <script src="/unonenginerrunon/admin.js?v=2.4.0"></script>
 </body>
 </html>
