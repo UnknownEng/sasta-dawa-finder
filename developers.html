@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Pakistan Medicine Price API docs | Sasta Dawa Finder</title>
+  <meta name="description" content="REST API for official DRAP medicine prices in Pakistan: search medicines, get prices, find same-formula cheaper alternatives and optimise a medicine list.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://sasta-dawa-finder.vercel.app/developers">
+  <meta name="theme-color" content="#0f5c54">
+  <script>
+    (function () {
+      var t = 'system';
+      try { var v = localStorage.getItem('sd_theme'); if (v) t = JSON.parse(v); } catch (e) {}
+      var dark = t === 'dark' || (t !== 'light' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    })();
+  </script>
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css?v=2.3.0">
+  <link rel="stylesheet" href="css/account.css?v=1.0.0">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="topbar acc-top">
+    <div class="wrap topbar-inner">
+      <a href="/" class="brand" aria-label="Sasta Dawa Finder home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" width="36" height="36"><rect x="2" y="2" width="28" height="28" rx="9" fill="currentColor"/><path d="M11 21.5 21 10.5" stroke="var(--brand-contrast)" stroke-width="2.6" stroke-linecap="round"/><rect x="7.5" y="12.2" width="17" height="7.6" rx="3.8" transform="rotate(-45 16 16)" fill="none" stroke="var(--brand-contrast)" stroke-width="2.2"/></svg>
+        </span>
+        <span class="brand-text">
+          <span class="brand-name">Sasta Dawa</span>
+          <span class="brand-sub">Developer API</span>
+        </span>
+      </a>
+      <nav class="topnav" aria-label="Main">
+        <a href="business" class="topnav-link hide-sm">Plans</a>
+        <a href="account?mode=signup&amp;type=developer" class="topnav-link">Get a key</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="wrap acc-main">
+    <section class="hero-lite">
+      <h1>Medicine price API for Pakistan</h1>
+      <p>Search DRAP-registered medicines, get the official maximum retail price, find brands with the same formula, strength and form, and work out the cheapest way to buy a list of medicines.</p>
+      <div class="actions">
+        <a class="btn btn-primary" href="account?mode=signup&amp;type=developer">Create a developer account</a>
+        <a class="btn btn-ghost" href="business">Plans</a>
+      </div>
+      <nav class="doc-nav" aria-label="On this page">
+        <a href="#auth">Authentication</a><a href="#limits">Limits</a><a href="#search">Search</a><a href="#medicine">Medicine</a><a href="#alternatives">Alternatives</a><a href="#optimise">Optimise</a><a href="#fields">Fields</a><a href="#errors">Errors</a>
+      </nav>
+    </section>
+
+    <section class="section" id="auth" aria-labelledby="auth-h">
+      <h2 id="auth-h">Authentication</h2>
+      <div class="card">
+        <p>Base URL: <code>https://sasta-dawa-finder.vercel.app/api/v1</code></p>
+        <p>Create a key in your account (API keys tab). Send it in the <code>X-API-Key</code> header with every request. Keys look like <code>sdk_</code> followed by 40 hex characters. The full key is shown only once; we store only a hash of it.</p>
+        <p>Keep keys on your server. Do not put them in web pages or mobile apps where anyone can read them.</p>
+      </div>
+    </section>
+
+    <section class="section" id="limits" aria-labelledby="limits-h">
+      <h2 id="limits-h">Limits</h2>
+      <div class="card">
+        <div class="table-wrap"><table class="tbl">
+          <thead><tr><th>Plan</th><th class="n">Calls per day</th><th class="n">Price</th></tr></thead>
+          <tbody>
+            <tr><td>Free developer account</td><td class="n">100</td><td class="n">Rs 0</td></tr>
+            <tr><td>API plan</td><td class="n">20,000</td><td class="n">Rs 3,000 / month</td></tr>
+          </tbody>
+        </table></div>
+        <p style="margin-block-start:10px">Days are counted in UTC. Every response includes <code>X-RateLimit-Limit</code> and <code>X-RateLimit-Remaining</code>. Over the limit you get HTTP <code>429</code>. New developer accounts start with 30 days of the API plan free.</p>
+      </div>
+    </section>
+
+    <section class="section" id="search" aria-labelledby="search-h">
+      <h2 id="search-h">Search medicines</h2>
+      <div class="card">
+        <p><code>GET /api/v1?a=search&amp;q=&lt;text&gt;&amp;limit=&lt;1-50&gt;</code>: brand or formula name, typo tolerant. <code>limit</code> defaults to 10.</p>
+        <pre class="code">curl -H "X-API-Key: $SD_KEY" \
+  "https://sasta-dawa-finder.vercel.app/api/v1?a=search&amp;q=panadol&amp;limit=5"</pre>
+        <pre class="code">{
+  "query": "panadol",
+  "results": [ { "id": "...", "brand": "Panadol", "formula": "Paracetamol", ... } ]
+}</pre>
+      </div>
+    </section>
+
+    <section class="section" id="medicine" aria-labelledby="medicine-h">
+      <h2 id="medicine-h">One medicine</h2>
+      <div class="card">
+        <p><code>GET /api/v1?a=medicine&amp;id=&lt;id&gt;</code>: use an <code>id</code> from search results.</p>
+        <pre class="code">curl -H "X-API-Key: $SD_KEY" \
+  "https://sasta-dawa-finder.vercel.app/api/v1?a=medicine&amp;id=MEDICINE_ID"</pre>
+        <p>Returns <code>{ "medicine": { ...fields } }</code>, or <code>404</code> for an unknown id.</p>
+      </div>
+    </section>
+
+    <section class="section" id="alternatives" aria-labelledby="alternatives-h">
+      <h2 id="alternatives-h">Same-formula alternatives</h2>
+      <div class="card">
+        <p><code>GET /api/v1?a=alternatives&amp;id=&lt;id&gt;</code>: brands with the same ingredients, strength and form and a comparable pack, cheapest per unit first (up to 30, including the medicine itself).</p>
+        <pre class="code">{
+  "medicine": { ...fields },
+  "alternatives": [ { ...fields, "percent_vs_selected": -42 } ]
+}</pre>
+        <p><code>percent_vs_selected</code> compares the unit price with the selected medicine: negative means cheaper.</p>
+      </div>
+    </section>
+
+    <section class="section" id="optimise" aria-labelledby="optimise-h">
+      <h2 id="optimise-h">Optimise a medicine list</h2>
+      <div class="card">
+        <p><code>POST /api/v1?a=optimise</code> with a JSON body <code>{"items":[{"id":"...","qty":60}]}</code>. <code>qty</code> is in units (tablets, capsules, ml). Up to 300 items; unknown ids are skipped.</p>
+        <pre class="code">curl -X POST -H "X-API-Key: $SD_KEY" -H "Content-Type: application/json" \
+  -d '{"items":[{"id":"MEDICINE_ID","qty":60}]}' \
+  "https://sasta-dawa-finder.vercel.app/api/v1?a=optimise"</pre>
+        <pre class="code">{
+  "rows": [ { "medicine": {...}, "qty": 60, "cheapest": {...},
+              "cost_now": 900, "cost_best": 420, "saving": 480 } ],
+  "total_now": 900, "total_best": 420, "saving": 480, "percent": 53
+}</pre>
+        <h3>JavaScript (Node 18+)</h3>
+        <pre class="code">const API = 'https://sasta-dawa-finder.vercel.app/api/v1';
+const headers = { 'X-API-Key': process.env.SD_KEY };
+
+const { results } = await fetch(`${API}?a=search&amp;q=${encodeURIComponent('augmentin 625')}`, { headers })
+  .then((r) =&gt; r.json());
+
+const { alternatives } = await fetch(`${API}?a=alternatives&amp;id=${results[0].id}`, { headers })
+  .then((r) =&gt; r.json());
+console.log(alternatives[0].brand, alternatives[0].unit_price_rs);
+
+const plan = await fetch(`${API}?a=optimise`, {
+  method: 'POST',
+  headers: { ...headers, 'Content-Type': 'application/json' },
+  body: JSON.stringify({ items: [{ id: results[0].id, qty: 30 }] }),
+}).then((r) =&gt; r.json());
+console.log('Saving: Rs', plan.saving);</pre>
+      </div>
+    </section>
+
+    <section class="section" id="fields" aria-labelledby="fields-h">
+      <h2 id="fields-h">Medicine fields</h2>
+      <div class="card">
+        <div class="table-wrap"><table class="tbl">
+          <thead><tr><th>Field</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td><code>id</code></td><td>Stable medicine id (use it with <code>medicine</code>, <code>alternatives</code>, <code>optimise</code>)</td></tr>
+            <tr><td><code>brand</code></td><td>Brand name, e.g. Panadol</td></tr>
+            <tr><td><code>product</code></td><td>Full product name as listed by DRAP</td></tr>
+            <tr><td><code>formula</code></td><td>Active ingredient(s)</td></tr>
+            <tr><td><code>strength</code></td><td>Strength, e.g. 500mg</td></tr>
+            <tr><td><code>form</code></td><td>Dosage form, e.g. Tablet, Syrup</td></tr>
+            <tr><td><code>pack</code></td><td>Pack size as listed</td></tr>
+            <tr><td><code>pack_price_rs</code></td><td>Maximum retail price of the pack, in rupees</td></tr>
+            <tr><td><code>unit_price_rs</code></td><td>Price per tablet / ml / unit (pack price ÷ units), 2 decimals</td></tr>
+            <tr><td><code>manufacturer</code></td><td>Manufacturer or importer</td></tr>
+            <tr><td><code>drap_reg_no</code></td><td>DRAP registration number, or <code>null</code></td></tr>
+            <tr><td><code>price_effective_from</code></td><td>Date the price became effective</td></tr>
+          </tbody>
+        </table></div>
+        <p style="margin-block-start:10px">Prices come from DRAP's public price index and may change. This data is not medical advice: brand switches should be confirmed by a doctor or pharmacist.</p>
+      </div>
+    </section>
+
+    <section class="section" id="errors" aria-labelledby="errors-h">
+      <h2 id="errors-h">Errors</h2>
+      <div class="card">
+        <p>Errors return JSON <code>{"error":"message"}</code> with an HTTP status:</p>
+        <div class="table-wrap"><table class="tbl">
+          <tbody>
+            <tr><td><code>400</code></td><td>Missing parameter, e.g. no <code>q</code></td></tr>
+            <tr><td><code>401</code></td><td>Missing, invalid or revoked API key</td></tr>
+            <tr><td><code>404</code></td><td>Unknown medicine id or action</td></tr>
+            <tr><td><code>429</code></td><td>Daily limit reached</td></tr>
+          </tbody>
+        </table></div>
+        <p style="margin-block-start:10px">Questions? WhatsApp <a href="https://wa.me/923393202419" rel="noopener">+92 339 3202419</a>.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer acc-footer">
+    <div class="wrap">
+      <p class="footer-copy">&copy; 2026 Maverick Technologies · <a href="business">Plans</a> · <a href="account">Account</a> · <a href="privacy.html">Privacy</a></p>
+    </div>
+  </footer>
+</body>
+</html>

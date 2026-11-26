@@ -93,3 +93,13 @@ body.admin { background-image: none; }
 
 .toast.bad { background: var(--danger); color: #fff; }
 .admin .toast { bottom: 24px; }
+
+/* Users / pharmacies / payments */
+.ad-item-sub { font-size: 13.5px; color: var(--muted); overflow-wrap: anywhere; }
+.ad-grant { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+.ad-grant .ad-field { flex: 1 1 160px; }
+.ad-grant .ad-field.days { flex: 0 1 110px; }
+.ad-item-actions .btn, .ad-grant .btn { min-height: 44px; }
+.ad-item.off { opacity: .7; border-style: dashed; }
+.ad-item.pending { border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
+.ad-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }

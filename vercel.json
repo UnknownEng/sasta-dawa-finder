@@ -21,7 +21,7 @@
   ],
   "headers": [
     {
-      "source": "/((?!app/).*)",
+      "source": "/((?!app/|widget).*)",
       "headers": [
         {
           "key": "X-Content-Type-Options",
@@ -37,7 +37,28 @@
         },
         {
           "key": "Permissions-Policy",
-          "value": "geolocation=(), camera=(), microphone=(self)"
+          "value": "geolocation=(self), camera=(self), microphone=(self)"
+        }
+      ]
+    },
+    {
+      "source": "/widget(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors *"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=600"
         }
       ]
     },

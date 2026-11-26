@@ -2,20 +2,22 @@
  * Sasta Dawa Finder - service worker
  * App shell: cache-first with background refresh. Medicine data: network-first
  * (so price updates arrive quickly) with cached fallback for offline use.
- * API calls are never cached.
+ * API calls are never cached (they carry sign-in tokens, live pharmacy stock and reservations).
+ * The account / business / developer / widget pages are not precached: they always need the
+ * network, and are only kept as an offline copy after a successful visit.
  */
-const CACHE_NAME = 'sasta-dawa-v2.3.0';
+const CACHE_NAME = 'sasta-dawa-v2.4.0';
 
 const PRECACHE_URLS = [
   './',
   './index.html',
   './manifest.json',
-  './css/style.css?v=2.3.0',
-  './js/i18n.js?v=2.3.0',
-  './js/data.js?v=2.3.0',
-  './js/search.js?v=2.3.0',
-  './js/assistant.js?v=2.3.0',
-  './js/app.js?v=2.3.0',
+  './css/style.css?v=2.4.0',
+  './js/i18n.js?v=2.4.0',
+  './js/data.js?v=2.4.0',
+  './js/search.js?v=2.4.0',
+  './js/assistant.js?v=2.4.0',
+  './js/app.js?v=2.4.0',
   './data/medicines.json',
   './icons/icon.svg',
   './icons/icon-192.png',
@@ -42,12 +44,18 @@ function putInCache(request, response) {
   return response;
 }
 
+function isApi(url) {
+  return url.pathname.startsWith('/api/') || url.pathname.includes('/api/');
+}
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (!url.protocol.startsWith('http') || url.origin !== self.location.origin) return;
-  if (url.pathname.includes('/api/') || url.pathname.startsWith('/unonenginerrunon')) return;
+  // Never touch the API (no cache, no offline copy) or the admin panel.
+  if (isApi(url) || url.pathname.startsWith('/unonenginerrunon')) return;
+  if (request.headers.get('Authorization')) return;
 
   // Medicine data (prices + registered brands): network first so new prices arrive quickly, but on a weak connection use
   // the saved copy after 4 s (the download still finishes in the background for next time).
@@ -64,9 +72,14 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Navigations: serve the app shell offline
+  // Navigations: network first. Offline, use that page's own saved copy if there is one
+  // (e.g. /account after a visit), otherwise the app shell.
   if (request.mode === 'navigate') {
-    event.respondWith(fetch(request).then((r) => putInCache(request, r)).catch(() => caches.match('./index.html')));
+    event.respondWith(
+      fetch(request)
+        .then((r) => putInCache(request, r))
+        .catch(() => caches.match(request).then((hit) => hit || caches.match('./index.html')))
+    );
     return;
   }
 

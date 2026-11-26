@@ -104,6 +104,7 @@
     $$('[data-pane]').forEach((p) => (p.hidden = p.dataset.pane !== name));
     try { sessionStorage.setItem('sd_admin_tab', name); } catch (e) { /* ignore */ }
     if (name === 'prices') ensureData();
+    if (name === 'users' || name === 'pharmacies' || name === 'payments') loadBusiness(name);
     window.scrollTo(0, 0);
   }
   $$('[role="tab"]').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab)));
@@ -337,6 +338,174 @@
   });
 
   // ------------------------------------------------------------------------
+  // Users, pharmacies and payments (accounts & paid plans, lib/platform.js)
+  // ------------------------------------------------------------------------
+  const PLAN_NAMES = {
+    free: 'Free',
+    pharmacy_pro: 'Pharmacy Pro',
+    pharmacy_premium: 'Pharmacy Premium',
+    clinic: 'Clinic / Hospital',
+    ngo: 'NGO / Welfare Trust',
+    company: 'Corporate / Insurer',
+    api: 'API',
+  };
+  const planName = (p) => PLAN_NAMES[p] || p || 'Free';
+  const biz = { users: null, pharmacies: null, payments: null };
+
+  async function loadBusiness(name, force) {
+    if (biz[name] && !force) return render(name);
+    const box = { users: '#users-list', pharmacies: '#ph-list', payments: '#pay-list' }[name];
+    $(box).innerHTML = '<p class="muted small">Loading…</p>';
+    try {
+      const out = await api(name);
+      biz[name] = out[name] || [];
+      render(name);
+    } catch (err) {
+      $(box).innerHTML = `<p class="ad-error">${esc(err.message)}</p>`;
+    }
+    function render(n) {
+      if (n === 'users') renderUsers();
+      else if (n === 'pharmacies') renderPharmacies();
+      else renderPayments();
+    }
+  }
+  document.addEventListener('click', (e) => {
+    const r = e.target.closest('[data-reload]');
+    if (r) loadBusiness(r.dataset.reload, true);
+  });
+
+  // -- users
+  function renderUsers() {
+    const q = $('#users-search').value.trim().toLowerCase();
+    const all = biz.users || [];
+    const list = q
+      ? all.filter((u) => [u.name, u.email, u.phone, u.role, u.plan, planName(u.plan)].some((v) => String(v || '').toLowerCase().includes(q)))
+      : all;
+    $('#users-count').textContent = `${list.length} of ${all.length} accounts`;
+    if (!list.length) {
+      $('#users-list').innerHTML = `<div class="ad-empty">${all.length ? 'No account matches.' : 'No accounts yet.'}</div>`;
+      return;
+    }
+    const opts = Object.keys(PLAN_NAMES).map((p) => `<option value="${esc(p)}">${esc(PLAN_NAMES[p])}</option>`).join('');
+    $('#users-list').innerHTML = list.slice(0, 300).map((u) => `<article class="ad-item${u.disabled ? ' off' : ''}" data-uid="${esc(u.id)}">
+        <div class="ad-item-top"><b>${esc(u.name || '—')}</b>
+          <span><span class="tag brand">${esc(u.role || 'patient')}</span> <span class="tag ${u.plan && u.plan !== 'free' ? 'save' : ''}">${esc(planName(u.plan))}${u.trial ? ' (trial)' : ''}</span>${u.disabled ? ' <span class="tag warn">Disabled</span>' : ''}</span></div>
+        <p class="ad-item-sub">${esc(u.email)}${u.phone ? ' · ' + esc(u.phone) : ''} · joined ${esc(fmtDate(u.createdAt))}${u.plan && u.plan !== 'free' && u.planUntil ? ' · plan until ' + esc(fmtDate(u.planUntil)) : ''}</p>
+        <div class="ad-grant">
+          <label class="ad-field"><span>Give plan</span><select class="input select" data-f="plan">${opts}</select></label>
+          <label class="ad-field days"><span>Days</span><input type="number" class="input" data-f="days" min="1" max="3650" value="30"></label>
+          <button type="button" class="btn btn-soft" data-act="grant">Give plan</button>
+          <button type="button" class="btn btn-ghost${u.disabled ? '' : ' danger'}" data-act="${u.disabled ? 'enable' : 'disable'}">${u.disabled ? 'Enable account' : 'Disable account'}</button>
+        </div></article>`).join('') + (list.length > 300 ? '<p class="muted small">Showing the first 300. Search to narrow down.</p>' : '');
+  }
+  let us;
+  $('#users-search').addEventListener('input', () => { clearTimeout(us); us = setTimeout(renderUsers, 120); });
+  $('#users-list').addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-act]');
+    if (!btn) return;
+    const row = btn.closest('[data-uid]');
+    const id = row.dataset.uid;
+    const body = { id };
+    if (btn.dataset.act === 'grant') {
+      body.grantPlan = $('[data-f="plan"]', row).value;
+      body.days = Math.max(1, Math.min(3650, parseInt($('[data-f="days"]', row).value, 10) || 30));
+      if (!confirm(body.grantPlan === 'free' ? 'Move this account to the Free plan?' : `Give ${planName(body.grantPlan)} for ${body.days} days?`)) return;
+    } else {
+      body.disabled = btn.dataset.act === 'disable';
+      if (body.disabled && !confirm('Disable this account? They will be signed out and cannot sign in until you enable it again.')) return;
+    }
+    btn.disabled = true;
+    try {
+      await api('user-update', body);
+      toast(body.grantPlan ? 'Plan updated' : body.disabled ? 'Account disabled' : 'Account enabled');
+      await loadBusiness('users', true);
+    } catch (err) {
+      toast(err.message, true);
+      btn.disabled = false;
+    }
+  });
+
+  // -- pharmacies
+  function renderPharmacies() {
+    const list = (biz.pharmacies || []).slice().sort((a, b) => (a.verified === b.verified ? (a.createdAt < b.createdAt ? 1 : -1) : a.verified ? 1 : -1));
+    const pending = list.filter((p) => !p.verified).length;
+    const badge = $('#ph-badge');
+    badge.textContent = pending;
+    badge.hidden = pending === 0;
+    if (!list.length) {
+      $('#ph-list').innerHTML = '<div class="ad-empty">No pharmacy listings yet.<br><span class="muted small">Pharmacies sign up at /business and add their shop from their account.</span></div>';
+      return;
+    }
+    $('#ph-list').innerHTML = list.map((p) => `<article class="ad-item${p.verified ? '' : ' pending'}" data-pid="${esc(p.id)}">
+        <div class="ad-item-top"><b>${esc(p.name)}</b>
+          <span>${p.verified ? '<span class="tag save">Verified</span>' : '<span class="tag warn">Waiting for check</span>'} ${p.featured ? '<span class="tag brand">Featured</span>' : ''} <span class="tag">${esc(planName(p.plan))}</span></span></div>
+        <p class="ad-item-sub">${esc([p.address, p.area, p.city].filter(Boolean).join(', '))}</p>
+        <p class="small">${p.phone ? 'Phone: <b>' + esc(p.phone) + '</b> ' : ''}${p.whatsapp ? 'WhatsApp: <b>' + esc(p.whatsapp) + '</b> ' : ''}${p.hours ? '· ' + esc(p.hours) : ''}</p>
+        <p class="muted small">${esc(String(p.stockCount || 0))} medicines in stock list · added ${esc(fmtWhen(p.createdAt))}${p.lat != null ? ` · <a href="https://www.google.com/maps?q=${encodeURIComponent(p.lat + ',' + p.lng)}" target="_blank" rel="noopener">map ↗</a>` : ''}</p>
+        <div class="ad-item-actions">
+          <button type="button" class="btn ${p.verified ? 'btn-ghost' : 'btn-primary'} sm" data-act="verify" data-on="${p.verified ? '0' : '1'}">${p.verified ? 'Unverify (hide)' : 'Verify (show on site)'}</button>
+          <button type="button" class="btn btn-ghost sm" data-act="feature" data-on="${p.featured ? '0' : '1'}">${p.featured ? 'Remove featured' : 'Feature'}</button>
+        </div>
+        ${p.featured && !/pharmacy_(pro|premium)/.test(p.plan || '') ? '<p class="muted small">Featured only shows as “Sponsored” while the pharmacy has a paid plan.</p>' : ''}
+      </article>`).join('');
+  }
+  $('#ph-list').addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-act]');
+    if (!btn) return;
+    const id = btn.closest('[data-pid]').dataset.pid;
+    const on = btn.dataset.on === '1';
+    const body = btn.dataset.act === 'verify' ? { id, verified: on } : { id, featured: on };
+    btn.disabled = true;
+    try {
+      await api('pharmacy-update', body);
+      toast(btn.dataset.act === 'verify' ? (on ? 'Verified: now visible to visitors' : 'Hidden from visitors') : on ? 'Featured' : 'No longer featured');
+      await loadBusiness('pharmacies', true);
+    } catch (err) {
+      toast(err.message, true);
+      btn.disabled = false;
+    }
+  });
+
+  // -- payments
+  function renderPayments() {
+    const list = (biz.payments || []).slice().sort((a, b) => ((a.status === 'pending') === (b.status === 'pending') ? (a.at < b.at ? 1 : -1) : a.status === 'pending' ? -1 : 1));
+    const pending = list.filter((p) => p.status === 'pending').length;
+    const badge = $('#pay-badge');
+    badge.textContent = pending;
+    badge.hidden = pending === 0;
+    if (!list.length) {
+      $('#pay-list').innerHTML = '<div class="ad-empty">No payments yet.<br><span class="muted small">Add your JazzCash / Easypaisa / bank details in Site settings so businesses know where to pay.</span></div>';
+      return;
+    }
+    const METHOD = { jazzcash: 'JazzCash', easypaisa: 'Easypaisa', bank: 'Bank transfer' };
+    $('#pay-list').innerHTML = list.map((p) => `<article class="ad-item${p.status === 'pending' ? ' pending' : ' done'}" data-key="${esc(p.key)}">
+        <div class="ad-item-top"><b>${esc(planName(p.plan))} × ${esc(String(p.periods || 1))} · ${esc(rs(p.amount))}</b>
+          <span class="tag ${p.status === 'approved' ? 'save' : p.status === 'pending' ? 'warn' : ''}">${esc(p.status)}</span></div>
+        <p class="ad-item-sub">${esc(p.name || '')} · ${esc(p.email || '')}</p>
+        <p class="small">${esc(METHOD[p.method] || p.method)} · Transaction ID: <b>${esc(p.txnId)}</b>${p.payerPhone ? ' · from ' + esc(p.payerPhone) : ''} · ${esc(fmtWhen(p.at))}</p>
+        ${p.status === 'pending' ? `<div class="ad-item-actions">
+          <button type="button" class="btn btn-primary sm" data-act="approved">Approve &amp; switch plan on</button>
+          <button type="button" class="btn btn-ghost sm danger" data-act="rejected">Reject</button></div>` : p.decidedAt ? `<p class="muted small">Decided ${esc(fmtWhen(p.decidedAt))}</p>` : ''}
+      </article>`).join('');
+  }
+  $('#pay-list').addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-act]');
+    if (!btn) return;
+    const key = btn.closest('[data-key]').dataset.key;
+    const status = btn.dataset.act === 'approved' ? 'approved' : 'rejected';
+    if (!confirm(status === 'approved' ? 'Approve this payment? Only do this after you have seen the money arrive.' : 'Reject this payment?')) return;
+    btn.disabled = true;
+    try {
+      await api('payment-update', { key, status });
+      toast(status === 'approved' ? 'Approved: plan is on' : 'Rejected');
+      await loadBusiness('payments', true);
+    } catch (err) {
+      toast(err.message, true);
+      btn.disabled = false;
+    }
+  });
+
+  // ------------------------------------------------------------------------
   // Settings
   // ------------------------------------------------------------------------
   function fillSettings() {
@@ -350,6 +519,11 @@
     $('#c-phone').value = c.contact.phone;
     $('#c-email').value = c.contact.email;
     $('#c-wa').value = c.contact.whatsapp;
+    const pay = c.payments || {};
+    $('#pay-title').value = pay.title || '';
+    $('#pay-jazzcash').value = pay.jazzcash || '';
+    $('#pay-easypaisa').value = pay.easypaisa || '';
+    $('#pay-bank').value = pay.bank || '';
     $('#ai-note').textContent = state.overview.ai.keySet
       ? 'An Anthropic API key is set on the server. Each AI answer costs a small amount; switch this off to use only the free offline answers.'
       : 'No ANTHROPIC_API_KEY is set on the server, so the assistant uses its free offline answers either way.';
@@ -363,6 +537,12 @@
     c.ai = { enabled: $('#ai-on').checked };
     c.popular = $('#popular').value.split(',').map((s) => s.trim()).filter(Boolean);
     c.contact = { phone: $('#c-phone').value.trim(), email: $('#c-email').value.trim(), whatsapp: $('#c-wa').value.trim() };
+    c.payments = {
+      title: $('#pay-title').value.trim(),
+      jazzcash: $('#pay-jazzcash').value.trim(),
+      easypaisa: $('#pay-easypaisa').value.trim(),
+      bank: $('#pay-bank').value.trim(),
+    };
     return c;
   }
 
@@ -429,6 +609,8 @@
     let tab = 'overview';
     try { tab = sessionStorage.getItem('sd_admin_tab') || 'overview'; } catch (e) { /* ignore */ }
     setTab(tab);
+    // badges for pending pharmacies / payments (loaded quietly in the background)
+    ['pharmacies', 'payments'].forEach((n) => { if (n !== tab) loadBusiness(n); });
   }
 
   (async function boot() {
