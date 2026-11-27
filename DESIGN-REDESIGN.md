@@ -36,3 +36,33 @@ The old UI reads as machine-made: pills everywhere, soft gradient hero with a gl
 - **Warning callout.** NHS style: 6px amber left bar, bold first line.
 - **Mobile bottom nav.** Icons + labels, with a 3px brand bar on top of the active item. No floating pill.
 - **Assistant button.** A compact square-ish button (6px radius) with an ink background, icon + "Ask".
+
+---
+
+# Round 2 (2026-11-27): simple and calm, for older people
+
+Feedback from the founder: the main users are older people, and the site feels messy: too much text, too many things on each screen. Keep the "price label" identity, but strip each screen down to what an older person needs. If in doubt, remove it or fold it away.
+
+## Rules
+1. **One job per screen.** Home = search. Medicine page = "what it costs, and what is cheaper". Everything else is secondary and folded away or moved to the footer.
+2. **Bigger and fewer.** Base text 18px (Urdu 20px+); headings 28–40px; buttons and inputs 56px tall with 18px labels; tap targets ≥ 48px; generous spacing between items.
+3. **Less text.** Every sentence must earn its place. Cut long intros, kickers, mono caption lines, repeated explanations. Short plain words ("Cheaper option", "Save Rs 627", "Ask your doctor first").
+4. **Plain numbers.** Prices in the normal sans font (IBM Plex Sans, tabular figures), not monospace. Show the **pack price first** ("Rs 763 for 200 tablets"), the per-tablet price second and smaller. Use monospace only nowhere or almost nowhere.
+5. **No decorative clutter.** Remove dotted leaders, rank numbers (01/02), tear lines and stamp boxes if they add noise. Keep one clear border style and one green.
+6. **High contrast**, black text on off-white, green only for the main action and "cheaper/save".
+7. **The header** shows only: logo, Urdu/English switch (big, clear), and on desktop the links Search · My Medicines · Account. Move the theme switch, Assistant, and For business into the footer / a "More" area (mobile bottom nav: Search, My Medicines, Account, and maybe Help).
+
+## Screens
+- **Home:** logo row → one big question ("Which medicine are you looking for?" / Urdu) → huge search box with a big Search button and the mic → 4–6 popular medicines as large tappable buttons → "Browse by health need" as a simple list of big rows (icon + name), not a dense grid with counts → one short line "Prices from the government (DRAP), updated 10 Nov 2026". Remove the "How it works" block, the long savings section, and the app download strip from the top (a small "Get the app" link can live in the footer).
+- **Search results:** big rows: medicine name, pack, pack price, and "Cheaper option available – save up to 82%" in green. Nothing else.
+- **Medicine page (in this order):**
+  1. Name (big) + pack ("200 tablets").
+  2. Price card: "Price: Rs 763" (very big), "Rs 3.81 per tablet" smaller.
+  3. Big green box: "Cheaper option: Viodol — Rs 136 for 200 tablets. You save Rs 627." + button "See all cheaper medicines".
+  4. Yellow note, one line: "Ask your doctor or pharmacist before you switch."
+  5. Big buttons: "Add to My Medicines" (primary), "Share" (secondary). Compare + Report wrong price become small text links.
+  6. "Cheaper medicines with the same formula": the first 5 as big rows (name, maker small, pack price, "save X%"), then a "Show all 105" button.
+  7. Pharmacies near you (simple).
+  8. "More details" folded (`<details>`): form, manufacturer, DRAP reg no, dates, other strengths.
+- **My Medicines:** big list, each with monthly cost and the cheaper suggestion; big "Add medicine" button.
+- **Account / business / widget / admin:** apply the same size and calm (18px base, 56px buttons, fewer words), but they are secondary; don't break their functions.

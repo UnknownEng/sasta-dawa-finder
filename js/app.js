@@ -129,6 +129,11 @@
     return med.name + s;
   }
 
+  /** Wrap a Latin pack size ("200's") in bidi isolates so it reads right inside Urdu text. */
+  function iso(x) {
+    return '⁨' + x + '⁩';
+  }
+
   function medMeta(med) {
     return [med.form, med.pack, med.manufacturer].filter(Boolean).join(' · ');
   }
@@ -453,31 +458,32 @@
     document.title = 'Sasta Dawa Finder — Compare medicine prices & find cheaper generics in Pakistan';
     const { engine, ds } = state;
 
-    // quick searches (plain links): the admin's list if set, otherwise the most popular brands
-    const picked = state.site && Array.isArray(state.site.popular) ? state.site.popular.slice(0, 10) : [];
+    // popular medicines as 6 large buttons: the admin's list if set, otherwise the most popular brands
+    const picked = state.site && Array.isArray(state.site.popular) ? state.site.popular.slice(0, 6) : [];
     $('#quick-chips').innerHTML = picked.length
       ? picked.map((name) => `<a class="chip quick-link" href="#/search/${encodeURIComponent(name)}">${esc(name)}</a>`).join('')
-      : engine.popular(9).map((m) => `<a class="chip quick-link" href="#/medicine/${encodeURIComponent(m.id)}">${esc(m.name)}</a>`).join('');
+      : engine.popular(6).map((m) => `<a class="chip quick-link" href="#/medicine/${encodeURIComponent(m.id)}">${esc(m.name)}</a>`).join('');
 
-    // the mono "price stamp" under the search box: real counts and the DRAP list date
-    $('#data-stamp').textContent = t('data_stamp', {
-      products: ds.items.length.toLocaleString('en-PK'),
-      formulas: ds.groups.size.toLocaleString('en-PK'),
-      date: fmtDate(ds.meta.latest_price_date),
-    });
+    // one short line: where the prices come from and when (the product count is for screen readers)
+    const stamp = $('#data-stamp');
+    stamp.textContent = t('data_stamp', { date: fmtDate(ds.meta.latest_price_date) });
+    const n = document.createElement('span');
+    n.className = 'sr-only';
+    n.textContent = ' · ' + t('data_stamp_n', { products: ds.items.length.toLocaleString('en-PK') });
+    stamp.appendChild(n);
 
     // recent
     const recent = store('sd_recent', []).map((id) => engine.byId(id)).filter(Boolean);
     $('#recent-block').hidden = recent.length === 0;
     $('#recent-list').innerHTML = recent
-      .map((m) => `<a class="recent-card" href="#/medicine/${encodeURIComponent(m.id)}"><b>${esc(medTitle(m))}</b><span>${esc(m.generic)} · <span class="num">${rs(m.unitPrice)}/${esc(unitWord(m))}</span></span></a>`)
+      .map((m) => `<a class="recent-card" href="#/medicine/${encodeURIComponent(m.id)}"><b>${esc(medTitle(m))}</b><span class="num">${rs(m.price)}</span></a>`)
       .join('');
 
     // categories
     const counts = engine.categoryCounts();
     $('#cat-grid').innerHTML = ds.categories
       .filter((c) => (counts.get(c.id) || 0) > 0 && c.id !== 'other')
-      .map((c) => `<a class="cat-card" href="#/category/${c.id}"><span class="cat-ic">${catIcon(c.icon)}</span><span class="cat-text"><span class="cat-name">${esc(catName(c))}</span><span class="cat-n num">${(counts.get(c.id) || 0).toLocaleString('en-PK')}</span></span></a>`)
+      .map((c) => `<a class="cat-card" href="#/category/${c.id}"><span class="cat-ic">${catIcon(c.icon)}</span><span class="cat-text"><span class="cat-name">${esc(catName(c))}</span></span><svg class="ic cat-go flip" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>`)
       .join('');
 
     // deals
@@ -496,25 +502,21 @@
         })
         .join('')
       : '';
-    $('#deal-grid').closest('.block').hidden = deals.length === 0;
+    // Round 2: the savings section is not shown on home (kept rendered for search engines/tests)
   }
 
   // ------------------------------------------------------------------------
   // Search results
   // ------------------------------------------------------------------------
   function resultRow(med, q, ctx, packs) {
+    // Round 2: one big row = name, pack, pack price, and (if any) one green "cheaper option" line.
     const s = state.engine.savings(med);
-    const tags = [];
-    if (s && s.percent >= 5) tags.push(`<span class="tag save">${esc(t('save_upto', { pct: s.percent }))}</span>`);
-    const g = med.group ? (state.ds.groups.get(med.group) || []).length : 1;
-    if (g > 1) tags.push(`<span class="tag">${esc(t('brands_n', { n: g }))}</span>`);
-    if (packs > 1) tags.push(`<span class="tag">${esc(t('pack_sizes', { n: packs }))}</span>`);
     const inCmp = compare.has(med.id);
     return `<div class="result-wrap"><a class="result" href="#/medicine/${encodeURIComponent(med.id)}">
-      <div><div class="r-name">${highlight(med.name, q)} <span class="r-strength">${esc(med.strength)}</span></div>
-      <div class="r-meta">${highlight(med.generic, q)} · ${esc(med.form)} · ${esc(med.pack)}</div>
-      ${tags.length ? `<div class="r-tags">${tags.join('')}</div>` : ''}</div>
-      <div class="r-price"><b class="num">${rs(med.unitPrice)}</b><span>${esc(t('per_unit', { unit: unitWord(med) }))}</span></div>
+      <div class="r-main"><div class="r-name">${highlight(med.name, q)} <span class="r-strength">${esc(med.strength)}</span></div>
+      <div class="r-meta">${esc(med.pack ? t('pl_pack', { pack: iso(med.pack) }) : med.form)} · ${highlight(med.generic, q)}</div>
+      ${s && s.percent >= 5 ? `<div class="r-save">${esc(t('cheaper_avail', { pct: s.percent }))}</div>` : ''}</div>
+      <div class="r-price"><b class="num">${rs(med.price)}</b></div>
     </a>${compareBtn(med, inCmp, true)}</div>`;
   }
 
@@ -577,12 +579,10 @@
   function unpricedRow(item, q) {
     const alts = state.reg.pricedAlternatives(item);
     const exact = alts.filter((a) => a.exact).length;
-    const tags = [`<span class="tag warn">${esc(t('no_drap_price'))}</span>`];
-    if (alts.length) tags.push(`<span class="tag save">${esc(t(exact ? 'priced_same_n' : 'priced_salt_n', { n: exact || alts.length }))}</span>`);
     return `<a class="result unpriced" href="#/brand/${encodeURIComponent(item.reg)}">
-      <div><div class="r-name">${highlight(item.name, q)}${item.strength ? ` <span class="r-strength">${esc(item.strength)}</span>` : ''}</div>
-      <div class="r-meta">${item.generic ? highlight(item.generic, q) + ' · ' : ''}${esc(item.form)}${item.manufacturer ? ' · ' + esc(item.manufacturer) : ''}</div>
-      <div class="r-tags">${tags.join('')}</div></div>
+      <div class="r-main"><div class="r-name">${highlight(item.name, q)}${item.strength ? ` <span class="r-strength">${esc(item.strength)}</span>` : ''}</div>
+      <div class="r-meta">${item.generic ? highlight(item.generic, q) + ' · ' : ''}${esc(item.form)}</div>
+      ${alts.length ? `<div class="r-save">${esc(t(exact ? 'priced_same_n' : 'priced_salt_n', { n: exact || alts.length }))}</div>` : ''}</div>
       <div class="r-price"><span class="np">${esc(t('price_not_set'))}</span></div>
     </a>`;
   }
@@ -723,37 +723,68 @@
     const u = unitWord(med);
     const inCab = cabinet.has(med.id);
     const cat = state.ds.categories.find((c) => c.id === med.category);
+    const s = engine.savings(med);
+    const alts = engine.alternatives(med, state.altSort);
+
+    // Round 2 order: name + pack → price card → green "cheaper option" box (all in #med-hero),
+    // then the one-line yellow note (#med-savings), big buttons (#med-actions), the list, pharmacies,
+    // and everything else folded into "More details" (#med-facts, #med-strengths).
+    let savingsHtml = '';
+    if (s && s.percent >= 1) {
+      const c = s.cheapest;
+      savingsHtml = `<div class="savings">
+        <p class="s-kicker">${esc(t('cheaper_option'))}</p>
+        <p class="s-name"><a href="#/medicine/${encodeURIComponent(c.id)}">${esc(medTitle(c))}</a></p>
+        <p class="s-price"><b class="num">${rs(c.price)}</b> ${esc(t('for_pack', { pack: iso(c.pack || c.form) }))}</p>
+        <p class="s-save">${esc(med.unit !== 'pack' ? t('you_save', { amount: rs(s.perPack) }) : t('save_pct', { pct: s.percent }))}</p>
+        <button type="button" class="btn btn-primary s-all" id="btn-see-alts">${esc(t('see_cheaper'))}</button>
+      </div>`;
+    } else if (alts.length > 1) {
+      savingsHtml = `<div class="savings neutral"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg><p class="s-title">${esc(t('cheapest_already'))}</p></div>`;
+    }
     $('#med-hero').innerHTML = `
-      <div class="mh-top">
-        <div>
-          <h1 class="mh-name">${esc(medTitle(med))}</h1>
-          <p class="mh-product">${esc(med.product)}</p>
-        </div>
-        ${cat && cat.id !== 'other' ? `<a class="cat-ic" href="#/category/${cat.id}" title="${esc(catName(cat))}" aria-label="${esc(catName(cat))}">${catIcon(cat.icon)}</a>` : ''}
-      </div>
-      <div class="mh-formula"><small>${esc(t('formula'))}</small><b>${esc(med.generic)}${med.strength ? ' — ' + esc(med.strength) : ''}</b></div>
+      <h1 class="mh-name">${esc(medTitle(med))}</h1>
+      <p class="mh-pack">${esc(med.pack ? t('pl_pack', { pack: iso(med.pack) }) : med.form)}</p>
       <div class="price-label mh-prices">
-        <div class="pl-cap"><span class="pl-mrp">${esc(t('pl_mrp'))}</span><span class="pl-date num">${esc(fmtDate(med.effective))}</span></div>
-        <div class="pl-price mh-price"><b class="num">${rs(med.price).replace(/^Rs /, '<span class="pl-rs">Rs</span>')}</b><span class="pl-pack">${esc(t('pl_pack', { pack: med.pack || '—' }))}</span></div>
-        ${med.unit === 'pack' ? '' : `<div class="pl-unit mh-price"><span>${esc(t('unit_price', { unit: u }))}</span><b class="num">${rs(med.unitPrice)}</b></div>`}
+        <p class="pl-cap">${esc(t('pl_mrp'))}</p>
+        <p class="pl-price mh-price"><b class="num">${rs(med.price)}</b></p>
+        ${med.unit === 'pack' ? '' : `<p class="pl-unit mh-price">${esc(t('per_unit_price', { price: rs(med.unitPrice), unit: u }))}</p>`}
+        ${med.corrected ? `<p class="mh-corrected"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>${esc(t('price_corrected', { price: rs(med.drapPrice) }))}</p>` : ''}
       </div>
-      ${'{{SAVINGS}}'}
+      ${savingsHtml}`;
+
+    // One short yellow line; the stronger warning only for narrow-therapeutic medicines.
+    let noticeHtml = `<div class="notice consult callout" role="note"><p>${esc(t('consult_doctor'))}</p>`;
+    if (NARROW_THERAPEUTIC.test(med.generic) && alts.length > 1) {
+      noticeHtml += `<p class="callout-strong">${esc(t('switch_warning'))}</p>`;
+    }
+    noticeHtml += '</div>';
+    $('#med-savings').innerHTML = noticeHtml;
+
+    $('#med-actions').innerHTML = `
+      <div class="mh-actions">
+        <button type="button" class="btn btn-lg ${inCab ? 'btn-soft' : 'btn-primary'}" id="btn-cabinet">
+          <svg class="ic" aria-hidden="true"><use href="#${inCab ? 'i-check' : 'i-plus'}"/></svg><span>${esc(t(inCab ? 'in_cabinet' : 'add_cabinet'))}</span></button>
+        <button type="button" class="btn btn-lg btn-ghost" id="btn-share"><svg class="ic" aria-hidden="true"><use href="#i-share"/></svg><span>${esc(t('share'))}</span></button>
+      </div>
+      <p class="mh-links">${compareBtn(med, compare.has(med.id), false).replace('class="btn btn-ghost cmp-btn', 'id="btn-compare" class="link-btn cmp-btn')}
+        <button type="button" class="link-btn mh-report" id="btn-report">${esc(t('report_price'))}</button></p>`;
+
+    // "More details" (folded): formula, full name, facts, dates, other strengths
+    $('#med-facts').innerHTML = `
+      <div class="mh-formula"><small>${esc(t('formula'))}</small><b>${esc(med.generic)}${med.strength ? ' — ' + esc(med.strength) : ''}</b></div>
       <dl class="mh-facts">
+        <dt>${esc(t('full_name'))}</dt><dd class="mh-product">${esc(med.product)}</dd>
         <dt>${esc(t('form_label'))}</dt><dd>${esc(med.form)}</dd>
         <dt>${esc(t('pack_label'))}</dt><dd>${esc(med.pack || '—')}</dd>
         <dt>${esc(t('maker'))}</dt><dd>${esc(med.manufacturer || '—')}</dd>
         <dt>${esc(t('effective'))}</dt><dd>${esc(fmtDate(med.effective))}</dd>
         ${med.reg ? `<dt>${esc(t('reg_no'))}</dt><dd>${esc(med.reg)}</dd>` : ''}
+        ${cat && cat.id !== 'other' ? `<dt>${esc(t('category_label'))}</dt><dd><a href="#/category/${cat.id}">${esc(catName(cat))}</a></dd>` : ''}
       </dl>
-      <p class="mh-stamp small muted">${esc(t('price_checked', { date: fmtDate(state.ds.meta.latest_price_date) }))}</p>
-      <div class="mh-actions">
-        <button type="button" class="btn ${inCab ? 'btn-soft' : 'btn-primary'}" id="btn-cabinet">
-          <svg class="ic"><use href="#${inCab ? 'i-check' : 'i-plus'}"/></svg><span>${esc(t(inCab ? 'in_cabinet' : 'add_cabinet'))}</span></button>
-        ${compareBtn(med, compare.has(med.id), false).replace('class="btn btn-ghost cmp-btn', 'id="btn-compare" class="btn btn-ghost cmp-btn')}
-        <button type="button" class="btn btn-ghost" id="btn-share"><svg class="ic"><use href="#i-share"/></svg><span>${esc(t('share'))}</span></button>
-      </div>
-      ${med.corrected ? `<p class="mh-corrected"><svg class="ic"><use href="#i-check"/></svg>${esc(t('price_corrected', { price: rs(med.drapPrice) }))}</p>` : ''}
-      <button type="button" class="link-btn mh-report" id="btn-report"><svg class="ic"><use href="#i-flag"/></svg>${esc(t('report_price'))}</button>`;
+      <p class="mh-stamp">${esc(t('price_checked', { date: fmtDate(state.ds.meta.latest_price_date) }))}</p>`;
+    const more = $('#med-more');
+    if (more) more.open = false;
 
     const onCabinet = () => {
       if (cabinet.has(med.id)) {
@@ -765,39 +796,18 @@
       }
       renderMedicine(med.id);
     };
-
-    // savings
-    const s = engine.savings(med);
-    const alts = engine.alternatives(med, state.altSort);
-    let savingsHtml = '';
-    if (s && s.percent >= 1) {
-      // receipt: this brand …… price / cheapest brand …… price / saving on the pack
-      const per = (v) => `${rs(v)}<small>/${esc(u)}</small>`;
-      savingsHtml = `<div class="savings">
-        <p class="s-title"><span class="save-tag num">−${s.percent}%</span><span>${esc(t('rc_title'))}</span></p>
-        <dl class="receipt">
-          <div class="rc-row"><dt><span class="rc-name">${esc(med.name)}</span> <small>${esc(t('rc_this'))}</small></dt><dd class="num">${per(med.unitPrice)}</dd></div>
-          <div class="rc-row best"><dt><a class="rc-name" href="#/medicine/${encodeURIComponent(s.cheapest.id)}">${esc(s.cheapest.name)}</a> <small>${esc(t('cheapest_tag'))}</small></dt><dd class="num">${per(s.cheapest.unitPrice)}</dd></div>
-          ${med.unit !== 'pack' ? `<div class="rc-row total"><dt>${esc(t('rc_save_pack', { units: med.units + ' ' + u }))}</dt><dd class="num">${rs(s.perPack)}</dd></div>` : ''}
-        </dl>
-      </div>`;
-    } else if (alts.length > 1) {
-      savingsHtml = `<div class="savings neutral"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg><p class="s-title">${esc(t('cheapest_already'))}</p></div>`;
-    }
-    // Every medicine page carries the doctor/pharmacist warning (NHS-style callout);
-    // narrow-therapeutic ones get the stronger line too.
-    let noticeHtml = `<div class="notice consult callout" role="note"><p class="callout-t">${esc(t('callout_t'))}</p><p>${esc(t('consult_doctor'))}</p>`;
-    if (NARROW_THERAPEUTIC.test(med.generic) && alts.length > 1) {
-      noticeHtml += `<p class="callout-strong">${esc(t('switch_warning'))}</p>`;
-    }
-    noticeHtml += '</div>';
-    $('#med-hero').innerHTML = $('#med-hero').innerHTML.replace('{{SAVINGS}}', savingsHtml);
     $('#btn-cabinet').onclick = onCabinet;
     $('#btn-share').onclick = () => shareMedicine(med);
     $('#btn-report').onclick = () => openFeedback('wrong_price', { med });
-    $('#med-savings').innerHTML = noticeHtml;
+    const seeAlts = $('#btn-see-alts');
+    if (seeAlts) {
+      seeAlts.onclick = () => {
+        const panel = $('#alt-panel');
+        if (panel && panel.scrollIntoView) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
+    }
 
-    // strengths
+    // other strengths (inside "More details")
     const str = engine.strengths(med);
     $('#med-strengths').innerHTML = str.length
       ? `<div class="strengths"><h3>${esc(t('strengths_title', { generic: med.generic }))}</h3><div class="strength-chips">${str
@@ -805,9 +815,12 @@
         .join('')}</div></div>`
       : '';
 
+    state.altAll = false;
     renderAlternatives(med);
     renderNearby(med);
   }
+
+  const ALT_FIRST = 5;
 
   function renderAlternatives(med) {
     const alts = state.engine.alternatives(med, state.altSort);
@@ -819,9 +832,8 @@
       return;
     }
     const minPrice = Math.min(...alts.map((a) => a.unitPrice));
-    // ranked price table: rank · brand + maker …… dotted leader …… unit price
+    // Big rows: name + maker, pack price, "Save X%". The first 5 show; "Show all N" opens the rest.
     $('#alt-list').innerHTML = consultNote() +
-      `<div class="alt-thead" aria-hidden="true"><span>${esc(t('alt_col_brand'))}</span><span>${esc(med.unit === 'pack' ? t('unit_pack') : t('per_unit', { unit: u }))}</span></div>` +
       alts.map((a, i) => {
         const isCur = a.id === med.id;
         const pct = med.unitPrice > 0 ? Math.round(((a.unitPrice - med.unitPrice) / med.unitPrice) * 100) : 0;
@@ -833,14 +845,25 @@
               ? `<span class="alt-delta up">${esc(t('costlier_by', { pct }))}</span>`
               : `<span class="alt-delta">${esc(t('same_price'))}</span>`;
         const cheapest = a.unitPrice === minPrice;
-        return `<a class="alt${isCur ? ' current' : ''}${cheapest ? ' cheapest' : ''}" href="#/medicine/${encodeURIComponent(a.id)}">
-          <span class="alt-rank num" aria-hidden="true">${String(i + 1).padStart(2, '0')}</span>
-          <div class="alt-line"><span class="alt-name">${esc(a.name)}</span><span class="alt-leader" aria-hidden="true"></span><span class="alt-price"><b class="num">${a.unit === 'pack' ? rs(a.price) : rs(a.unitPrice)}</b><span class="sr-only"> ${esc(t('per_unit', { unit: u }))}</span></span></div>
-          <div class="alt-foot"><span class="alt-meta">${esc(a.manufacturer)} · ${esc(a.pack)} · <span class="num">${rs(a.price)}</span></span>
+        const folded = i >= ALT_FIRST && !state.altAll;
+        return `<a class="alt${isCur ? ' current' : ''}${cheapest ? ' cheapest' : ''}${i >= ALT_FIRST ? ' alt-extra' : ''}" href="#/medicine/${encodeURIComponent(a.id)}"${folded ? ' hidden' : ''}>
+          <div class="alt-main"><span class="alt-name">${esc(a.name)}</span><span class="alt-meta">${esc(a.manufacturer)}</span>
           <span class="alt-tags">${cheapest ? `<span class="tag save">${esc(t('cheapest_tag'))}</span>` : ''}${delta}</span></div>
+          <div class="alt-price"><b class="num">${rs(a.price)}</b><span><bdi>${esc(a.pack || '')}</bdi></span></div>
         </a>`;
       })
-      .join('');
+      .join('') +
+      (alts.length > ALT_FIRST && !state.altAll
+        ? `<button type="button" class="btn btn-ghost btn-lg alt-more" id="alt-more">${esc(t('show_all_n', { n: alts.length }))}</button>`
+        : '');
+    const moreBtn = $('#alt-more');
+    if (moreBtn) {
+      moreBtn.onclick = () => {
+        state.altAll = true;
+        $$('#alt-list .alt-extra').forEach((el) => { el.hidden = false; });
+        moreBtn.hidden = true;
+      };
+    }
   }
 
   function shareText(med) {
@@ -882,6 +905,7 @@
     if (!list.length) {
       body.innerHTML = chip + `<div class="empty"><div class="empty-ic"><svg class="ic"><use href="#i-list"/></svg></div>
         <h2 class="view-title">${esc(t('cabinet_empty_t'))}</h2><p class="view-sub">${esc(t('cabinet_empty_d'))}</p>
+        <a class="btn btn-primary btn-lg cab-add" href="#/">${esc(t('add_medicine'))}</a>
         <div class="chips center" style="margin-top:16px">${state.engine.popular(6).map((m) => `<a class="chip" href="#/medicine/${encodeURIComponent(m.id)}">${esc(m.name)}</a>`).join('')}</div></div>`;
       if (NATIVE) NATIVE.reminders.refresh(reminderText());
       return;
@@ -899,7 +923,7 @@
       const saving = costNow - costBest;
       return `<div class="cab-item" data-id="${esc(id)}">
         <div><div class="cab-name"><a href="#/medicine/${encodeURIComponent(id)}">${esc(medTitle(med))}</a></div>
-          <div class="cab-meta">${esc(med.generic)} · ${esc(med.form)} · ${rs(perDay ? med.unitPrice : med.price)}/${esc(perDay ? unitWord(med) : t('unit_pack'))}</div></div>
+          <div class="cab-meta">${rs(perDay ? med.unitPrice : med.price)} / ${esc(perDay ? unitWord(med) : t('unit_pack'))}</div></div>
         <div class="cab-qty">
           <div class="stepper"><button type="button" class="icon-btn ghost sm" data-act="dec" aria-label="Less"><svg class="ic"><use href="#i-minus"/></svg></button>
           <input type="number" inputmode="decimal" min="0" max="99" step="${perDay ? 0.5 : 1}" value="${qty}" aria-label="Quantity">
@@ -908,8 +932,8 @@
           <button type="button" class="icon-btn ghost sm" data-act="remove" aria-label="${esc(t('remove'))}"><svg class="ic"><use href="#i-trash"/></svg></button>
         </div>
         <div class="cab-cost"><b class="num">${rs(costNow)}</b><span>${esc(t('per_month'))}</span></div>
-        ${cheap.id !== med.id && saving > 0.5 ? `<div class="cab-switch"><span>${esc(t('switch_to', { name: cheap.name }))}: <b class="num">${rs(costBest)}</b>/${esc(t('per_month'))}</span>
-          <span><a href="#/medicine/${encodeURIComponent(cheap.id)}">${esc(t('view_details'))}</a> · <button type="button" class="btn btn-save sm" data-act="switch" data-to="${esc(cheap.id)}">${esc(t('switch_save', { amount: rs(saving) }))}</button></span></div>` : ''}
+        ${cheap.id !== med.id && saving > 0.5 ? `<div class="cab-switch"><p><span class="s-kicker">${esc(t('cheaper_option'))}</span> <a href="#/medicine/${encodeURIComponent(cheap.id)}">${esc(cheap.name)}</a>: <b class="num">${rs(costBest)}</b> ${esc(t('per_month'))}</p>
+          <button type="button" class="btn btn-save" data-act="switch" data-to="${esc(cheap.id)}">${esc(t('switch_save', { amount: rs(saving) }))}</button></div>` : ''}
       </div>`;
     });
     const saveAmt = Math.max(0, now - best);
@@ -920,6 +944,7 @@
         <div class="stat good"><small>${esc(t('monthly_save'))}</small><b class="num">${rs(saveAmt)}</b><div class="sub">${esc(t('yearly_save', { amount: rs(saveAmt * 12) }))}</div></div>
       </div>
       <div class="cab-list">${rows.join('')}</div>
+      <a class="btn btn-primary btn-lg cab-add" href="#/">${esc(t('add_medicine'))}</a>
       ${NATIVE ? reminderCard() : ''}
       <div class="cab-tools">
         <button type="button" class="btn btn-ghost" id="cab-share"><svg class="ic"><use href="#i-share"/></svg>${esc(t('share_list'))}</button>
