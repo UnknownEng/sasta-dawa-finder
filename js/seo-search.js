@@ -3,6 +3,14 @@
  * Picking a suggestion opens that medicine's page; Enter without picking searches in the app. */
 (function () {
   'use strict';
+  // The "اردو" button in the header opens the app in Urdu: the app reads its language from
+  // localStorage "sd_lang" (js/i18n.js), so set it before following the link.
+  var langs = document.querySelectorAll('a[data-lang]');
+  for (var li = 0; li < langs.length; li++) {
+    langs[li].addEventListener('click', function () {
+      try { localStorage.setItem('sd_lang', this.getAttribute('data-lang')); } catch (err) { /* storage unavailable */ }
+    });
+  }
   var form = document.getElementById('seo-search');
   if (!form) return;
   var input = form.querySelector('input');

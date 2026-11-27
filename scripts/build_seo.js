@@ -57,10 +57,28 @@ function rs(n) {
   return 'Rs ' + (v >= 100 ? v.toLocaleString('en-PK', { maximumFractionDigits: 0 }) : v.toFixed(2));
 }
 function unitWord(m) {
-  if (m.unit === 'unit') return /capsule/i.test(m.form) ? 'capsule' : 'tablet';
+  if (m.unit === 'unit') {
+    if (/capsule/i.test(m.form)) return 'capsule';
+    if (/sachet/i.test(m.form)) return 'sachet';
+    if (/suppositor/i.test(m.form)) return 'suppository';
+    return 'tablet';
+  }
   if (m.unit === 'dose') return 'dose';
   return m.unit || 'unit';
 }
+// Plain pack words, as on the app's medicine page: "200 tablets" rather than "200's".
+function packText(m) {
+  if (m.unit === 'unit' && m.units > 0 && Number.isInteger(m.units)) {
+    const w = unitWord(m);
+    return m.units + ' ' + (m.units === 1 ? w : w === 'suppository' ? 'suppositories' : w + 's');
+  }
+  return m.pack || m.form || '';
+}
+// "Panadol 500mg", like medTitle() in js/app.js
+function medTitle(m) {
+  return m.name + (m.strength && !m.name.includes(m.strength) ? ' ' + m.strength : '');
+}
+const appLink = (m) => '/#/medicine/' + encodeURIComponent(m.id);
 function fmtDate(iso) {
   if (!iso) return '';
   const d = new Date(iso + 'T00:00:00Z');
@@ -77,10 +95,14 @@ function letterOf(slug) {
 }
 const LETTERS = 'abcdefghijklmnopqrstuvwxyz'.split('').concat(['0-9']);
 
-function page({ title, description, canonical, h1, body, jsonld, crumbs }) {
+const FONTS = 'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&display=swap';
+const LOGO = '<svg viewBox="0 0 32 32" width="36" height="36" aria-hidden="true"><rect x="1" y="1" width="30" height="30" rx="4" fill="currentColor"/><path d="M13 7h6v6h6v6h-6v6h-6v-6H7v-6h6z" class="logo-cross"/></svg>';
+
+function page({ title, description, canonical, h1, sub, body, jsonld, crumbs, appHref }) {
   const crumbHtml = crumbs && crumbs.length
-    ? `<nav class="crumbs" aria-label="Breadcrumb">${crumbs.map((c, i) => (i < crumbs.length - 1 ? `<a href="${esc(c.href)}">${esc(c.name)}</a> › ` : `<span>${esc(c.name)}</span>`)).join('')}</nav>`
+    ? `<nav class="crumbs" aria-label="Breadcrumb">${crumbs.map((c, i) => (i < crumbs.length - 1 ? `<a href="${esc(c.href)}">${esc(c.name)}</a><span class="sep" aria-hidden="true">›</span>` : `<span aria-current="page">${esc(c.name)}</span>`)).join('')}</nav>`
     : '';
+  const app = appHref || '/';
   const ld = []
     .concat(jsonld || [])
     .concat(crumbs && crumbs.length ? [{
@@ -101,35 +123,61 @@ function page({ title, description, canonical, h1, body, jsonld, crumbs }) {
 <meta property="og:description" content="${esc(description)}">
 <meta property="og:url" content="${esc(canonical)}">
 <meta property="og:site_name" content="Sasta Dawa Finder">
-<meta name="theme-color" content="#13294B">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#F6F5EF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0F1210" media="(prefers-color-scheme: dark)">
 <link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="${FONTS}">
 <link rel="stylesheet" href="/css/seo.css?v=${CSS_V}">
 ${ld.map((o) => `<script type="application/ld+json">${JSON.stringify(o).replace(/</g, '\\u003c')}</script>`).join('\n')}
 ${ANALYTICS}
 </head>
 <body>
-<header class="top"><div class="wrap top-in">
-  <a class="brand" href="/"><img src="/icons/icon.svg" alt="" width="34" height="34"><span>Sasta Dawa Finder</span></a>
-  <form class="seo-search" id="seo-search" action="/" role="search" autocomplete="off">
-    <input type="search" name="q" placeholder="Search any medicine, e.g. Panadol" aria-label="Search any medicine" role="combobox" aria-autocomplete="list" aria-controls="seo-suggest" aria-expanded="false">
-    <button class="btn" type="submit">Search</button>
-    <ul id="seo-suggest" class="suggest" role="listbox" hidden></ul>
-  </form>
+<header class="topbar"><div class="wrap topbar-in">
+  <a class="brand" href="/" aria-label="Sasta Dawa Finder home"><span class="brand-mark">${LOGO}</span><span class="brand-name">Sasta Dawa</span></a>
+  <a class="top-link" href="/">Search all medicines</a>
+  <a class="lang-btn" href="${esc(app)}" data-lang="ur" lang="ur" title="Open in Urdu">اردو</a>
 </div></header>
-<main class="wrap">
+<main class="wrap main">
 ${crumbHtml}
 <h1>${esc(h1)}</h1>
+${sub ? `<p class="sub">${sub}</p>` : ''}
 ${body}
-<section class="cta">
-  <p><b>Check any medicine in seconds.</b> Official DRAP prices for every registered brand, in English and Urdu, free.</p>
-  <p class="cta-row"><a class="btn" href="/">Open Sasta Dawa Finder</a> <a class="btn ghost" href="${APK}" rel="nofollow">Download Android app</a></p>
+<section class="find" aria-labelledby="find-h">
+  <h2 id="find-h">Look up another medicine</h2>
+  <form class="seo-search" id="seo-search" action="/" role="search" autocomplete="off">
+    <input type="search" name="q" placeholder="e.g. Panadol" aria-label="Medicine name" role="combobox" aria-autocomplete="list" aria-controls="seo-suggest" aria-expanded="false">
+    <button class="btn btn-primary" type="submit">Search</button>
+    <ul id="seo-suggest" class="suggest" role="listbox" hidden></ul>
+  </form>
 </section>
-<p class="note">Prices are DRAP-notified maximum retail prices; pharmacies may sell for less. This page is not medical advice: always ask your doctor or pharmacist before switching medicines. In an emergency call Rescue 1122 or Edhi 115.</p>
 </main>
-<footer class="foot"><div class="wrap">
-  <p class="az"><b>Browse medicines:</b> ${LETTERS.map((l) => `<a href="/browse/${l}">${l.toUpperCase()}</a>`).join(' ')}</p>
-  <p><a href="/formula">All formulas (salts)</a> · <a href="/privacy">Privacy policy</a> · <a href="/">Sasta Dawa Finder</a></p>
-  <p>Contact: <a href="tel:+923393202419">+92 339 3202419</a> · <a href="mailto:mavericktech.pk@gmail.com">mavericktech.pk@gmail.com</a> · © Maverick Technologies</p>
+<footer class="footer"><div class="wrap">
+  <div class="footer-cols">
+    <div>
+      <p class="footer-h">Contact</p>
+      <a class="footer-link" href="tel:+923393202419" dir="ltr">+92 339 3202419</a>
+      <a class="footer-link" href="mailto:mavericktech.pk@gmail.com">mavericktech.pk@gmail.com</a>
+    </div>
+    <div>
+      <p class="footer-h">More</p>
+      <a class="footer-link" href="${APK}" rel="nofollow">Android app</a>
+      <a class="footer-link" href="/formula">All formulas (salts)</a>
+      <a class="footer-link" href="/business">For pharmacies, clinics &amp; companies</a>
+      <a class="footer-link" href="/privacy">Privacy policy</a>
+    </div>
+    <div>
+      <p class="footer-h">Emergency</p>
+      <a class="footer-link" href="tel:1122">Rescue 1122</a>
+      <a class="footer-link" href="tel:115">Edhi 115</a>
+    </div>
+  </div>
+  <p class="footer-h footer-az-h">All medicines A–Z</p>
+  <p class="az">${LETTERS.map((l) => `<a href="/browse/${l}" aria-label="Medicines starting with ${l.toUpperCase()}">${l.toUpperCase()}</a>`).join('')}</p>
+  <p class="footer-note">Prices are DRAP-notified maximum retail prices; pharmacies may sell for less. This site does not give medical advice. Always ask your doctor or pharmacist before switching medicines.</p>
+  <p class="footer-copy">&copy; Maverick Technologies</p>
 </div></footer>
 <script src="/js/seo-search.js?v=${JS_V}" defer></script>
 </body>
@@ -137,13 +185,16 @@ ${body}
 `;
 }
 
-function priceTable(rows, opts) {
-  const o = opts || {};
-  return `<div class="tbl"><table>
-<thead><tr><th>Brand</th>${o.showGeneric ? '<th>Formula</th>' : ''}<th>Strength · form · pack</th><th class="num">DRAP price</th><th class="num">Per unit</th><th>Manufacturer</th></tr></thead>
-<tbody>
-${rows.map((r) => `<tr${r.highlight ? ' class="best"' : ''}><td>${r.href ? `<a href="${esc(r.href)}">${esc(r.m.name)}</a>` : `<b>${esc(r.m.name)}</b>`}${r.tag ? ` <span class="tag">${esc(r.tag)}</span>` : ''}</td>${o.showGeneric ? `<td>${esc(r.m.generic)}</td>` : ''}<td>${esc([r.m.strength, r.m.form, r.m.pack].filter(Boolean).join(' · '))}</td><td class="num">${rs(r.m.price)}</td><td class="num">${rs(r.m.unitPrice)} / ${esc(unitWord(r.m))}</td><td>${esc(r.m.manufacturer || '')}</td></tr>`).join('\n')}
-</tbody></table></div>`;
+// One big row in a list of brands: name + maker on the left, pack price on the right,
+// a green "Save X%" / "Cheapest" line. The whole row is one link (48px+ target).
+function altRow({ m, href, tag, cheapest }) {
+  const inner = `<span class="alt-main"><span class="alt-name">${esc(m.name)}</span><span class="alt-meta">${esc(m.manufacturer || '')}</span>${tag ? `<span class="alt-save">${esc(tag)}</span>` : ''}</span>
+<span class="alt-price"><b>${rs(m.price)}</b><span>${esc(packText(m))}</span>${m.unit === 'pack' ? '' : `<span>${rs(m.unitPrice)} per ${esc(unitWord(m))}</span>`}</span>`;
+  const cls = 'alt' + (cheapest ? ' cheapest' : '');
+  return href ? `<li><a class="${cls}" href="${esc(href)}">${inner}</a></li>` : `<li><div class="${cls}">${inner}</div></li>`;
+}
+function altList(rows) {
+  return `<ul class="alt-list">${rows.map(altRow).join('\n')}</ul>`;
 }
 
 function build(outDir) {
@@ -186,23 +237,69 @@ function build(outDir) {
     const generics = [...new Set(items.map((m) => m.generic))];
     const variants = items.slice().sort((a, b) => (a.generic + a.strength + a.form).localeCompare(b.generic + b.strength + b.form) || a.unitPrice - b.unitPrice);
     let best = null; // the biggest saving among this brand's variants, for the title/description
+    let noteShown = false; // the one-line "ask your doctor" note: once per page, not per pack
+    const ALT_FIRST = 5;
     const sections = variants.map((m) => {
-      const alts = (engine.alternatives(m) || []).filter((a) => a.id !== m.id && a.unitPrice < m.unitPrice - 0.004).slice(0, 6);
+      const all = (engine.alternatives(m) || []).filter((a) => a.id !== m.id && a.unitPrice < m.unitPrice - 0.004);
+      const alts = all.slice(0, ALT_FIRST);
       const s = alts.length ? Math.round((1 - alts[0].unitPrice / m.unitPrice) * 100) : 0;
       if (alts.length && (!best || s > best.pct)) best = { m, alt: alts[0], pct: s };
-      const warn = NARROW_THERAPEUTIC.test(m.generic)
-        ? '<p class="warn">Switching brands of this medicine needs your doctor\'s advice, even with the same formula.</p>'
-        : '';
-      const altHtml = alts.length
-        ? `<h3>Cheaper brands with the same formula</h3>${priceTable(alts.map((a, i) => ({ m: a, href: brandSlugOf.has(a.id) ? '/dawa/' + brandSlugOf.get(a.id) : null, tag: i === 0 ? Math.round((1 - a.unitPrice / m.unitPrice) * 100) + '% less' : '', highlight: i === 0 })))}`
-        : '<p class="ok">This is already one of the cheapest DRAP-registered brands for this formula.</p>';
+      const sv = engine.savings(m);
+      const hrefOf = (a) => (brandSlugOf.has(a.id) ? '/dawa/' + brandSlugOf.get(a.id) : appLink(a));
+      const pctOf = (a) => Math.round((1 - a.unitPrice / m.unitPrice) * 100);
+      const narrow = NARROW_THERAPEUTIC.test(m.generic);
       const saltSlug = saltSlugOf.get(m.id);
+
+      const priceCard = `<div class="price-label">
+<p class="pl-cap">Price</p>
+<p class="pl-price"><b>${rs(m.price)}</b></p>
+<p class="pl-unit">for ${esc(packText(m))}${m.unit === 'pack' ? '' : ` · ${rs(m.unitPrice)} per ${esc(unitWord(m))}`}</p>
+</div>`;
+      let box = '';
+      if (sv && sv.percent >= 1) {
+        const c = sv.cheapest;
+        box = `<div class="savings">
+<p class="s-kicker">Cheaper option</p>
+<p class="s-name"><a href="${esc(hrefOf(c))}">${esc(medTitle(c))}</a></p>
+<p class="s-price"><b>${rs(c.price)}</b> for ${esc(packText(c))}</p>
+<p class="s-save">${m.unit !== 'pack' ? `You save ${rs(sv.perPack)}` : `Save ${sv.percent}%`}</p>
+</div>`;
+      } else {
+        box = '<div class="savings neutral"><p class="s-title">Good choice: this is already one of the cheapest brands with this formula.</p></div>';
+      }
+      let note = '';
+      if (narrow && all.length) {
+        note = '<div class="notice" role="note"><p><b>Ask your doctor before switching.</b> This medicine needs a doctor\'s advice to change brand, even with the same formula.</p></div>';
+      } else if (all.length && !noteShown) {
+        note = '<div class="notice" role="note"><p>Ask your doctor or pharmacist before you switch.</p></div>';
+      }
+      if (note) noteShown = true;
+      const list = alts.length
+        ? `<h3>Cheaper medicines with the same formula</h3>
+${altList(alts.map((a, i) => ({ m: a, href: hrefOf(a), tag: `Save ${pctOf(a)}%`, cheapest: i === 0 })))}
+${all.length > ALT_FIRST ? `<a class="btn btn-ghost show-all" href="${appLink(m)}">Show all ${all.length}</a>` : ''}`
+        : '';
+      const details = `<details class="more-details">
+<summary>More details</summary>
+<dl class="facts">
+<dt>Formula</dt><dd>${saltSlug ? `<a href="/formula/${saltSlug}">${esc(m.generic)}</a>` : esc(m.generic)}${m.strength ? ' ' + esc(m.strength) : ''}</dd>
+<dt>Form</dt><dd>${esc(m.form || '–')}</dd>
+<dt>Pack</dt><dd>${esc(m.pack || '–')}</dd>
+<dt>Maker</dt><dd>${esc(m.manufacturer || '–')}</dd>
+${m.reg ? `<dt>DRAP Reg. no.</dt><dd>${esc(m.reg)}</dd>` : ''}
+${m.effective ? `<dt>Price from</dt><dd>${esc(fmtDate(m.effective))}</dd>` : ''}
+</dl>
+${saltSlug ? `<p class="d-link"><a href="/formula/${saltSlug}">Compare all ${esc(m.generic)} brands</a></p>` : ''}
+</details>`;
       return `<section class="variant">
-<h2>${esc(name)} ${esc(m.strength || '')} ${esc(m.form || '')} <small>(${esc(m.pack || '')})</small></h2>
-<p class="facts"><b>${rs(m.price)}</b> DRAP max. price · <b>${rs(m.unitPrice)}</b> per ${esc(unitWord(m))} · ${esc(m.generic)}${saltSlug ? ` (<a href="/formula/${saltSlug}">all ${esc(m.generic)} brands</a>)` : ''} · ${esc(m.manufacturer || '')}${m.reg ? ' · DRAP Reg. ' + esc(m.reg) : ''}${m.effective ? ' · price from ' + esc(fmtDate(m.effective)) : ''}</p>
-${warn}
-${altHtml}
-<p><a class="btn small" href="/#/medicine/${encodeURIComponent(m.id)}">Open ${esc(name)} ${esc(m.strength || '')} in the app</a></p>
+<h2>${esc(name)} ${esc(m.strength || '')} ${esc(m.form || '')}</h2>
+<p class="pack">Pack of ${esc(packText(m))}</p>
+${priceCard}
+${box}
+${note}
+${list}
+<a class="btn btn-primary btn-lg open-app" href="${appLink(m)}">Open in Sasta Dawa</a>
+${details}
 </section>`;
     });
 
@@ -211,7 +308,8 @@ ${altHtml}
     const description = best
       ? `${name} (${genericTxt}) official DRAP price: ${rs(best.m.price)} for ${best.m.pack}. Same formula for less: ${best.alt.name} at ${rs(best.alt.unitPrice)} per ${unitWord(best.alt)} (${best.pct}% cheaper). Prices to ${latestTxt}.`
       : `${name} (${genericTxt}) official DRAP price in Pakistan for every strength and pack, with all same-formula brands compared. Prices to ${latestTxt}.`;
-    const intro = `<p class="lead">Official DRAP maximum retail price of <b>${esc(name)}</b> (${esc(genericTxt)}) in Pakistan${best ? `, and cheaper brands with exactly the same formula. The biggest saving: <b>${esc(best.alt.name)}</b> costs <b>${best.pct}% less</b> per ${esc(unitWord(best.alt))}` : ''}. Prices updated to ${esc(latestTxt)}.</p>
+    const sub = `${esc(genericTxt)} · Government (DRAP) price, updated ${esc(latestTxt)}`;
+    const intro = `<p class="lead">Official price of ${esc(name)}${best ? `, and cheaper medicines with exactly the same formula: <b>${esc(best.alt.name)}</b> costs <b>${best.pct}% less</b>` : ''}.</p>
 <p class="ur" lang="ur" dir="rtl">${esc(name)} کی سرکاری قیمت اور اسی فارمولے کی سستی دوائیں</p>`;
     const jsonld = [{
       '@context': 'https://schema.org',
@@ -228,7 +326,9 @@ ${altHtml}
       description,
       canonical: `${SITE}/dawa/${slug}`,
       h1: `${name} price in Pakistan`,
+      sub,
       body: intro + sections.join('\n'),
+      appHref: appLink(variants[0]),
       jsonld,
       crumbs: [{ name: 'Home', href: '/' }, { name: 'Medicines ' + letterOf(slug).toUpperCase(), href: '/browse/' + letterOf(slug) }, { name, href: '/dawa/' + slug }],
     });
@@ -251,20 +351,46 @@ ${altHtml}
       .sort((a, b) => b[1].length - a[1].length)
       .map(([k, list]) => {
         const sorted = list.slice().sort((a, b) => a.unitPrice - b.unitPrice);
-        return `<section class="variant"><h2>${esc(generic)} ${esc(k)} <small>(${sorted.length} brand${sorted.length === 1 ? '' : 's'})</small></h2>
-${priceTable(sorted.slice(0, 40).map((m, i) => ({ m, href: brandSlugOf.has(m.id) ? '/dawa/' + brandSlugOf.get(m.id) : null, tag: i === 0 && sorted.length > 1 ? 'cheapest' : '', highlight: i === 0 && sorted.length > 1 })))}
-${sorted.length > 40 ? `<p class="more">+${sorted.length - 40} more brands in the app.</p>` : ''}</section>`;
+        const FIRST = 5;
+        const MAX = 40;
+        const multi = sorted.length > 1;
+        const rows = sorted.slice(0, MAX).map((m, i) => ({
+          m,
+          href: brandSlugOf.has(m.id) ? '/dawa/' + brandSlugOf.get(m.id) : appLink(m),
+          tag: '',
+          cheapest: i === 0 && multi,
+        }));
+        const c = sorted[0];
+        return `<section class="variant"><h2>${esc(generic)} ${esc(k)}</h2>
+<p class="pack">${sorted.length} brand${sorted.length === 1 ? '' : 's'}, cheapest first</p>
+${multi ? `<div class="savings">
+<p class="s-kicker">Cheapest</p>
+<p class="s-name"><a href="${esc(rows[0].href)}">${esc(medTitle(c))}</a></p>
+<p class="s-price"><b>${rs(c.price)}</b> for ${esc(packText(c))}${c.unit === 'pack' ? '' : ` · ${rs(c.unitPrice)} per ${esc(unitWord(c))}`}</p>
+</div>` : ''}
+${altList(rows.slice(0, FIRST))}
+${rows.length > FIRST ? `<details class="more-rows"><summary>Show all ${sorted.length} brands</summary>
+${altList(rows.slice(FIRST))}
+${sorted.length > MAX ? `<a class="btn btn-ghost show-all" href="${appLink(c)}">See the other ${sorted.length - MAX} in Sasta Dawa</a>` : ''}
+</details>` : ''}
+</section>`;
       });
     const brandCount = new Set(items.map((m) => brandSlugOf.get(m.id)).filter(Boolean)).size;
     const cheapest = items.slice().sort((a, b) => a.unitPrice - b.unitPrice)[0];
+    const narrow = NARROW_THERAPEUTIC.test(generic);
     const html = page({
       title: `${generic} price in Pakistan – all ${brandCount} brands compared`,
       description: `Compare DRAP prices of all ${brandCount} ${generic} brands in Pakistan by strength and form. Cheapest: ${cheapest.name} ${cheapest.strength || ''} at ${rs(cheapest.unitPrice)} per ${unitWord(cheapest)}. Prices to ${latestTxt}.`,
       canonical: `${SITE}/formula/${slug}`,
       h1: `${generic} price in Pakistan`,
-      body: `<p class="lead">Every DRAP-registered brand of <b>${esc(generic)}</b>, grouped by strength and form and sorted cheapest first. Brands in the same group have the same active ingredient, strength and form. Prices updated to ${esc(latestTxt)}.</p>
-${NARROW_THERAPEUTIC.test(generic) ? '<p class="warn">Switching brands of this medicine needs your doctor\'s advice, even with the same formula.</p>' : ''}
-${blocks.join('\n')}`,
+      sub: `${brandCount} brand${brandCount === 1 ? '' : 's'} · Government (DRAP) price, updated ${esc(latestTxt)}`,
+      body: `<p class="lead">Every registered brand of ${esc(generic)}, grouped by strength and form, cheapest first. Brands in one group have the same formula.</p>
+${narrow
+    ? '<div class="notice" role="note"><p><b>Ask your doctor before switching.</b> This medicine needs a doctor\'s advice to change brand, even with the same formula.</p></div>'
+    : '<div class="notice" role="note"><p>Ask your doctor or pharmacist before you switch.</p></div>'}
+${blocks.join('\n')}
+<a class="btn btn-primary btn-lg open-app" href="${appLink(cheapest)}">Open in Sasta Dawa</a>`,
+      appHref: appLink(cheapest),
       crumbs: [{ name: 'Home', href: '/' }, { name: 'Formulas', href: '/formula' }, { name: generic, href: '/formula/' + slug }],
     });
     fs.writeFileSync(path.join(OUT, 'formula', slug + '.html'), html);
@@ -284,8 +410,10 @@ ${blocks.join('\n')}`,
       description: `All ${list.length} DRAP-registered medicine brands starting with ${l.toUpperCase()}, with official prices and cheaper same-formula alternatives.`,
       canonical: `${SITE}/browse/${l}`,
       h1: `Medicines starting with ${l.toUpperCase()}`,
-      body: `<p class="lead">${list.length} brands. Tap a brand for its DRAP price and cheaper same-formula options.</p>
-<ul class="list">${list.map((b) => `<li><a href="/dawa/${b.slug}">${esc(b.name)}</a> <span>${esc(b.generic)} · from ${rs(b.from.unitPrice)} / ${esc(unitWord(b.from))}</span></li>`).join('')}</ul>`,
+      sub: `${list.length} brands`,
+      body: `<p class="lead">Tap a medicine to see its price and cheaper options.</p>
+<p class="az az-top">${LETTERS.map((x) => (x === l ? `<span aria-current="page">${x.toUpperCase()}</span>` : `<a href="/browse/${x}">${x.toUpperCase()}</a>`)).join('')}</p>
+<ul class="rows">${list.map((b) => `<li><a class="row" href="/dawa/${b.slug}"><span class="row-main"><span class="row-name">${esc(b.name)}</span><span class="row-meta">${esc(b.generic)}</span></span><span class="row-price">from <b>${rs(b.from.unitPrice)}</b> / ${esc(unitWord(b.from))}</span></a></li>`).join('')}</ul>`,
       crumbs: [{ name: 'Home', href: '/' }, { name: 'Medicines ' + l.toUpperCase(), href: '/browse/' + l }],
     });
     fs.writeFileSync(path.join(OUT, 'browse', l + '.html'), html);
@@ -299,7 +427,8 @@ ${blocks.join('\n')}`,
     description: `${saltList.length} active ingredients sold in Pakistan. Pick one to compare the DRAP prices of all its brands.`,
     canonical: `${SITE}/formula`,
     h1: 'All medicine formulas (salts)',
-    body: `<p class="lead">${saltList.length} active ingredients. Each page compares every DRAP-registered brand of that formula, cheapest first.</p>
+    sub: `${saltList.length} active ingredients`,
+    body: `<p class="lead">Pick a formula to compare the price of every brand, cheapest first.</p>
 <ul class="list cols">${saltList.map(([slug, name]) => `<li><a href="/formula/${slug}">${esc(name)}</a></li>`).join('')}</ul>`,
     crumbs: [{ name: 'Home', href: '/' }, { name: 'Formulas', href: '/formula' }],
   }));

@@ -18,6 +18,12 @@ const CONC = Number(process.argv[3]) || 25;
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'sd-sim-'));
 process.env.SD_DATA_DIR = DIR;
 process.env.ADMIN_PASSWORD = 'sim-admin-password';
+// Google sign-in and JazzCash are simulated: fake Google check, JazzCash replies signed with a test salt.
+process.env.GOOGLE_CLIENT_ID = 'sim-client.apps.googleusercontent.com';
+process.env.JAZZCASH_MERCHANT_ID = 'SIM001';
+process.env.JAZZCASH_PASSWORD = 'sim-pass';
+process.env.JAZZCASH_INTEGRITY_SALT = 'sim-salt';
+process.env.JAZZCASH_SANDBOX = '1';
 delete process.env.ANTHROPIC_API_KEY;
 delete process.env.VERCEL;
 delete process.env.BLOB_READ_WRITE_TOKEN;
@@ -26,6 +32,32 @@ delete process.env.BLOB_STORE_ID;
 const { server } = require('../server');
 const dataset = require('../lib/dataset');
 const engine = dataset.get().engine;
+const platform = require('../lib/platform');
+platform._setGoogleVerifier(async (cred) => {
+  const [, sub, email, name] = cred.split('|');
+  return { iss: 'https://accounts.google.com', aud: process.env.GOOGLE_CLIENT_ID, sub, email, name, email_verified: 'true', exp: String(Math.floor(Date.now() / 1000) + 600) };
+});
+async function jazzcashPay(token, plan, ip) {
+  const st = await call('/api/account?a=pay-online', { headers: { Authorization: 'Bearer ' + token }, ip, body: { plan } });
+  if (st.status !== 200) return { ok: false, text: st.text };
+  const f = st.body.form.fields;
+  const reply = { pp_ResponseCode: '000', pp_ResponseMessage: 'Thank you', pp_TxnRefNo: f.pp_TxnRefNo, pp_Amount: f.pp_Amount, pp_MerchantID: f.pp_MerchantID };
+  reply.pp_SecureHash = platform._jazzcash.hash(reply);
+  const back = await callForm('/api/places?a=jazzcash-return', reply, ip);
+  return { ok: back.status === 303 && /payment=success/.test(back.headers.location || ''), text: back.headers.location };
+}
+function callForm(p, fields, ip) {
+  return new Promise((resolve) => {
+    const data = new URLSearchParams(fields).toString();
+    const req = http.request({ port, path: p, method: 'POST', headers: { 'X-Forwarded-For': ip, 'Content-Type': 'application/x-www-form-urlencoded' } }, (res) => {
+      res.resume();
+      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers }));
+    });
+    req.on('error', () => resolve({ status: 0, headers: {} }));
+    req.write(data);
+    req.end();
+  });
+}
 
 // ---------------------------------------------------------------------------
 let port;
@@ -92,7 +124,16 @@ async function signup(role, n, ip) {
 
 async function patient(n) {
   const ip = '10.1.' + ((n >> 8) & 255) + '.' + (n & 255);
-  const s = await signup('patient', n, ip);
+  let s;
+  if (n % 5 === 2) {
+    const g = await call('/api/account?a=google', { ip, body: { credential: `fake|g-${n}|sim${n}-google@gmail.com|Google Person ${n}` } });
+    check('[google] sign up with Google', g.status === 200 && g.body.created === true && g.body.user.google === true, g.text);
+    const g2 = await call('/api/account?a=google', { ip, body: { credential: `fake|g-${n}|sim${n}-google@gmail.com|Google Person ${n}` } });
+    check('[google] sign in again with Google', g2.status === 200 && g2.body.created === false && g2.body.user.id === g.body.user.id, g2.text);
+    const bad = await call('/api/account?a=google', { ip, body: { credential: `fake|g-other-${n}|sim${n}-google@gmail.com|Imposter` } });
+    check('[security] different Google account with same email refused', bad.status === 401, bad.status);
+    s = g.status === 200 ? { token: g2.body.token, user: g2.body.user, ip, n } : null;
+  } else s = await signup('patient', n, ip);
   if (!s) return;
   const med = pick(MEDS, n);
   const city = pick(CITIES, n);
@@ -185,7 +226,16 @@ async function pharmacy(n) {
     check('[pharmacy] staff discount offer', of.status === 200 && of.body.offer && of.body.offer.percent === 5 + (n % 15), of.text);
   }
   let premium = false;
-  if (n % 4 === 0) {
+  if (n % 8 === 4) {
+    const jc = await jazzcashPay(s.token, 'pharmacy_premium', ip);
+    check('[jazzcash] pay online and get upgraded', jc.ok, jc.text);
+    const me = await call('/api/account?a=me', { headers: bearer(s.token) });
+    premium = check('[jazzcash] plan active right after online payment', me.body.user.plan === 'pharmacy_premium' && me.body.user.trial === false, JSON.stringify(me.body.user));
+    if (premium) {
+      const dl = await call('/api/account?a=save-pharmacy', { headers: bearer(s.token), body: { id: pid, name: `Sim Pharmacy ${n}`, address: `Shop ${n}, Main Market`, city, phone: '0300' + String(2000000 + n), whatsapp: '+92300' + String(2000000 + n), lat, lng, delivery: true } });
+      check('[premium] switch on home delivery', dl.status === 200 && dl.body.pharmacy.delivery === true, dl.text);
+    }
+  } else if (n % 4 === 0) {
     const tk = bearer(s.token);
     const pay = await call('/api/account?a=pay', { headers: tk, ip, body: { plan: 'pharmacy_premium', method: pick(['jazzcash', 'easypaisa', 'bank'], n), txnId: 'TX' + n + 'SIM', payerPhone: '03001234567' } });
     if (check('[payments] submit payment with transaction ID', pay.status === 200 && pay.body.payment.status === 'pending', pay.text)) {

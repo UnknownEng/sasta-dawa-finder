@@ -251,6 +251,9 @@
   const WA_TEXT = '+92 339 3202419';
   const TOKEN_KEY = 'sd_user_token';
   const USER_KEY = 'sd_user';
+  // Inside the Capacitor app. Google blocks its sign-in inside app webviews, so the Google button is hidden there.
+  const IN_APP = /^capacitor:/.test(location.origin) || location.origin === 'https://localhost';
+  const GSI_SRC = 'https://accounts.google.com/gsi/client';
 
   const app = document.getElementById('app');
   const $ = (s, r) => (r || document).querySelector(s);
@@ -319,6 +322,9 @@
     pharmacies: null,
     engine: null,
     enginePromise: null,
+    gsiPromise: null, // Google Identity Services script, loaded once
+    gsiClient: '', // client id passed to google.accounts.id.initialize
+    payment: '', // JazzCash result from #/plan?payment=..., shown on the Plan tab
   };
   try {
     S.user = JSON.parse(lsGet(USER_KEY) || 'null');
@@ -368,7 +374,7 @@
     } catch (e) {
       data = {};
     }
-    if (res.status === 401 && !['login', 'signup', 'plans'].includes(action)) {
+    if (res.status === 401 && !['login', 'signup', 'plans', 'google'].includes(action)) {
       signOutLocal();
       toast('Please sign in again.');
       go('#/signin');
@@ -437,7 +443,7 @@
     form.addEventListener('submit', async (ev) => {
       ev.preventDefault();
       const btn = $('button[type="submit"]', form);
-      const out = $('.form-msg', form);
+      const out = $(':scope > .form-msg', form) || $('.form-msg', form);
       msg(out, '');
       if (btn) btn.disabled = true;
       try {
@@ -476,9 +482,35 @@
     return t.concat([['plan', 'Plan & billing'], ['profile', 'Profile']]);
   }
 
+  const PAYMENT_STATES = ['success', 'failed', 'error', 'unknown'];
+
   function route() {
-    const parts = (location.hash.replace(/^#\/?/, '') || '').split('/').map(decodeURIComponent);
+    const raw = location.hash.replace(/^#\/?/, '') || '';
+    const qi = raw.indexOf('?');
+    const hq = new URLSearchParams(qi >= 0 ? raw.slice(qi + 1) : '');
+    const parts = (qi >= 0 ? raw.slice(0, qi) : raw).split('/').map(decodeURIComponent);
     window.scrollTo(0, 0);
+    // Back from JazzCash: /account#/plan?payment=success|failed|error|unknown
+    const pay = hq.get('payment');
+    if (pay) {
+      S.payment = PAYMENT_STATES.includes(pay) ? pay : 'unknown';
+      try {
+        history.replaceState(null, '', location.pathname + location.search + '#/plan');
+      } catch (e) {
+        /* ignore: the banner still shows */
+      }
+      if (S.token && S.user && S.payment === 'success') {
+        // Refresh the account first so the new plan date is shown.
+        app.innerHTML = loadingHtml;
+        return api('me')
+          .catch(() => {})
+          .then(() => {
+            if (S.token && S.user) renderDashboard('plan', []);
+            else route();
+          });
+      }
+      if (S.token && S.user) return renderDashboard('plan', []);
+    }
     if (!S.token || !S.user) {
       const mode = parts[0] === 'signup' || (parts[0] !== 'signin' && params.get('mode') === 'signup') ? 'signup' : 'signin';
       return renderAuth(mode);
@@ -501,6 +533,13 @@
     const typeOpts = Object.keys(ROLE_LABEL)
       .map((r) => `<label class="type-opt"><input type="radio" name="role" value="${r}"${r === pre ? ' checked' : ''}><span>${esc(ROLE_LABEL[r])}<small>${esc(ROLE_HINT[r])}</small></span></label>`)
       .join('');
+    // Filled in by mountGoogle() only when Google sign-in is configured (hidden until then).
+    const googleBox = `
+          <div class="google-box" id="google-box" hidden>
+            <div class="google-btn" id="google-btn"></div>
+            <p class="form-msg" id="google-msg" role="alert"></p>
+            <div class="or-divider" role="separator"><span>or</span></div>
+          </div>`;
     app.innerHTML = `
       <section class="auth view">
         <h1 class="view-title">${mode === 'signup' ? 'Create your account' : 'Sign in to Sasta Dawa'}</h1>
@@ -513,6 +552,7 @@
         ${mode === 'signup' ? `
           <form class="form" id="signup-form" novalidate>
             <fieldset class="types"><legend>Account type</legend>${typeOpts}</fieldset>
+            ${googleBox}
             <label class="field">Name (or business name)<input class="input" name="name" autocomplete="name" required maxlength="80"></label>
             <div class="form-row">
               <label class="field">Email<input class="input" type="email" name="email" autocomplete="email" required maxlength="200"></label>
@@ -524,6 +564,7 @@
             <div class="actions"><button type="submit" class="btn btn-primary">Create account</button></div>
             <p class="form-msg" role="alert"></p>
           </form>` : `
+          ${googleBox}
           <form class="form" id="signin-form" novalidate>
             <label class="field">Email<input class="input" type="email" name="email" autocomplete="email" required maxlength="200"></label>
             <label class="field">Password<input class="input" type="password" name="password" autocomplete="current-password" required maxlength="200"></label>
@@ -554,6 +595,76 @@
       const r = await api('signup', { body });
       afterAuth(r);
     });
+    mountGoogle(mode);
+  }
+
+  // ---- Sign in with Google (Google Identity Services) ----
+  /** Loads https://accounts.google.com/gsi/client once. Resolves with window.google.accounts.id. */
+  function loadGsi() {
+    const ready = () => window.google && window.google.accounts && window.google.accounts.id;
+    if (ready()) return Promise.resolve(ready());
+    if (!S.gsiPromise) {
+      S.gsiPromise = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = GSI_SRC;
+        s.async = true;
+        s.defer = true;
+        s.onload = () => (ready() ? resolve(ready()) : reject(new Error('Google sign-in did not load.')));
+        s.onerror = () => reject(new Error('Google sign-in did not load.'));
+        document.head.appendChild(s);
+      }).catch((e) => {
+        S.gsiPromise = null;
+        throw e;
+      });
+    }
+    return S.gsiPromise;
+  }
+
+  /** Shows the Google button on the Sign in / Create account screen when the server has a client id. */
+  async function mountGoogle(mode) {
+    if (IN_APP) return;
+    let clientId = '';
+    try {
+      clientId = (await getPlans()).googleClientId || '';
+    } catch (e) {
+      return; // no server: only the email form shows
+    }
+    if (!clientId) return;
+    const box = $('#google-box');
+    const holder = $('#google-btn');
+    if (!box || !holder) return; // user moved to another screen meanwhile
+    let gid;
+    try {
+      gid = await loadGsi();
+    } catch (e) {
+      return; // blocked by an extension or offline: keep the email form only
+    }
+    if (!document.body.contains(holder)) return;
+    if (S.gsiClient !== clientId) {
+      gid.initialize({ client_id: clientId, callback: onGoogleCredential, ux_mode: 'popup', auto_select: false, cancel_on_tap_outside: true });
+      S.gsiClient = clientId;
+    }
+    box.hidden = false;
+    holder.setAttribute('data-client-id', clientId);
+    const width = Math.max(200, Math.min(400, Math.floor(holder.clientWidth || box.clientWidth || 320)));
+    gid.renderButton(holder, { type: 'standard', theme: 'outline', size: 'large', shape: 'rectangular', logo_alignment: 'center', text: mode === 'signup' ? 'signup_with' : 'signin_with', width });
+  }
+
+  async function onGoogleCredential(resp) {
+    const out = $('#google-msg');
+    msg(out, '');
+    const credential = resp && resp.credential;
+    if (!credential) return msg(out, 'Google sign-in was cancelled. Please try again, or use your email below.');
+    const picked = $('#signup-form input[name="role"]:checked');
+    const body = { credential };
+    if (picked) body.role = picked.value;
+    msg(out, 'Signing you in…', true);
+    try {
+      const r = await api('google', { body });
+      afterAuth(r);
+    } catch (e) {
+      msg($('#google-msg'), (e && e.message) || 'Google sign-in failed. Please try again, or use your email below.');
+    }
   }
 
   function afterAuth(r) {
@@ -582,6 +693,7 @@
     const tabs = tabsFor(u.role);
     const label = (tabs.find((t) => t[0] === tab) || ['', 'Account'])[1];
     setTitle(label);
+    if (tab !== 'plan') S.payment = ''; // the JazzCash result banner only stays on the Plan tab
     let banner = '';
     if (u.plan !== 'free' && u.trial && u.planUntil) {
       banner = `<div class="notice info no-print">${icInfo}<p>Your free trial of <b>${esc(u.planName)}</b> runs until <b>${esc(fmtDate(u.planUntil))}</b>. <a href="#/plan">Pay to keep it</a>.</p></div>`;
@@ -619,10 +731,16 @@
   // ===========================================================================
   function viewProfile(el) {
     const u = S.user;
+    const noPassword = u.hasPassword === false; // Google-only account (older cached users have no flag: assume a password)
+    const gIcon = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4 10-10"/></svg>';
     el.innerHTML = `
       <div class="grid-2">
         <div class="card">
           <h2>Your details</h2>
+          ${u.google || noPassword ? `<div class="signin-with">
+            ${noPassword ? '<p class="signin-line"><b>You sign in with Google.</b></p>' : ''}
+            ${u.google ? `<p class="badge good google-connected">${gIcon}Google connected</p>` : ''}
+          </div>` : ''}
           <form class="form" id="profile-form">
             <label class="field">Email<input class="input" value="${esc(u.email)}" disabled></label>
             <label class="field">Name<input class="input" name="name" value="${esc(u.name)}" maxlength="80" required></label>
@@ -632,13 +750,13 @@
           </form>
         </div>
         <div class="card">
-          <h2>Change password</h2>
+          <h2>${noPassword ? 'Set a password' : 'Change password'}</h2>
           <form class="form" id="password-form">
-            <label class="field">Current password<input class="input" type="password" name="current" autocomplete="current-password" required></label>
-            <label class="field">New password <small class="muted">(8+ characters)</small><input class="input" type="password" name="password" autocomplete="new-password" minlength="8" required></label>
-            <div class="actions"><button type="submit" class="btn btn-primary">Change password</button></div>
+            ${noPassword ? '<p class="muted" style="margin:0">Optional. With a password you can also sign in with your email.</p>' : '<label class="field">Current password<input class="input" type="password" name="current" autocomplete="current-password" required></label>'}
+            <label class="field">${noPassword ? 'Password' : 'New password'} <small class="muted">(8+ characters)</small><input class="input" type="password" name="password" autocomplete="new-password" minlength="8" required></label>
+            <div class="actions"><button type="submit" class="btn btn-primary">${noPassword ? 'Set password' : 'Change password'}</button></div>
             <p class="form-msg" role="status"></p>
-            <p class="small muted" style="margin:0">Changing your password signs you out on your other devices.</p>
+            ${noPassword ? '' : '<p class="small muted" style="margin:0">Changing your password signs you out on your other devices.</p>'}
           </form>
         </div>
       </div>
@@ -654,7 +772,9 @@
         <h2>Delete account</h2>
         <p class="muted">This permanently deletes your account${u.role === 'pharmacy' ? ', your pharmacy listings' : ''}${u.role === 'developer' ? ', your API keys' : ''} and saved data. It cannot be undone.</p>
         <form class="form" id="delete-form">
-          <label class="field">Your password<input class="input" type="password" name="password" autocomplete="current-password" required></label>
+          ${noPassword
+            ? '<label class="field">Type DELETE to confirm<input class="input" name="confirm" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="10" required></label>'
+            : '<label class="field">Your password<input class="input" type="password" name="password" autocomplete="current-password" required></label>'}
           <label class="check"><input type="checkbox" name="sure" value="1"> I understand this cannot be undone</label>
           <div class="actions"><button type="submit" class="btn btn-danger">Delete my account</button></div>
           <p class="form-msg" role="alert"></p>
@@ -668,9 +788,17 @@
     });
     onSubmit($('#password-form', el), async (fd, out) => {
       const pw = String(fd.get('password') || '');
-      if (pw.length < 8) return msg(out, 'New password must be at least 8 characters.');
-      const r = await api('change-password', { body: { current: String(fd.get('current') || ''), password: pw } });
+      if (pw.length < 8) return msg(out, (noPassword ? 'Password' : 'New password') + ' must be at least 8 characters.');
+      const body = { password: pw };
+      if (!noPassword) body.current = String(fd.get('current') || '');
+      const r = await api('change-password', { body });
       if (r.token) setSession(r.token);
+      if (noPassword) {
+        setSession(undefined, Object.assign({}, S.user, { hasPassword: true }));
+        toast('Password set. You can now also sign in with your email.');
+        viewProfile(el); // the form becomes "Change password" and delete asks for the password
+        return;
+      }
       $('#password-form', el).reset();
       msg(out, 'Password changed.', true);
     });
@@ -690,8 +818,9 @@
       }
     });
     onSubmit($('#delete-form', el), async (fd, out) => {
+      if (noPassword && val(fd, 'confirm').toUpperCase() !== 'DELETE') return msg(out, 'Type DELETE in the box to confirm.');
       if (!fd.get('sure')) return msg(out, 'Tick the box to confirm.');
-      await api('delete-account', { body: { password: String(fd.get('password') || '') } });
+      await api('delete-account', { body: noPassword ? { confirm: 'DELETE' } : { password: String(fd.get('password') || '') } });
       signOutLocal();
       toast('Your account has been deleted.');
       go('#/signup');
@@ -701,6 +830,44 @@
   // ===========================================================================
   // Plan & billing (+ join company)
   // ===========================================================================
+  /** Banner for the result of an online JazzCash payment (set by route() from #/plan?payment=...). */
+  function paymentBanner(u) {
+    const s = S.payment;
+    if (!s) return '';
+    const okIc = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4 10-10"/></svg>';
+    if (s === 'success') {
+      const until = u && u.planUntil && !u.trial ? fmtDate(u.planUntil) : '';
+      return `<div class="pay-result good" role="status" tabindex="-1" id="pay-result">${okIc}<div><p class="pay-result-h">Payment received — ${until ? `your plan is active until ${esc(until)}.` : 'thank you. Your plan is now active.'}</p></div></div>`;
+    }
+    const wa = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent('Assalam o Alaikum, my online JazzCash payment for Sasta Dawa did not go through. My account email: ' + ((u && u.email) || ''))}`;
+    if (s === 'failed') {
+      return `<div class="pay-result bad" role="alert" tabindex="-1" id="pay-result">${icInfo}<div><p class="pay-result-h">Payment did not go through. You were not charged.</p><p>Please try again, or pay by transfer and enter the transaction ID below.</p></div></div>`;
+    }
+    return `<div class="pay-result bad" role="alert" tabindex="-1" id="pay-result">${icInfo}<div><p class="pay-result-h">Payment did not go through.</p><p>Please try again, or pay by transfer and enter the transaction ID below. If money left your JazzCash account, <a href="${esc(wa)}" rel="noopener">message us on WhatsApp</a> and we will sort it out.</p></div></div>`;
+  }
+
+  /** Posts the browser to the payment page: a hidden form with one hidden input per field from the server. */
+  function submitGatewayForm(form) {
+    if (!form || !/^https:\/\//i.test(String(form.action || '')) || !form.fields || typeof form.fields !== 'object') {
+      throw new Error('Could not open JazzCash. Please try again, or pay by transfer below.');
+    }
+    const f = document.createElement('form');
+    f.method = 'POST';
+    f.action = form.action;
+    f.style.display = 'none';
+    f.setAttribute('aria-hidden', 'true');
+    Object.keys(form.fields).forEach((k) => {
+      const i = document.createElement('input');
+      i.type = 'hidden';
+      i.name = k;
+      i.value = form.fields[k] == null ? '' : String(form.fields[k]);
+      f.appendChild(i);
+    });
+    document.body.appendChild(f);
+    f.submit();
+    return f;
+  }
+
   function viewPlan(el) {
     into(el, async () => {
       const [pl, pays] = await Promise.all([getPlans(), api('payments')]);
@@ -708,10 +875,13 @@
       const mine = Object.entries(pl.plans).filter(([k, p]) => k !== 'free' && p.roles.includes(u.role));
       const pay = pl.payTo || {};
       const hasPay = pay.jazzcash || pay.easypaisa || pay.bank;
+      const online = !!(pl.online && pl.online.jazzcash);
       const per = (p) => (p.period === 'year' ? 'year' : 'month');
       const statusBadge = (s) => `<span class="badge ${s === 'approved' ? 'good' : s === 'rejected' ? 'bad' : 'warn'}">${esc(s === 'pending' ? 'Waiting for approval' : s)}</span>`;
+      const METHOD = { jazzcash: 'JazzCash', easypaisa: 'Easypaisa', bank: 'Bank transfer', jazzcash_online: 'JazzCash online' };
 
       el.innerHTML = `
+        ${paymentBanner(u)}
         <div class="grid-2">
           <div class="card">
             <h2>Your plan</h2>
@@ -722,6 +892,19 @@
           </div>
           ${mine.length ? `<div class="card">
             <h2>Pay for your plan</h2>
+            <div class="form pay-choice">
+              <div class="form-row">
+                <label class="field">Plan<select class="input select" name="plan" id="pay-plan">${mine.map(([k, p]) => `<option value="${esc(k)}"${k === u.paidPlan ? ' selected' : ''}>${esc(p.name)} (${esc(rs(p.price))}/${per(p)})</option>`).join('')}</select></label>
+                <label class="field">Pay for<select class="input select" name="periods" id="pay-periods">${Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${i + 1} period${i ? 's' : ''}</option>`).join('')}</select></label>
+              </div>
+              <p class="pay-total">Amount: <b id="pay-amount"></b></p>
+            </div>
+            ${online ? `<div class="pay-online">
+              <button type="button" class="btn btn-primary btn-lg pay-online-btn" id="pay-online">Pay online with JazzCash</button>
+              <p class="small muted" style="margin:0">You pay on the JazzCash page, then come back here. Your plan starts as soon as the payment goes through.</p>
+              <p class="form-msg" id="pay-online-msg" role="alert"></p>
+            </div>
+            <h3 class="pay-or">Or pay by transfer and enter the transaction ID</h3>` : ''}
             ${hasPay ? `<div class="pay-box">
                 ${pay.title ? `<div>Account title: <b>${esc(pay.title)}</b></div>` : ''}
                 ${pay.jazzcash ? `<div>JazzCash: <b>${esc(pay.jazzcash)}</b></div>` : ''}
@@ -730,12 +913,7 @@
               </div>
               <p class="small muted" style="margin-block-start:8px">Send the amount, then enter the transaction ID below. We activate your plan after checking the payment (usually within a day).</p>`
               : `<p>To pay, contact us on <a href="https://wa.me/${WA_NUMBER}?text=${encodeURIComponent('Assalam o Alaikum, I want to pay for my Sasta Dawa plan. My account email: ' + u.email)}" rel="noopener">WhatsApp ${WA_TEXT}</a> and we will send payment details. Then enter the transaction ID here.</p>`}
-            <form class="form" id="pay-form">
-              <div class="form-row">
-                <label class="field">Plan<select class="input select" name="plan">${mine.map(([k, p]) => `<option value="${esc(k)}"${k === u.paidPlan ? ' selected' : ''}>${esc(p.name)} (${esc(rs(p.price))}/${per(p)})</option>`).join('')}</select></label>
-                <label class="field">Pay for<select class="input select" name="periods">${Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${i + 1} period${i ? 's' : ''}</option>`).join('')}</select></label>
-              </div>
-              <p class="small" style="margin:0">Amount to send: <b id="pay-amount"></b></p>
+            <form class="form" id="pay-form" style="margin-block-start:14px">
               <div class="form-row">
                 <label class="field">Paid with<select class="input select" name="method"><option value="jazzcash">JazzCash</option><option value="easypaisa">Easypaisa</option><option value="bank">Bank transfer</option></select></label>
                 <label class="field">Transaction ID<input class="input" name="txnId" maxlength="60" required></label>
@@ -749,7 +927,7 @@
         ${mine.length ? `<div class="card">
           <h2>My payments</h2>
           ${pays.payments.length ? `<div class="table-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Plan</th><th class="n">Amount</th><th>Method</th><th>Transaction</th><th>Status</th></tr></thead><tbody>
-            ${pays.payments.map((p) => `<tr><td>${esc(fmtDate(p.at))}</td><td>${esc((pl.plans[p.plan] || {}).name || p.plan)} × ${esc(p.periods)}</td><td class="n">${esc(rs(p.amount))}</td><td>${esc(p.method)}</td><td>${esc(p.txnId)}</td><td>${statusBadge(p.status)}</td></tr>`).join('')}
+            ${pays.payments.map((p) => `<tr><td>${esc(fmtDate(p.at))}</td><td>${esc((pl.plans[p.plan] || {}).name || p.plan)} × ${esc(p.periods)}</td><td class="n">${esc(rs(p.amount))}</td><td>${esc(METHOD[p.method] || p.method)}</td><td>${esc(p.txnId)}</td><td>${statusBadge(p.status)}</td></tr>`).join('')}
           </tbody></table></div>` : '<p class="empty-note">No payments yet.</p>'}
         </div>` : ''}
         <div class="card">
@@ -762,17 +940,38 @@
           </form>
         </div>`;
 
+      const pr = $('#pay-result', el);
+      if (pr && pr.focus) pr.focus();
       const pf = $('#pay-form', el);
       if (pf) {
+        const planSel = $('#pay-plan', el);
+        const perSel = $('#pay-periods', el);
         const upd = () => {
-          const p = pl.plans[pf.elements.plan.value];
-          $('#pay-amount', el).textContent = p ? `${rs(p.price * Number(pf.elements.periods.value))} (${pf.elements.periods.value} ${per(p)}${pf.elements.periods.value > 1 ? 's' : ''})` : '';
+          const p = pl.plans[planSel.value];
+          const n = Number(perSel.value);
+          $('#pay-amount', el).textContent = p ? `${rs(p.price * n)} (${n} ${per(p)}${n > 1 ? 's' : ''})` : '';
         };
-        pf.addEventListener('change', upd);
+        planSel.addEventListener('change', upd);
+        perSel.addEventListener('change', upd);
         upd();
+        const ob = $('#pay-online', el);
+        if (ob) {
+          ob.addEventListener('click', async () => {
+            const out = $('#pay-online-msg', el);
+            ob.disabled = true;
+            msg(out, 'Opening JazzCash…', true);
+            try {
+              const r = await api('pay-online', { body: { plan: planSel.value, periods: Number(perSel.value) } });
+              submitGatewayForm(r && r.form);
+            } catch (e) {
+              ob.disabled = false;
+              if (!e || !e.handled) msg(out, (e && e.message) || 'Could not open JazzCash. Please try again, or pay by transfer below.');
+            }
+          });
+        }
         onSubmit(pf, async (fd, out) => {
           if (val(fd, 'txnId').length < 4) return msg(out, 'Enter the transaction ID from your payment SMS.');
-          await api('pay', { body: { plan: val(fd, 'plan'), periods: Number(val(fd, 'periods')), method: val(fd, 'method'), txnId: val(fd, 'txnId'), payerPhone: val(fd, 'payerPhone') } });
+          await api('pay', { body: { plan: planSel.value, periods: Number(perSel.value), method: val(fd, 'method'), txnId: val(fd, 'txnId'), payerPhone: val(fd, 'payerPhone') } });
           toast('Payment submitted. We will activate your plan after checking it.');
           viewPlan(el);
         });
@@ -2329,14 +2528,15 @@ Glucophage 500mg,60,</pre>
     if (location.hash === '#/') route();
   });
   if (S.token && !S.user) S.user = { id: '', name: '', role: 'patient', plan: 'free' }; // filled by 'me' below
-  const before = S.user ? S.user.role + '|' + S.user.plan : '';
+  const userKey = (x) => (x ? x.role + '|' + x.plan + '|' + x.planUntil + '|' + x.hasPassword + '|' + x.google : '');
+  const before = userKey(S.user);
   route();
   if (S.token) {
-    // Refresh the stored user (plan or role may differ from what this device cached).
+    // Refresh the stored user (plan, role or sign-in method may differ from what this device cached).
     api('me')
       .then(() => {
         if (!S.user) return;
-        if (S.user.role + '|' + S.user.plan !== before) return route();
+        if (userKey(S.user) !== before) return route();
         const h = $('.dash-head .badges');
         if (h) h.innerHTML = planBadges(S.user);
       })

@@ -1,53 +1,192 @@
-/* Search-engine pages (/dawa, /formula, /browse): light, fast, readable on phones. */
-*{box-sizing:border-box}
-body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#1d2433;background:#f6f7f9;line-height:1.55;font-size:16px}
-a{color:#1d4ed8}a:hover{color:#13294b}
-.wrap{max-width:1040px;margin:0 auto;padding:0 18px}
-.top{background:#13294b;color:#fff}
-.top-in{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:60px}
-.brand{display:flex;align-items:center;gap:10px;color:#fff;text-decoration:none;font-weight:800;font-size:18px}
-.brand:hover{color:#fff}
-.btn{display:inline-block;background:#f4a340;color:#13294b;font-weight:800;text-decoration:none;border-radius:10px;padding:10px 16px;min-height:44px;line-height:24px}
-.btn:hover{background:#ffb75e;color:#13294b}
-.btn.ghost{background:transparent;border:2px solid #13294b;color:#13294b}
-.btn.small{padding:6px 12px;min-height:36px;font-size:14px}
-.top .btn{padding:8px 14px}
-.crumbs{font-size:14px;color:#4a5568;margin:18px 0 4px}
-h1{font-size:30px;line-height:1.2;margin:10px 0 8px;color:#13294b}
-h2{font-size:20px;margin:0 0 6px;color:#13294b}
-h2 small{font-weight:600;color:#4a5568;font-size:15px}
-h3{font-size:16px;margin:14px 0 6px}
-.lead{font-size:17px;margin:0 0 6px}
-.ur{font-family:"Noto Nastaliq Urdu","Jameel Noori Nastaleeq",serif;font-size:20px;line-height:2;margin:0 0 12px;color:#13294b}
-.variant{background:#fff;border:1px solid #e3e6ec;border-radius:14px;padding:16px 18px;margin:14px 0}
-.facts{margin:0 0 6px;color:#2d3748}
-.warn{background:#fff4e5;border:1px solid #f4c27a;border-radius:10px;padding:8px 12px;margin:8px 0}
-.ok{color:#2d3748;margin:8px 0}
-.tbl{overflow-x:auto;margin:6px 0 10px}
-table{border-collapse:collapse;width:100%;font-size:15px;min-width:620px}
-th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #edf0f4;vertical-align:top}
-th{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#4a5568;background:#f8f9fb}
-td.num,th.num{text-align:right;white-space:nowrap}
-tr.best td{background:#fff8ec}
-.tag{display:inline-block;background:#f4a340;color:#13294b;border-radius:999px;padding:0 8px;font-size:12px;font-weight:800}
-.more{color:#4a5568;font-size:14px}
-.cta{background:#13294b;color:#fff;border-radius:14px;padding:18px 20px;margin:22px 0 10px}
-.cta p{margin:0 0 10px}
-.cta .btn.ghost{border-color:#fff;color:#fff}
-.cta-row{display:flex;flex-wrap:wrap;gap:10px}
-.note{font-size:14px;color:#4a5568}
-.list{list-style:none;padding:0;margin:10px 0;display:grid;gap:6px}
-.list li span{color:#4a5568;font-size:14px}
-.list.cols{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
-.foot{border-top:1px solid #e3e6ec;margin-top:28px;padding:16px 0 28px;font-size:14px;color:#4a5568}
-.az a{display:inline-block;min-width:26px;padding:2px 4px;text-align:center}
-@media (max-width:600px){h1{font-size:24px}}
-.top-in{flex-wrap:wrap;padding-top:8px;padding-bottom:8px}
-.seo-search{position:relative;display:flex;gap:8px;flex:1 1 320px;max-width:520px}
-.seo-search input{flex:1;min-width:0;height:44px;border-radius:10px;border:0;padding:0 14px;font-size:16px;color:#1d2433}
-.seo-search .btn{padding:8px 14px;border:0;cursor:pointer;font-size:15px}
-.suggest{position:absolute;z-index:20;top:50px;left:0;right:0;margin:0;padding:4px;list-style:none;background:#fff;border-radius:12px;box-shadow:0 10px 30px rgba(19,41,75,.25);max-height:60vh;overflow:auto}
-.suggest a{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;border-radius:8px;color:#1d2433;text-decoration:none}
-.suggest .n{color:#1d2433}
-.suggest .g{color:#4a5568;font-size:13px;text-align:right}
-.suggest li.on a,.suggest a:hover{background:#fdf1e1}
+/* Search-engine pages (/dawa, /formula, /browse): the main site's calm look (css/style.css,
+   DESIGN-REDESIGN.md "Round 2"), cut down to what these static pages need. 18px base, 56px
+   buttons, IBM Plex Sans, paper / ink / pharmacy green. Dark mode follows the system. */
+
+/* Metric-matched fallback so the swap to IBM Plex Sans does not move the layout. */
+@font-face { font-family: 'Plex Fallback'; src: local('Arial'), local('Helvetica'), local('Liberation Sans'); size-adjust: 104%; ascent-override: 98.5%; descent-override: 26.4%; line-gap-override: 0%; }
+
+:root {
+  --paper: #F6F5EF; --surface: #FFFFFF; --sunk: #EFEDE5;
+  --ink: #121614; --ink-2: #353B37; --muted: #565D57;
+  --line: #DCD8CC; --line-strong: #B5B09F;
+  --brand: #0A6B3C; --brand-hover: #08572F; --brand-tint: #E4F1E8; --brand-contrast: #FFFFFF;
+  --warn: #B7791F; --warn-soft: #FFF3CF;
+  --focus-ring: #121614; --focus-halo: #FFD23F;
+  --float: 0 1px 0 var(--line), 0 6px 16px -8px rgba(0, 0, 0, .25);
+  --font: 'IBM Plex Sans', 'Plex Fallback', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-ur: 'Noto Nastaliq Urdu', 'Jameel Noori Nastaleeq', 'Urdu Typesetting', serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #0F1210; --surface: #171B18; --sunk: #131614;
+    --ink: #EEF1EC; --ink-2: #CDD3CD; --muted: #A3ABA5;
+    --line: #2A302B; --line-strong: #46504A;
+    --brand: #3FB874; --brand-hover: #5CC98B; --brand-tint: #15291D; --brand-contrast: #0B0E0C;
+    --warn: #E0A645; --warn-soft: #2A2313;
+    --focus-ring: #EEF1EC;
+    --float: 0 1px 0 var(--line), 0 6px 16px -8px rgba(0, 0, 0, .7);
+    color-scheme: dark;
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; overflow-x: hidden; }
+body { margin: 0; font-family: var(--font); font-size: 18px; line-height: 1.55; color: var(--ink); background: var(--paper); overflow-x: hidden; -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums; }
+svg { display: block; }
+button, input { font: inherit; color: inherit; }
+a { color: var(--brand); text-decoration: none; text-underline-offset: 4px; }
+a:hover { text-decoration: underline; }
+[hidden] { display: none !important; }
+h1, h2, h3 { text-wrap: balance; }
+:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; box-shadow: 0 0 0 3px var(--focus-halo); }
+
+.wrap { width: 100%; max-width: 1080px; margin: 0 auto; padding: 0 16px; }
+@media (min-width: 720px) { .wrap { padding: 0 28px; } }
+
+/* Buttons: 56px, 18px labels */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 56px; padding: 0 22px; border-radius: 6px; border: 2px solid transparent; font-weight: 600; font-size: 18px; line-height: 1.2; cursor: pointer; text-decoration: none !important; text-align: center; }
+.btn-primary { background: var(--brand); color: var(--brand-contrast); }
+.btn-primary:hover { background: var(--brand-hover); }
+.btn-ghost { background: var(--surface); border-color: var(--ink-2); color: var(--ink); }
+.btn-ghost:hover { background: var(--sunk); }
+.btn-lg { min-height: 60px; font-size: 19px; }
+
+/* Header: logo, (desktop) "Search all medicines", Urdu */
+.topbar { background: var(--paper); border-bottom: 1px solid var(--line); }
+.topbar-in { display: flex; align-items: center; gap: 12px; height: 68px; }
+.brand { display: flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none !important; margin-inline-end: auto; min-width: 0; }
+.brand-mark { color: var(--brand); width: 36px; height: 36px; flex-shrink: 0; }
+.logo-cross { fill: var(--brand-contrast); }
+.brand-name { font-weight: 700; font-size: 21px; letter-spacing: -0.015em; white-space: nowrap; }
+.top-link { display: none; align-items: center; min-height: 48px; padding: 0 12px; color: var(--ink); font-weight: 500; }
+@media (min-width: 720px) { .top-link { display: inline-flex; } }
+.lang-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 64px; height: 48px; padding: 0 14px; border: 2px solid var(--ink-2); border-radius: 6px; background: var(--surface); color: var(--ink); font-family: var(--font-ur), var(--font); font-size: 19px; font-weight: 600; line-height: 1; text-decoration: none !important; }
+.lang-btn:hover { background: var(--sunk); }
+
+/* Page */
+.main { max-width: 760px; padding-bottom: 40px; }
+.crumbs { margin: 20px 0 0; font-size: 16px; color: var(--muted); overflow-wrap: anywhere; }
+.crumbs a { color: var(--ink-2); text-decoration: underline; text-decoration-color: var(--line-strong); }
+.crumbs .sep { margin: 0 8px; }
+h1 { margin: 10px 0 0; font-size: clamp(30px, 7.5vw, 42px); line-height: 1.15; letter-spacing: -0.025em; font-weight: 700; overflow-wrap: anywhere; }
+.sub { margin: 8px 0 0; font-size: 18px; color: var(--ink-2); }
+.lead { margin: 16px 0 0; font-size: 18px; }
+.ur { margin: 4px 0 0; font-family: var(--font-ur), var(--font); font-size: 20px; line-height: 2; color: var(--ink-2); }
+
+/* One block per strength / pack */
+.variant { margin-top: 40px; padding-top: 32px; border-top: 1px solid var(--line-strong); }
+.variant h2 { margin: 0; font-size: 28px; line-height: 1.2; font-weight: 700; letter-spacing: -0.015em; overflow-wrap: anywhere; }
+.variant h3 { margin: 32px 0 12px; font-size: 24px; line-height: 1.3; font-weight: 700; }
+.pack { margin: 6px 0 0; font-size: 19px; color: var(--ink-2); }
+
+/* Price card */
+.price-label { margin-top: 18px; padding: 18px 20px; background: var(--surface); border: 2px solid var(--ink-2); border-radius: 8px; }
+.price-label p { margin: 0; }
+.pl-cap { font-size: 18px; font-weight: 600; color: var(--ink-2); }
+.pl-price b { display: block; font-size: clamp(44px, 12vw, 56px); font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; color: var(--ink); }
+.pl-unit { margin-top: 6px !important; font-size: 18px; color: var(--ink-2); }
+
+/* Big green "cheaper option" box */
+.savings { margin-top: 16px; padding: 18px 20px; border-radius: 8px; background: var(--brand-tint); border: 2px solid var(--brand); color: var(--ink); }
+.savings p { margin: 0; }
+.s-kicker { font-size: 18px; font-weight: 700; color: var(--brand); }
+.s-name { margin-top: 2px !important; font-size: 26px; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
+.s-name a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--brand); text-decoration-thickness: 2px; }
+.s-price { margin-top: 4px !important; font-size: 19px; color: var(--ink-2); }
+.s-price b { color: var(--ink); font-size: 21px; }
+.s-save { margin-top: 6px !important; font-size: 22px; font-weight: 700; color: var(--brand); }
+.savings.neutral { padding: 14px 20px; }
+.s-title { font-weight: 600; font-size: 18px; }
+
+/* One-line yellow note */
+.notice { margin-top: 16px; padding: 14px 16px; border-radius: 0 6px 6px 0; background: var(--warn-soft); color: var(--ink); border-inline-start: 6px solid var(--warn); font-size: 18px; }
+.notice p { margin: 0; }
+
+/* Big rows: cheaper medicines / brands */
+.alt-list, .rows { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line-strong); }
+.alt { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 14px; align-items: center; padding: 16px 12px; min-height: 80px; border-bottom: 1px solid var(--line-strong); color: var(--ink); text-decoration: none !important; }
+a.alt:hover { background: var(--surface); }
+a.alt:hover .alt-name { text-decoration: underline; text-underline-offset: 4px; }
+.alt.cheapest { background: var(--brand-tint); box-shadow: inset 5px 0 0 var(--brand); }
+.alt-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.alt-name { font-weight: 700; font-size: 20px; line-height: 1.3; overflow-wrap: anywhere; }
+.alt-meta { font-size: 16px; color: var(--muted); overflow-wrap: anywhere; }
+.alt-save { margin-top: 2px; font-size: 17px; font-weight: 700; color: var(--brand); }
+.alt-price { text-align: end; }
+.alt-price b { display: block; font-size: 21px; font-weight: 700; white-space: nowrap; }
+.alt-price span { display: block; font-size: 15px; color: var(--muted); max-width: 16ch; margin-inline-start: auto; }
+.show-all { width: 100%; margin-top: 16px; }
+.open-app { width: 100%; margin-top: 24px; }
+
+/* "More details" / "Show all N brands" (folded) */
+.more-details, .more-rows { margin-top: 24px; border-top: 1px solid var(--line-strong); border-bottom: 1px solid var(--line-strong); }
+.more-rows { margin-top: 16px; border-top: 0; border-bottom: 0; }
+.more-details > summary, .more-rows > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 64px; cursor: pointer; font-size: 21px; font-weight: 700; list-style: none; padding: 0 4px; }
+.more-rows > summary { justify-content: center; min-height: 56px; font-size: 18px; font-weight: 600; border: 2px solid var(--ink-2); border-radius: 6px; background: var(--surface); }
+.more-rows > summary:hover { background: var(--sunk); }
+.more-rows[open] > summary { margin-bottom: 16px; }
+.more-details > summary::-webkit-details-marker, .more-rows > summary::-webkit-details-marker { display: none; }
+.more-details > summary::after, .more-rows > summary::after { content: '+'; font-size: 30px; font-weight: 400; line-height: 1; color: var(--ink-2); }
+.more-details[open] > summary::after, .more-rows[open] > summary::after { content: '−'; }
+.more-details[open] > summary { border-bottom: 1px solid var(--line); }
+.facts { display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr); margin: 8px 0 0; font-size: 17px; }
+.facts dt, .facts dd { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.facts dt { color: var(--muted); padding-inline-end: 16px; }
+.facts dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.d-link { margin: 0; padding: 12px 4px 16px; font-size: 18px; }
+.d-link a, .facts a { text-decoration: underline; }
+
+/* A-Z pages: big rows */
+.row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 14px; align-items: center; padding: 14px 4px; min-height: 64px; border-bottom: 1px solid var(--line-strong); color: var(--ink); text-decoration: none !important; }
+.row:hover { background: var(--surface); }
+.row:hover .row-name { text-decoration: underline; text-underline-offset: 4px; }
+.row-main { display: flex; flex-direction: column; min-width: 0; }
+.row-name { font-weight: 700; font-size: 19px; overflow-wrap: anywhere; }
+.row-meta { font-size: 16px; color: var(--muted); overflow-wrap: anywhere; }
+.row-price { text-align: end; font-size: 15px; color: var(--muted); white-space: nowrap; }
+.row-price b { display: block; font-size: 19px; color: var(--ink); }
+.rows { margin-top: 20px; }
+
+/* Formula index: plain big links */
+.list { list-style: none; padding: 0; margin: 20px 0 0; display: grid; grid-template-columns: minmax(0, 1fr); border-top: 1px solid var(--line); }
+.list.cols { grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); column-gap: 24px; }
+.list a { display: flex; align-items: center; min-height: 52px; padding: 8px 4px; border-bottom: 1px solid var(--line); color: var(--ink); font-size: 18px; overflow-wrap: anywhere; }
+.list a:hover { color: var(--brand); }
+
+/* A-Z letters */
+.az { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
+.az a, .az span { display: inline-flex; align-items: center; justify-content: center; min-width: 48px; height: 48px; padding: 0 6px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface); color: var(--ink); font-weight: 600; font-size: 17px; }
+.az a:hover { border-color: var(--ink-2); text-decoration: none; }
+.az span[aria-current] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.az-top { margin-top: 20px; }
+
+/* "Look up another medicine" */
+.find { margin-top: 48px; padding-top: 32px; border-top: 1px solid var(--line-strong); }
+.find h2 { margin: 0 0 12px; font-size: 24px; font-weight: 700; }
+.seo-search { position: relative; display: flex; gap: 8px; }
+.seo-search input { flex: 1; min-width: 0; height: 56px; padding: 0 14px; border-radius: 6px; border: 2px solid var(--ink-2); background: var(--surface); font-size: 18px; }
+.seo-search input:focus { outline: 3px solid var(--focus-ring); outline-offset: 0; box-shadow: 0 0 0 6px var(--focus-halo); }
+.seo-search .btn { flex-shrink: 0; padding: 0 18px; }
+.suggest { position: absolute; z-index: 20; top: 62px; left: 0; right: 0; margin: 0; padding: 4px; list-style: none; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 6px; box-shadow: var(--float); max-height: 60vh; overflow: auto; }
+.suggest a { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 52px; padding: 8px 12px; border-radius: 4px; color: var(--ink); text-decoration: none; }
+.suggest .n { color: var(--ink); font-size: 18px; overflow-wrap: anywhere; min-width: 0; }
+.suggest .g { color: var(--muted); font-size: 15px; text-align: end; }
+.suggest li.on a, .suggest a:hover { background: var(--sunk); }
+
+/* Footer (as on the main site, simplified) */
+.footer { border-top: 1px solid var(--line-strong); background: var(--sunk); padding: 28px 0 40px; font-size: 17px; }
+.footer-cols { display: grid; gap: 24px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 720px) { .footer-cols { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.footer-h { font-size: 18px; font-weight: 700; color: var(--ink); margin: 0 0 4px; }
+.footer-az-h { margin-top: 24px; }
+.footer-link { display: flex; align-items: center; min-height: 48px; color: var(--ink); overflow-wrap: anywhere; text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 4px; font-weight: 500; }
+.footer-link:hover { color: var(--brand); text-decoration-color: var(--brand); }
+.footer-note { margin: 24px 0 6px; color: var(--ink-2); max-width: 70ch; font-size: 16px; }
+.footer-copy { margin: 14px 0 0; color: var(--muted); font-size: 16px; }
+
+@media (max-width: 400px) {
+  .brand-name { font-size: 19px; }
+  .price-label, .savings { padding: 16px; }
+  .alt { padding: 14px 8px; }
+}
