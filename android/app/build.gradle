@@ -17,6 +17,12 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Store the OCR language model (vendor/ocr/eng.traineddata, ~4 MB) and wasm as-is in the APK:
+    // the WebView reads them straight from the asset file instead of inflating them on every scan.
+    // (aapt un-gzips *.gz assets and drops the ".gz"; scripts/ocr_assets.js ships the plain file for that.)
+    androidResources {
+        noCompress 'traineddata', 'wasm'
+    }
     // Release signing (upload key for Google Play). Set by the GitHub workflow from repository
     // secrets, or locally: export SD_KEYSTORE_PATH, SD_KEYSTORE_PASSWORD, SD_KEY_ALIAS, SD_KEY_PASSWORD.
     def ks = System.getenv("SD_KEYSTORE_PATH")

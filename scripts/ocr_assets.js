@@ -8,6 +8,11 @@
  *  - two LSTM-only cores: SIMD (almost every phone/browser) and a plain fallback; js/app.js picks one
  *  - English LSTM model (4.0.0_best_int, gzipped; Tesseract.js un-gzips it itself)
  *
+ * Mobile apps get the language file UNCOMPRESSED as eng.traineddata ({ native: true }):
+ * Android's asset packaging (aapt) un-gzips every *.gz asset and drops the ".gz", so an app that
+ * asked for eng.traineddata.gz got a 404 and the scan hung at 35%. js/app.js asks for the plain
+ * file inside the app (gzip: false) and for the .gz on the website, and retries the other name once.
+ *
  * The files are generated, never committed (vendor/ is in .gitignore):
  *   node scripts/ocr_assets.js            -> ./vendor/ocr  (local server, `npm start`)
  *   scripts/build_public.js / build_app.js call copy(<public|www>)
@@ -16,6 +21,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 
 const ROOT = path.resolve(__dirname, '..');
 
@@ -42,8 +48,10 @@ function sources() {
 /**
  * Copy the OCR files into <outRoot>/vendor/ocr. Never throws: without the packages the site
  * still builds, and the scan button falls back to the AI server (or a friendly message).
+ * opts.native: write eng.traineddata (un-gzipped) instead of eng.traineddata.gz, for the apps.
  */
-function copy(outRoot) {
+function copy(outRoot, opts) {
+  const native = !!(opts && opts.native);
   const dest = path.join(outRoot || ROOT, 'vendor', 'ocr');
   let list;
   try {
@@ -58,6 +66,16 @@ function copy(outRoot) {
   for (const [name, src] of list) {
     if (!fs.existsSync(src)) {
       if (!/LICENSE/.test(name)) console.warn('OCR: missing ' + src);
+      continue;
+    }
+    if (native && name.endsWith('.traineddata.gz')) {
+      // Android would strip the .gz anyway (and the website file name would 404 in the app).
+      const plain = zlib.gunzipSync(fs.readFileSync(src));
+      const out = name.replace(/.gz$/, '');
+      fs.writeFileSync(path.join(dest, out), plain);
+      try { fs.rmSync(path.join(dest, name), { force: true }); } catch (e) { /* not there */ }
+      files++;
+      bytes += plain.length;
       continue;
     }
     fs.copyFileSync(src, path.join(dest, name));

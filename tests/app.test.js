@@ -110,6 +110,20 @@ test('app: Android back button goes back, then exits on the home screen', async 
   assert.equal(calls.exited, true);
 });
 
+test('app: Android back on a top-level tab with no history goes to the home root, then exits', async () => {
+  const { w, calls } = await bootApp();
+  let backs = 0;
+  w.history.back = () => { backs++; };
+  // opened straight on a tab (e.g. from a reminder): nothing in this page to go back to
+  w.history.replaceState({ sdDepth: 0 }, '', '#/my-medicines');
+  calls.listeners.backButton();
+  await tick();
+  assert.equal(backs, 0);
+  assert.equal(w.location.hash, '#/');
+  calls.listeners.backButton();
+  assert.equal(calls.exited, true);
+});
+
 test('app: My Medicines has daily reminders and no print button', async () => {
   const { w, d, calls } = await bootApp();
   const [a, b] = w.SDApp.state.engine.popular(2);

@@ -56,10 +56,10 @@
   /** "Google · 26 Nov 2026, 14:05 on Chrome on Android" (plain text; escape before use in HTML). */
   function loginText(l) {
     if (!l || typeof l !== 'object') return '';
-    const how = METHOD_LABEL[l.method] || 'password';
+    const how = tr(METHOD_LABEL[l.method] || 'password');
     const when = fmtDateTime(l.at);
     const dev = String(l.device || l.ua || '').slice(0, 80);
-    return how + (when ? ' · ' + when : '') + (dev ? ' on ' + dev : '');
+    return how + (when ? ' · ' + when : '') + (dev ? tr(' on ') + dev : '');
   }
   const waLink = (phone, text) => {
     let p = String(phone || '').replace(/[^\d]/g, '');
@@ -82,11 +82,217 @@
     }
   }
 
+  // ===========================================================================
+  // Language (English / Urdu). Same localStorage key as the main site (js/i18n.js: "sd_lang").
+  // Everything a patient sees is translated; business dashboards stay in English (but work in RTL).
+  // ===========================================================================
+  const LANG_KEY = 'sd_lang';
+  let LANG = lsGet(LANG_KEY) === 'ur' ? 'ur' : 'en';
+  const UR = {
+    // page chrome
+    'Skip to content': 'مواد پر جائیں',
+    Account: 'اکاؤنٹ',
+    'Search medicines': 'دوائیں تلاش کریں',
+    'For business': 'کاروبار کے لیے',
+    'Loading…': 'لوڈ ہو رہا ہے…',
+    Help: 'مدد',
+    More: 'مزید',
+    Legal: 'قانونی',
+    'Plans for business': 'کاروبار کے پلان',
+    'Developer API': 'ڈیولپر API',
+    'Privacy policy': 'پرائیویسی پالیسی',
+    'Terms of Service': 'شرائط و ضوابط',
+    'Refund & cancellation': 'رقم کی واپسی اور منسوخی',
+    'Medical disclaimer': 'طبی دستبرداری',
+    'Pharmacy listing terms': 'فارمیسی لسٹنگ کی شرائط',
+    'Delete your account': 'اپنا اکاؤنٹ ختم کریں',
+    'Official DRAP medicine prices and cheaper same-formula brands.': 'ڈریپ کی سرکاری قیمتیں، اور اسی فارمولے کے سستے برانڈ۔',
+    'Sasta Dawa Finder home': 'سستا دوا فائنڈر ہوم',
+    Language: 'زبان',
+    // sign in / create account
+    'Sign in': 'سائن اِن',
+    'Create account': 'اکاؤنٹ بنائیں',
+    'Create your account': 'اپنا اکاؤنٹ بنائیں',
+    'Sign in to Sasta Dawa': 'سستا دوا میں سائن اِن کریں',
+    'One account for the website and the app.': 'ویب سائٹ اور ایپ دونوں کے لیے ایک ہی اکاؤنٹ۔',
+    'Business accounts (pharmacy, clinic, NGO, company, developer) get 30 days of their paid plan free. No card needed.': 'کاروباری اکاؤنٹس (فارمیسی، کلینک، این جی او، کمپنی، ڈیولپر) کو 30 دن پلان مفت ملتا ہے۔ کارڈ کی ضرورت نہیں۔',
+    'Personal accounts are free. Save your medicines and use them on any phone.': 'ذاتی اکاؤنٹ مفت ہے۔ اپنی دوائیں محفوظ کریں اور کسی بھی فون پر دیکھیں۔',
+    'Sign in or create account': 'سائن اِن یا نیا اکاؤنٹ',
+    'Account type': 'اکاؤنٹ کی قسم',
+    'I agree to the {terms} and {privacy}': 'میں {terms} اور {privacy} سے متفق ہوں',
+    'Privacy Policy': 'پرائیویسی پالیسی',
+    'Needed for both ways of signing up below. We never sell your data.': 'نیچے دونوں طریقوں سے اکاؤنٹ بنانے کے لیے ضروری ہے۔ ہم آپ کا ڈیٹا کبھی نہیں بیچتے۔',
+    or: 'یا',
+    'Name (or business name)': 'نام (یا کاروبار کا نام)',
+    Name: 'نام',
+    Email: 'ای میل',
+    Phone: 'فون',
+    '(optional)': '(اختیاری)',
+    Password: 'پاس ورڈ',
+    '(at least 8 characters)': '(کم از کم 8 حروف)',
+    'Forgot your password? Message us on {wa} from your account\'s phone number.': 'پاس ورڈ بھول گئے؟ اپنے اکاؤنٹ والے فون نمبر سے ہمیں {wa} پر پیغام بھیجیں۔',
+    'Last time you used {how}.': 'پچھلی بار آپ نے {how} استعمال کیا۔',
+    'your email and password': 'ای میل اور پاس ورڈ',
+    Google: 'گوگل',
+    'Sign in here and we will take you back to the {app} app.': 'یہاں سائن اِن کریں، پھر ہم آپ کو {app} ایپ پر واپس لے جائیں گے۔',
+    'Own a pharmacy? {link}': 'آپ کی فارمیسی ہے؟ {link}',
+    'Get the Sasta Dawa for Pharmacies app': 'سستا دوا فار فارمیسیز ایپ حاصل کریں',
+    'Continue with Google (opens browser)': 'گوگل کے ساتھ جاری رکھیں (براؤزر کھلے گا)',
+    'Enter your email and password.': 'اپنا ای میل اور پاس ورڈ لکھیں۔',
+    'Please enter your name (or your business name).': 'براہ کرم اپنا نام (یا کاروبار کا نام) لکھیں۔',
+    'Please enter a valid email address.': 'براہ کرم درست ای میل لکھیں۔',
+    'Password must be at least 8 characters.': 'پاس ورڈ کم از کم 8 حروف کا ہونا چاہیے۔',
+    'Please tick “I agree to the Terms of Service and Privacy Policy” to create an account.': 'اکاؤنٹ بنانے کے لیے “میں شرائط و ضوابط اور پرائیویسی پالیسی سے متفق ہوں” پر نشان لگائیں۔',
+    'Please tick “I agree to the Terms of Service and Privacy Policy” first.': 'پہلے “میں شرائط و ضوابط اور پرائیویسی پالیسی سے متفق ہوں” پر نشان لگائیں۔',
+    'Please tick “I agree to the Terms of Service and Privacy Policy” first, then press the Google button again.': 'پہلے “میں شرائط و ضوابط اور پرائیویسی پالیسی سے متفق ہوں” پر نشان لگائیں، پھر گوگل کا بٹن دوبارہ دبائیں۔',
+    'Opening your browser… finish signing in there and you will come back here.': 'براؤزر کھل رہا ہے… وہاں سائن اِن مکمل کریں، پھر آپ یہاں واپس آ جائیں گے۔',
+    'Could not open the browser. Please try again, or use your email below.': 'براؤزر نہیں کھل سکا۔ دوبارہ کوشش کریں، یا نیچے ای میل استعمال کریں۔',
+    'Sign-in in the browser did not finish. Please try again.': 'براؤزر میں سائن اِن مکمل نہیں ہوا۔ دوبارہ کوشش کریں۔',
+    'Google sign-in was cancelled. Please try again, or use your email below.': 'گوگل سائن اِن منسوخ ہو گیا۔ دوبارہ کوشش کریں، یا نیچے ای میل استعمال کریں۔',
+    'Google sign-in failed. Please try again, or use your email below.': 'گوگل سائن اِن نہیں ہو سکا۔ دوبارہ کوشش کریں، یا نیچے ای میل استعمال کریں۔',
+    'Signing you in…': 'سائن اِن ہو رہا ہے…',
+    'You don\'t have an account yet. {link}, tick “I agree to the Terms”, then use Google again.': 'آپ کا ابھی کوئی اکاؤنٹ نہیں۔ {link}، “میں شرائط سے متفق ہوں” پر نشان لگائیں، پھر دوبارہ گوگل استعمال کریں۔',
+    'Create an account': 'اکاؤنٹ بنائیں',
+    'Could not reach the server. Check your internet connection and try again.': 'سرور سے رابطہ نہیں ہو سکا۔ انٹرنیٹ چیک کر کے دوبارہ کوشش کریں۔',
+    'Something went wrong.': 'کچھ غلط ہو گیا۔',
+    'Please sign in again.': 'براہ کرم دوبارہ سائن اِن کریں۔',
+    'Welcome, {name}!': 'خوش آمدید، {name}!',
+    'Could not sign you in. Please try again.': 'سائن اِن نہیں ہو سکا۔ دوبارہ کوشش کریں۔',
+    // roles
+    Personal: 'ذاتی',
+    'Save your medicines across devices': 'اپنی دوائیں ہر فون پر محفوظ رکھیں',
+    Pharmacy: 'فارمیسی',
+    'List your pharmacy, stock and prices': 'اپنی فارمیسی، اسٹاک اور قیمتیں لگائیں',
+    'Clinic / Hospital': 'کلینک / ہسپتال',
+    'Price widget for your website': 'اپنی ویب سائٹ کے لیے قیمتوں کا ویجٹ',
+    'NGO / Welfare trust': 'این جی او / فلاحی ٹرسٹ',
+    'Stretch your medicine budget': 'دواؤں کا بجٹ زیادہ دور تک چلائیں',
+    'Company / Insurer': 'کمپنی / انشورنس',
+    'Medicine savings for your staff': 'اپنے عملے کے لیے دواؤں پر بچت',
+    Developer: 'ڈیولپر',
+    'Medicine price API keys': 'دواؤں کی قیمتوں کی API کیز',
+    // handoff
+    'Return to the app': 'ایپ پر واپس جائیں',
+    'Taking you back to the {app} app…': 'آپ کو {app} ایپ پر واپس لے جا رہے ہیں…',
+    'Signed in as {name}': 'سائن اِن: {name}',
+    'Not you? Use a different account': 'آپ نہیں؟ دوسرا اکاؤنٹ استعمال کریں',
+    'Stay on the website': 'ویب سائٹ پر رہیں',
+    'If the app did not open by itself, press the button above. The sign-in link works once and expires in 5 minutes.': 'اگر ایپ خود نہ کھلے تو اوپر والا بٹن دبائیں۔ یہ لنک ایک بار چلتا ہے اور 5 منٹ میں ختم ہو جاتا ہے۔',
+    'Try again': 'دوبارہ کوشش کریں',
+    // dashboard
+    'Hi, {name}': 'السلام علیکم، {name}',
+    'Free plan': 'مفت پلان',
+    'free trial': 'مفت آزمائش',
+    'Staff of {name}': '{name} کا عملہ',
+    'Last signed in with {how}': 'پچھلی بار سائن اِن: {how}',
+    'Not you?': 'آپ نہیں تھے؟',
+    'This is the first sign-in we have recorded for this account.': 'اس اکاؤنٹ کا یہ پہلا سائن اِن ہے جو ہمارے پاس درج ہے۔',
+    'email and password': 'ای میل اور پاس ورڈ',
+    'the app': 'ایپ',
+    ' on ': ' — ',
+    'Account sections': 'اکاؤنٹ کے حصے',
+    'My Medicines': 'میری دوائیں',
+    'Plan & billing': 'پلان اور ادائیگی',
+    Profile: 'پروفائل',
+    'You are on the free plan. Paid features are paused. {link}.': 'آپ مفت پلان پر ہیں۔ ادائیگی والی سہولیات رکی ہوئی ہیں۔ {link}۔',
+    'Choose a plan': 'پلان منتخب کریں',
+    // profile
+    'Your details': 'آپ کی تفصیلات',
+    'You sign in with Google.': 'آپ گوگل سے سائن اِن کرتے ہیں۔',
+    'Google connected': 'گوگل منسلک ہے',
+    Save: 'محفوظ کریں',
+    'Saved.': 'محفوظ ہو گیا۔',
+    'Set a password': 'پاس ورڈ بنائیں',
+    'Change password': 'پاس ورڈ تبدیل کریں',
+    'Optional. With a password you can also sign in with your email.': 'اختیاری۔ پاس ورڈ ہو تو آپ ای میل سے بھی سائن اِن کر سکتے ہیں۔',
+    'Current password': 'موجودہ پاس ورڈ',
+    'New password': 'نیا پاس ورڈ',
+    '(8+ characters)': '(8 یا زیادہ حروف)',
+    'Set password': 'پاس ورڈ بنائیں',
+    'Changing your password signs you out on your other devices.': 'پاس ورڈ بدلنے سے آپ دوسرے فونز/کمپیوٹرز سے سائن آؤٹ ہو جائیں گے۔',
+    'Password changed.': 'پاس ورڈ تبدیل ہو گیا۔',
+    'Password set. You can now also sign in with your email.': 'پاس ورڈ بن گیا۔ اب آپ ای میل سے بھی سائن اِن کر سکتے ہیں۔',
+    'Sign-in activity': 'سائن اِن کی تفصیل',
+    'This time': 'اس بار',
+    'Last time': 'پچھلی بار',
+    'No earlier sign-in recorded.': 'اس سے پہلے کا کوئی سائن اِن درج نہیں۔',
+    '“This time” is the sign-in you are using now. “Last time” is the one before it. If you don\'t recognise “Last time”, change your password and press “Sign out everywhere” below.': '“اس بار” وہ سائن اِن ہے جو آپ ابھی استعمال کر رہے ہیں۔ “پچھلی بار” اس سے پہلے والا ہے۔ اگر “پچھلی بار” آپ نہیں تھے تو پاس ورڈ بدلیں اور نیچے “ہر جگہ سے سائن آؤٹ” دبائیں۔',
+    'We will show here how and when you last signed in, so you can spot a sign-in that was not you.': 'یہاں ہم دکھائیں گے کہ آپ نے پچھلی بار کب اور کیسے سائن اِن کیا، تاکہ کوئی اور سائن اِن کرے تو آپ کو پتا چل جائے۔',
+    'Your data': 'آپ کا ڈیٹا',
+    'Download a copy of everything we keep about your account (profile, pharmacies, reservations, refill customers, payments and statistics) as a JSON file.': 'ہمارے پاس آپ کے اکاؤنٹ کی جو بھی معلومات ہیں (پروفائل، فارمیسیز، ریزرویشنز، ادائیگیاں اور اعداد و شمار) ان کی کاپی JSON فائل میں حاصل کریں۔',
+    'Download my data': 'میرا ڈیٹا ڈاؤن لوڈ کریں',
+    'Save or share my data': 'میرا ڈیٹا محفوظ یا شیئر کریں',
+    'Preparing your file…': 'آپ کی فائل تیار ہو رہی ہے…',
+    'Downloaded. Keep the file somewhere safe: it contains your personal details.': 'ڈاؤن لوڈ ہو گیا۔ فائل محفوظ جگہ رکھیں: اس میں آپ کی ذاتی معلومات ہیں۔',
+    'File ready. Choose where to keep it (Files, Drive or WhatsApp). Keep it somewhere safe: it contains your personal details.': 'فائل تیار ہے۔ چنیں کہاں رکھنی ہے (فائلز، ڈرائیو یا واٹس ایپ)۔ اسے محفوظ رکھیں: اس میں آپ کی ذاتی معلومات ہیں۔',
+    'Could not save the file. Please try again.': 'فائل محفوظ نہیں ہو سکی۔ دوبارہ کوشش کریں۔',
+    'Read our {privacy} and {terms}.': 'ہماری {privacy} اور {terms} پڑھیں۔',
+    'Sign out': 'سائن آؤٹ',
+    'Sign out everywhere': 'ہر جگہ سے سائن آؤٹ',
+    'Signed out.': 'سائن آؤٹ ہو گیا۔',
+    'Signed out on all devices.': 'تمام ڈیوائسز سے سائن آؤٹ ہو گیا۔',
+    'Delete account': 'اکاؤنٹ ختم کریں',
+    'This permanently deletes your account and saved data. It cannot be undone. You may want to download your data first.': 'اس سے آپ کا اکاؤنٹ اور محفوظ ڈیٹا ہمیشہ کے لیے ختم ہو جائے گا۔ یہ واپس نہیں ہو سکتا۔ بہتر ہے پہلے اپنا ڈیٹا ڈاؤن لوڈ کر لیں۔',
+    'What is deleted and when': 'کیا ختم ہوتا ہے اور کب',
+    'Type DELETE to confirm': 'تصدیق کے لیے DELETE لکھیں',
+    'Your password': 'آپ کا پاس ورڈ',
+    'I understand this cannot be undone': 'میں سمجھتا/سمجھتی ہوں کہ یہ واپس نہیں ہو سکتا',
+    'Delete my account': 'میرا اکاؤنٹ ختم کریں',
+    'Type DELETE in the box to confirm.': 'تصدیق کے لیے خانے میں DELETE لکھیں۔',
+    'Tick the box to confirm.': 'تصدیق کے لیے خانے پر نشان لگائیں۔',
+    'Your account has been deleted.': 'آپ کا اکاؤنٹ ختم کر دیا گیا ہے۔',
+    // plan & billing
+    'Your plan': 'آپ کا پلان',
+    'Free trial': 'مفت آزمائش',
+    'Trial ends': 'آزمائش ختم ہو گی',
+    'Paid until': 'ادائیگی اس تاریخ تک',
+    'No paid plan is active.': 'کوئی ادا شدہ پلان فعال نہیں۔',
+    'Personal accounts are free. You can still join your employer\'s benefit below.': 'ذاتی اکاؤنٹ مفت ہے۔ آپ نیچے اپنی کمپنی کی سہولت میں شامل ہو سکتے ہیں۔',
+    'Join company benefit': 'کمپنی کی سہولت میں شامل ہوں',
+    'You are part of {name} (code {code}).': 'آپ {name} کا حصہ ہیں (کوڈ {code})۔',
+    'If your employer or insurer gave you a Sasta Dawa company code, enter it here.': 'اگر آپ کی کمپنی یا انشورنس نے آپ کو سستا دوا کا کمپنی کوڈ دیا ہے تو یہاں لکھیں۔',
+    'Company code': 'کمپنی کوڈ',
+    'Join company': 'کمپنی میں شامل ہوں',
+    'Enter the code exactly as your company gave it.': 'کوڈ بالکل ویسا لکھیں جیسا کمپنی نے دیا ہے۔',
+    'You joined {name}.': 'آپ {name} میں شامل ہو گئے۔',
+    // my medicines
+    'This list syncs from {mm} on the main site and app while you are signed in, so it is safe if you change phones.': 'سائن اِن ہونے پر یہ فہرست ویب سائٹ اور ایپ کی {mm} سے جڑی رہتی ہے، اس لیے فون بدلنے پر بھی محفوظ رہتی ہے۔',
+    'No medicines saved yet.': 'ابھی کوئی دوا محفوظ نہیں۔',
+    'a month at {n}/day': 'ماہانہ، روزانہ {n}',
+    'Open My Medicines': 'میری دوائیں کھولیں',
+    // files / share
+    Share: 'شیئر کریں',
+    'File ready. Choose where to keep it: Files, Drive or WhatsApp.': 'فائل تیار ہے۔ چنیں کہاں رکھنی ہے: فائلز، ڈرائیو یا واٹس ایپ۔',
+    'Could not open the share options. Please try again.': 'شیئر کے آپشن نہیں کھل سکے۔ دوبارہ کوشش کریں۔',
+  };
+  UR['New password must be at least 8 characters.'] = 'نیا پاس ورڈ کم از کم 8 حروف کا ہونا چاہیے۔';
+  const SIGNIN_NOTE = '“This time” is the sign-in you are using now. “Last time” is the one before it. If you don\'t recognise “Last time”, change your password and press “Sign out everywhere” below.';
+  /** Translate an English UI string (falls back to English); {x} placeholders are filled from p. */
+  function tr(s, p) {
+    let o = (LANG === 'ur' && UR[s]) || s;
+    if (p) Object.keys(p).forEach((k) => (o = o.split('{' + k + '}').join(p[k])));
+    return o;
+  }
+  /** Sets lang/dir on <html>, translates the static page chrome (data-t) and the EN | اردو toggle. */
+  function applyLang() {
+    const root = document.documentElement;
+    root.lang = LANG;
+    root.dir = LANG === 'ur' ? 'rtl' : 'ltr';
+    Array.from(document.querySelectorAll('[data-t]')).forEach((el) => (el.textContent = tr(el.getAttribute('data-t'))));
+    Array.from(document.querySelectorAll('[data-t-label]')).forEach((el) => el.setAttribute('aria-label', tr(el.getAttribute('data-t-label'))));
+    Array.from(document.querySelectorAll('[data-acc-lang]')).forEach((b) => b.setAttribute('aria-pressed', b.getAttribute('data-acc-lang') === LANG ? 'true' : 'false'));
+  }
+  function setLang(l) {
+    LANG = l === 'ur' ? 'ur' : 'en';
+    lsSet(LANG_KEY, LANG);
+    applyLang();
+  }
+
   let toastTimer = null;
   function toast(msg) {
     const t = $('#toast');
     if (!t) return;
-    t.textContent = msg;
+    t.textContent = tr(msg);
     t.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => t.classList.remove('show'), 4000);
@@ -132,10 +338,51 @@
       lsSet(USER_KEY, user ? JSON.stringify(user) : null);
     }
   }
-  function go(hash) {
-    if (location.hash === hash) route();
-    else location.hash = hash;
+  // ---- Navigation and the Back button ----
+  // Every screen change used to add a history entry, so leaving Account took 4-9 Back presses in the apps.
+  // Now: switching between screens on the same level (dashboard tabs, branch sections, sign in <-> create
+  // account) replaces the current entry; only a real drill-down (a branch, a patient, a refill customer)
+  // adds one. Going "up" to the screen we drilled down from pops that entry instead of adding another.
+  /** 0 = a dashboard tab or sign-in screen, 1 = a branch / patient, 2 = something inside a branch section. */
+  function navLevel(hash) {
+    const raw = String(hash || '').replace(/^#\/?/, '');
+    const parts = raw.split('?')[0].split('/').filter(Boolean);
+    if (!parts.length || parts[0] === 'partners') return 0; // the partners city filter is not a drill-down
+    if (parts[0] === 'branch') return parts.length > 3 ? 2 : 1;
+    return parts.length > 1 ? 1 : 0;
   }
+  const normHash = (h) => (!h || h === '#' ? '#/' : h);
+  let lastRouted = null; // location.hash of the last route(): popstate + hashchange both fire on Back
+  function go(hash) {
+    const target = normHash(hash);
+    if (normHash(location.hash) === target) return route();
+    const st = (history.state && typeof history.state === 'object' && history.state) || {};
+    const cur = normHash(location.hash);
+    const curLevel = typeof st.sdl === 'number' ? st.sdl : navLevel(cur);
+    const level = navLevel(target);
+    try {
+      if (level > curLevel) {
+        history.pushState({ sdl: level, parent: cur }, '', target);
+      } else if (st.parent && st.parent === target) {
+        history.back(); // back up to the screen we came from: popstate routes it
+        return;
+      } else {
+        history.replaceState({ sdl: level, parent: level ? st.parent || null : null }, '', target);
+      }
+    } catch (e) {
+      location.hash = target; // very old webviews: plain hash change
+      return;
+    }
+    route();
+  }
+  // In-page links (#/...) go through go() so they follow the rules above.
+  document.addEventListener('click', (ev) => {
+    if (ev.defaultPrevented || ev.button || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+    const a = ev.target && ev.target.closest ? ev.target.closest('a[href^="#/"]') : null;
+    if (!a || (a.target && a.target !== '_self')) return;
+    ev.preventDefault();
+    go(a.getAttribute('href'));
+  });
   function signOutLocal() {
     setSession('', null);
     S.pharmacies = null;
@@ -156,7 +403,7 @@
         cache: 'no-store',
       });
     } catch (e) {
-      throw Object.assign(new Error('Could not reach the server. Check your internet connection and try again.'), { status: 0 });
+      throw Object.assign(new Error(tr('Could not reach the server. Check your internet connection and try again.')), { status: 0 });
     }
     let data = {};
     try {
@@ -166,7 +413,7 @@
     }
     if (res.status === 401 && !['login', 'signup', 'plans', 'google'].includes(action)) {
       signOutLocal();
-      toast('Please sign in again.');
+      toast(tr('Please sign in again.'));
       go('#/signin');
       throw Object.assign(new Error(data.error || 'Please sign in.'), { status: 401, handled: true });
     }
@@ -203,14 +450,15 @@
   // ===========================================================================
   // Small render helpers
   // ===========================================================================
-  const loadingHtml = '<div class="loading"><div class="spinner" aria-hidden="true"></div><span>Loading…</span></div>';
+  // An object so the text follows the current language wherever it is used as a string.
+  const loadingHtml = { toString: () => `<div class="loading"><div class="spinner" aria-hidden="true"></div><span>${esc(tr('Loading…'))}</span></div>` };
   const icInfo = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>';
 
   function errorHtml(e) {
     if (e && e.status === 402) {
       return `<div class="upgrade"><p>${esc(e.message)}</p><div class="actions"><a class="btn btn-primary" href="#/plan">Upgrade your plan</a><a class="btn btn-ghost" href="business">Compare plans</a></div></div>`;
     }
-    return `<div class="notice bad">${icInfo}<p>${esc((e && e.message) || 'Something went wrong.')}</p></div>`;
+    return `<div class="notice bad">${icInfo}<p>${esc((e && e.message) || tr('Something went wrong.'))}</p></div>`;
   }
   /** Run an async loader into an element, showing a spinner and a friendly error. */
   async function into(el, fn) {
@@ -225,7 +473,7 @@
   }
   function msg(el, text, good) {
     if (!el) return;
-    el.textContent = text || '';
+    el.textContent = text ? tr(text) : '';
     el.className = 'form-msg ' + (text ? (good ? 'good' : 'bad') : '');
   }
   /** Wire a <form>: disables the submit button while running, shows errors in .form-msg. */
@@ -243,7 +491,7 @@
         if (!e || !e.handled) {
           if (e && e.status === 402) {
             msg(out, e.message + ' Open the Plan & billing tab to upgrade.');
-          } else msg(out, (e && e.message) || 'Something went wrong.');
+          } else msg(out, (e && e.message) || tr('Something went wrong.'));
         }
       } finally {
         if (btn) btn.disabled = false;
@@ -303,7 +551,7 @@
       if (!S.token || !S.user) return;
       lsSet(LAST_METHOD_KEY, 'google');
       S.pharmacies = null;
-      toast('Welcome, ' + S.user.name + '!');
+      toast(tr('Welcome, {name}!', { name: S.user.name }));
       go('#/');
     } else {
       const out = $('#google-msg');
@@ -312,6 +560,15 @@
     }
   });
   const handoffApp = () =>(IN_APP ? '' : APP_SCHEMES[ssGet(HANDOFF_KEY)] ? ssGet(HANDOFF_KEY) : '');
+  /** Link to the main search page (index.html in the app, / on the website). */
+  const mainLink = (h) => '/' + (h || '');
+  /** The apps' file bridge (js/native.js): files.save(name, mime, data, {base64}) opens the share sheet. */
+  const nFiles = () => {
+    const n = native();
+    return n && n.files && typeof n.files.save === 'function' ? n.files : null;
+  };
+  /** 'customer' | 'business' | '' : the app this page serves (inside it, or opened by it in the browser). */
+  const appContext = () => nativeApp() || handoffApp() || (APP_SCHEMES[params.get('app')] ? params.get('app') : '');
 
   function tabsFor(role) {
     const t = {
@@ -328,6 +585,7 @@
   const PAYMENT_STATES = ['success', 'failed', 'error', 'unknown'];
 
   function route() {
+    lastRouted = location.hash;
     const raw = location.hash.replace(/^#\/?/, '') || '';
     const qi = raw.indexOf('?');
     const hq = new URLSearchParams(qi >= 0 ? raw.slice(qi + 1) : '');
@@ -366,81 +624,91 @@
     if (!tabs.some((x) => x[0] === tab)) tab = tabs[0][0];
     renderDashboard(tab, parts.slice(1));
   }
-  window.addEventListener('hashchange', route);
+  const onHistoryNav = () => {
+    if (location.hash !== lastRouted) route();
+  };
+  window.addEventListener('hashchange', onHistoryNav);
+  window.addEventListener('popstate', onHistoryNav);
 
   // ===========================================================================
   // Sign in / Create account
   // ===========================================================================
   function renderAuth(mode) {
-    setTitle(mode === 'signup' ? 'Create account' : 'Sign in');
-    // Inside the apps: the customer app signs up personal accounts, the business app only business types.
-    const nApp = nativeApp();
+    setTitle(mode === 'signup' ? tr('Create account') : tr('Sign in'));
+    // Which app this sign-up is for: the customer app signs up personal accounts, the business app only
+    // business types. Inside the app it is window.SastaNative.app; in the system browser opened by the
+    // app's Google button it is ?app=customer|business (kept in sessionStorage for this tab).
+    const nApp = appContext();
     const roles = Object.keys(ROLE_LABEL).filter((r) => (nApp === 'business' ? r !== 'patient' : nApp === 'customer' ? r === 'patient' : true));
     let pre = ROLE_LABEL[params.get('type')] ? params.get('type') : roles[0];
-    if (!roles.includes(pre)) pre = roles[0];
+    if (!roles.includes(pre)) pre = roles.includes('pharmacy') ? 'pharmacy' : roles[0];
     const bizLink = nApp === 'customer' && mode === 'signup'
-      ? '<p class="small biz-app-link" id="biz-app-link">Own a pharmacy? <a href="https://sasta-dawa-finder.vercel.app/download?app=business" target="_blank" rel="noopener">Get the Sasta Dawa for Pharmacies app</a></p>'
+      ? `<p class="small biz-app-link" id="biz-app-link">${tr('Own a pharmacy? {link}', { link: `<a href="https://sasta-dawa-finder.vercel.app/download?app=business" target="_blank" rel="noopener">${esc(tr('Get the Sasta Dawa for Pharmacies app'))}</a>` })}</p>`
       : '';
     const typeOpts = roles
-      .map((r) => `<label class="type-opt"><input type="radio" name="role" value="${r}"${r === pre ? ' checked' : ''}><span>${esc(ROLE_LABEL[r])}<small>${esc(ROLE_HINT[r])}</small></span></label>`)
+      .map((r) => `<label class="type-opt"><input type="radio" name="role" value="${r}"${r === pre ? ' checked' : ''}><span>${esc(tr(ROLE_LABEL[r]))}<small>${esc(tr(ROLE_HINT[r]))}</small></span></label>`)
       .join('');
     // Filled in by mountGoogle() only when Google sign-in is configured (hidden until then).
     const googleBox = `
           <div class="google-box" id="google-box" hidden>
             <div class="google-btn" id="google-btn"></div>
             <p class="form-msg" id="google-msg" role="alert"></p>
-            <div class="or-divider" role="separator"><span>or</span></div>
+            <div class="or-divider" role="separator"><span>${esc(tr('or'))}</span></div>
           </div>`;
     const last = lsGet(LAST_METHOD_KEY);
     const lastHint = METHOD_LABEL[last] && last !== 'app'
-      ? `<p class="last-hint notice info" id="last-hint">${icInfo}<span>Last time you used <b>${esc(last === 'google' ? 'Google' : 'your email and password')}</b>.</span></p>`
+      ? `<p class="last-hint notice info" id="last-hint">${icInfo}<span>${tr('Last time you used {how}.', { how: `<b>${esc(last === 'google' ? tr('Google') : tr('your email and password'))}</b>` })}</span></p>`
       : '';
     const appNote = handoffApp()
-      ? `<div class="notice info handoff-note">${icInfo}<p>Sign in here and we will take you back to the <b>${handoffApp() === 'business' ? 'Sasta Dawa for Pharmacies' : 'Sasta Dawa'}</b> app.</p></div>`
+      ? `<div class="notice info handoff-note">${icInfo}<p>${tr('Sign in here and we will take you back to the {app} app.', { app: `<b>${handoffApp() === 'business' ? 'Sasta Dawa for Pharmacies' : 'Sasta Dawa'}</b>` })}</p></div>`
       : '';
+    const terms = `<a href="terms.html" target="_blank" rel="noopener">${esc(tr('Terms of Service'))}</a>`;
+    const privacy = `<a href="privacy.html" target="_blank" rel="noopener">${esc(tr('Privacy Policy'))}</a>`;
+    const opt = `<small class="muted">${esc(tr('(optional)'))}</small>`;
+    const signupSub = nApp === 'customer' ? 'Personal accounts are free. Save your medicines and use them on any phone.' : 'Business accounts (pharmacy, clinic, NGO, company, developer) get 30 days of their paid plan free. No card needed.';
     app.innerHTML = `
       <section class="auth view">
-        <h1 class="view-title">${mode === 'signup' ? 'Create your account' : 'Sign in to Sasta Dawa'}</h1>
-        <p class="view-sub" style="margin-block-end:14px">${mode === 'signup' ? 'Business accounts (pharmacy, clinic, NGO, company, developer) get 30 days of their paid plan free. No card needed.' : 'One account for the website and the app.'}</p>
-        <nav class="auth-switch" aria-label="Sign in or create account">
-          <a href="#/signin"${mode === 'signin' ? ' aria-current="page"' : ''}>Sign in</a>
-          <a href="#/signup"${mode === 'signup' ? ' aria-current="page"' : ''}>Create account</a>
+        <h1 class="view-title">${esc(mode === 'signup' ? tr('Create your account') : tr('Sign in to Sasta Dawa'))}</h1>
+        <p class="view-sub" style="margin-block-end:14px">${esc(mode === 'signup' ? tr(signupSub) : tr('One account for the website and the app.'))}</p>
+        <nav class="auth-switch" aria-label="${esc(tr('Sign in or create account'))}">
+          <a href="#/signin"${mode === 'signin' ? ' aria-current="page"' : ''}>${esc(tr('Sign in'))}</a>
+          <a href="#/signup"${mode === 'signup' ? ' aria-current="page"' : ''}>${esc(tr('Create account'))}</a>
         </nav>
         ${appNote}
         <div class="card">
         ${mode === 'signup' ? `
           <form class="form" id="signup-form" novalidate>
-            <fieldset class="types"><legend>Account type</legend>${typeOpts}</fieldset>
+            <fieldset class="types"><legend>${esc(tr('Account type'))}</legend>${typeOpts}</fieldset>
             ${bizLink}
             <div class="terms-box">
-              <label class="check terms-check"><input type="checkbox" name="terms" id="accept-terms" value="1" required> <span>I agree to the <a href="terms.html" target="_blank" rel="noopener">Terms of Service</a> and <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a></span></label>
-              <p class="small muted">Needed for both ways of signing up below. We never sell your data.</p>
+              <label class="check terms-check"><input type="checkbox" name="terms" id="accept-terms" value="1" required> <span>${LANG === 'ur' ? tr('I agree to the {terms} and {privacy}', { terms, privacy }) : 'I agree to the <a href="terms.html" target="_blank" rel="noopener">Terms of Service</a> and <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a>'}</span></label>
+              <p class="small muted">${esc(tr('Needed for both ways of signing up below. We never sell your data.'))}</p>
             </div>
             ${googleBox}
-            <label class="field">Name (or business name)<input class="input" name="name" autocomplete="name" required maxlength="80"></label>
+            <label class="field">${esc(tr('Name (or business name)'))}<input class="input" name="name" autocomplete="name" required maxlength="80"></label>
             <div class="form-row">
-              <label class="field">Email<input class="input" type="email" name="email" autocomplete="email" required maxlength="200"></label>
-              <label class="field">Phone <small class="muted">(optional)</small><input class="input" type="tel" name="phone" autocomplete="tel" maxlength="30" placeholder="03xx xxxxxxx"></label>
+              <label class="field">${esc(tr('Email'))}<input class="input" type="email" name="email" autocomplete="email" required maxlength="200" dir="ltr"></label>
+              <label class="field">${esc(tr('Phone'))} ${opt}<input class="input" type="tel" name="phone" autocomplete="tel" maxlength="30" placeholder="03xx xxxxxxx" dir="ltr"></label>
             </div>
-            <label class="field">Password <small class="muted">(at least 8 characters)</small><input class="input" type="password" name="password" autocomplete="new-password" required minlength="8" maxlength="200"></label>
+            <label class="field">${esc(tr('Password'))} <small class="muted">${esc(tr('(at least 8 characters)'))}</small><input class="input" type="password" name="password" autocomplete="new-password" required minlength="8" maxlength="200" dir="ltr"></label>
             <label class="hp" aria-hidden="true">Website<input type="text" name="website" tabindex="-1" autocomplete="off"></label>
-            <div class="actions"><button type="submit" class="btn btn-primary">Create account</button></div>
+            <div class="actions"><button type="submit" class="btn btn-primary">${esc(tr('Create account'))}</button></div>
             <p class="form-msg" role="alert"></p>
           </form>` : `
           ${lastHint}
           ${googleBox}
           <form class="form" id="signin-form" novalidate>
-            <label class="field">Email<input class="input" type="email" name="email" autocomplete="email" required maxlength="200"></label>
-            <label class="field">Password<input class="input" type="password" name="password" autocomplete="current-password" required maxlength="200"></label>
-            <div class="actions"><button type="submit" class="btn btn-primary">Sign in</button></div>
+            <label class="field">${esc(tr('Email'))}<input class="input" type="email" name="email" autocomplete="email" required maxlength="200" dir="ltr"></label>
+            <label class="field">${esc(tr('Password'))}<input class="input" type="password" name="password" autocomplete="current-password" required maxlength="200" dir="ltr"></label>
+            <div class="actions"><button type="submit" class="btn btn-primary">${esc(tr('Sign in'))}</button></div>
             <p class="form-msg" role="alert"></p>
-            <p class="small muted" style="margin:0">Forgot your password? Message us on <a href="https://wa.me/${WA_NUMBER}" rel="noopener">WhatsApp ${WA_TEXT}</a> from your account's phone number.</p>
+            <p class="small muted" style="margin:0">${tr('Forgot your password? Message us on {wa} from your account\'s phone number.', { wa: `<a href="https://wa.me/${WA_NUMBER}" rel="noopener">WhatsApp <span dir="ltr">${WA_TEXT}</span></a>` })}</p>
           </form>`}
         </div>
       </section>`;
 
     onSubmit($('#signin-form'), async (fd, out) => {
-      if (!val(fd, 'email') || !val(fd, 'password')) return msg(out, 'Enter your email and password.');
+      if (!val(fd, 'email') || !val(fd, 'password')) return msg(out, tr('Enter your email and password.'));
       const r = await api('login', { body: { email: val(fd, 'email'), password: String(fd.get('password') || '') } });
       afterAuth(r, 'password');
     });
@@ -494,7 +762,7 @@
       const box = $('#google-box');
       const holder = $('#google-btn');
       if (!box || !holder) return;
-      holder.innerHTML = '<button type="button" class="btn btn-ghost native-google-btn" id="native-google">Continue with Google (opens browser)</button>';
+      holder.innerHTML = `<button type="button" class="btn btn-ghost native-google-btn" id="native-google">${esc(tr('Continue with Google (opens browser)'))}</button>`;
       box.hidden = false;
       $('#native-google').addEventListener('click', async (ev) => {
         const out = $('#google-msg');
@@ -574,7 +842,7 @@
       if (!signup && e && e.status === 400 && /terms/i.test(m)) {
         const box = $('#google-msg');
         msg(box, '');
-        if (box) box.innerHTML = 'You don\'t have an account yet. <a href="#/signup">Create an account</a>, tick “I agree to the Terms”, then use Google again.';
+        if (box) box.innerHTML = tr('You don\'t have an account yet. {link}, tick “I agree to the Terms”, then use Google again.', { link: `<a href="#/signup">${esc(tr('Create an account'))}</a>` });
         if (box) box.className = 'form-msg bad';
         return;
       }
@@ -583,14 +851,19 @@
   }
 
   function afterAuth(r, method) {
-    if (!r || !r.token || !r.user) throw new Error('Could not sign you in. Please try again.');
+    if (!r || !r.token || !r.user) throw new Error(tr('Could not sign you in. Please try again.'));
     setSession(r.token, r.user);
     if (method) lsSet(LAST_METHOD_KEY, method);
     S.pharmacies = null;
-    toast('Welcome, ' + r.user.name + '!');
-    if (location.search) history.replaceState(null, '', location.pathname + '#/');
-    if (location.hash === '#/' || !location.hash) route();
-    else location.hash = '#/';
+    toast(tr('Welcome, {name}!', { name: r.user.name }));
+    // Replace (not add) the history entry: Back after signing in should leave Account, not show the form again.
+    try {
+      history.replaceState(null, '', location.pathname + '#/');
+    } catch (e) {
+      location.hash = '#/';
+      return;
+    }
+    route();
   }
 
   // ---- Back to the app (Google sign-in for the Android apps happens here, in the real browser) ----
@@ -598,16 +871,16 @@
     const which = handoffApp();
     const scheme = APP_SCHEMES[which];
     const appName = which === 'business' ? 'Sasta Dawa for Pharmacies' : 'Sasta Dawa';
-    setTitle('Return to the app');
+    setTitle(tr('Return to the app'));
     app.innerHTML = `
       <section class="auth view handoff">
         <div class="card handoff-card">
-          <h1 class="view-title">Taking you back to the ${esc(appName)} app…</h1>
-          <p>Signed in as <b>${esc(S.user.name)}</b>${S.user.email ? ' (' + esc(S.user.email) + ')' : ''}.</p>
+          <h1 class="view-title">${esc(tr('Taking you back to the {app} app…', { app: appName }))}</h1>
+          <p>${tr('Signed in as {name}', { name: `<b>${esc(S.user.name)}</b>` })}${S.user.email ? ' (<span dir="ltr">' + esc(S.user.email) + '</span>)' : ''}.</p>
           <div id="handoff-body">${loadingHtml}</div>
           <div class="actions handoff-alt">
-            <button type="button" class="btn btn-ghost" id="handoff-switch">Not you? Use a different account</button>
-            <button type="button" class="btn btn-ghost" id="handoff-stay">Stay on the website</button>
+            <button type="button" class="btn btn-ghost" id="handoff-switch">${esc(tr('Not you? Use a different account'))}</button>
+            <button type="button" class="btn btn-ghost" id="handoff-stay">${esc(tr('Stay on the website'))}</button>
           </div>
         </div>
       </section>`;
@@ -628,12 +901,12 @@
       ssSet(HANDOFF_KEY, null); // the code works once; reloading this page should not loop back to the app
       if (!document.body.contains(body)) return;
       body.innerHTML = `
-        <a class="btn btn-primary handoff-btn" id="handoff-open" href="${esc(link)}">Return to the app</a>
-        <p class="small muted">If the app did not open by itself, press the button above. The sign-in link works once and expires in 5 minutes.</p>`;
+        <a class="btn btn-primary handoff-btn" id="handoff-open" href="${esc(link)}">${esc(tr('Return to the app'))}</a>
+        <p class="small muted">${esc(tr('If the app did not open by itself, press the button above. The sign-in link works once and expires in 5 minutes.'))}</p>`;
       openUrl(link);
     } catch (e) {
       if (e && e.handled) return;
-      body.innerHTML = errorHtml(e) + '<div class="actions"><button type="button" class="btn btn-primary" id="handoff-retry">Try again</button></div>';
+      body.innerHTML = errorHtml(e) + `<div class="actions"><button type="button" class="btn btn-primary" id="handoff-retry">${esc(tr('Try again'))}</button></div>`;
       $('#handoff-retry').addEventListener('click', () => renderHandoff());
     }
   }
@@ -651,41 +924,41 @@
   // Dashboard shell
   // ===========================================================================
   function planBadges(u) {
-    const b = [`<span class="badge brand">${esc(ROLE_LABEL[u.role] || u.role)}</span>`];
-    if (u.plan !== 'free') b.push(`<span class="badge good">${esc(u.planName)}${u.trial ? ' · free trial' : ''}</span>`);
-    else b.push('<span class="badge">Free plan</span>');
-    if (u.joinedCompany) b.push(`<span class="badge">Staff of ${esc(u.joinedCompany.name)}</span>`);
+    const b = [`<span class="badge brand">${esc(tr(ROLE_LABEL[u.role] || u.role))}</span>`];
+    if (u.plan !== 'free') b.push(`<span class="badge good">${esc(u.planName)}${u.trial ? ' · ' + esc(tr('free trial')) : ''}</span>`);
+    else b.push(`<span class="badge">${esc(tr('Free plan'))}</span>`);
+    if (u.joinedCompany) b.push(`<span class="badge">${esc(tr('Staff of {name}', { name: u.joinedCompany.name }))}</span>`);
     return b.join('');
   }
 
   /** Header line: the sign-in BEFORE this one ("this one" is always now, so it tells you nothing). */
   function lastLoginHtml(u) {
     if (u.prevLogin && u.prevLogin.at) {
-      return `<p class="last-login" id="last-login">Last signed in with ${esc(loginText(u.prevLogin))} <a href="#/profile" class="small">Not you?</a></p>`;
+      return `<p class="last-login" id="last-login">${esc(tr('Last signed in with {how}', { how: loginText(u.prevLogin) }))} <a href="#/profile" class="small">${esc(tr('Not you?'))}</a></p>`;
     }
-    if (u.lastLogin && u.lastLogin.at) return '<p class="last-login" id="last-login">This is the first sign-in we have recorded for this account.</p>';
+    if (u.lastLogin && u.lastLogin.at) return `<p class="last-login" id="last-login">${esc(tr('This is the first sign-in we have recorded for this account.'))}</p>`;
     return '';
   }
 
   function renderDashboard(tab, rest) {
     const u = S.user;
     const tabs = tabsFor(u.role);
-    const label = (tabs.find((t) => t[0] === tab) || ['', 'Account'])[1];
+    const label = tr((tabs.find((t) => t[0] === tab) || ['', 'Account'])[1]);
     setTitle(label);
     if (tab !== 'plan') S.payment = ''; // the JazzCash result banner only stays on the Plan tab
     let banner = '';
     if (u.plan !== 'free' && u.trial && u.planUntil) {
       banner = `<div class="notice info no-print">${icInfo}<p>Your free trial of <b>${esc(u.planName)}</b> runs until <b>${esc(fmtDate(u.planUntil))}</b>. <a href="#/plan">Pay to keep it</a>.</p></div>`;
     } else if (u.plan === 'free' && u.paidPlan) {
-      banner = `<div class="notice no-print">${icInfo}<p>You are on the free plan. Paid features are paused. <a href="#/plan">Choose a plan</a>.</p></div>`;
+      banner = `<div class="notice no-print">${icInfo}<p>${tr('You are on the free plan. Paid features are paused. {link}.', { link: `<a href="#/plan">${esc(tr('Choose a plan'))}</a>` })}</p></div>`;
     }
     app.innerHTML = `
       <div class="dash-head no-print">
-        <div><h1>Hi, ${esc(u.name)}</h1><div class="badges">${planBadges(u)}</div>${lastLoginHtml(u)}</div>
+        <div><h1>${esc(tr('Hi, {name}', { name: u.name }))}</h1><div class="badges">${planBadges(u)}</div>${lastLoginHtml(u)}</div>
       </div>
       ${banner}
-      <nav class="tabs no-print" aria-label="Account sections" style="margin-block-start:14px">
-        ${tabs.map((t) => `<a href="#/${t[0]}"${t[0] === tab ? ' aria-current="page"' : ''}>${esc(t[1])}</a>`).join('')}
+      <nav class="tabs no-print" aria-label="${esc(tr('Account sections'))}" style="margin-block-start:14px">
+        ${tabs.map((t) => `<a href="#/${t[0]}"${t[0] === tab ? ' aria-current="page"' : ''}>${esc(tr(t[1]))}</a>`).join('')}
       </nav>
       <section id="tab" class="view" aria-label="${esc(label)}"></section>`;
     const el = $('#tab');
@@ -715,63 +988,63 @@
     el.innerHTML = `
       <div class="grid-2">
         <div class="card">
-          <h2>Your details</h2>
+          <h2>${esc(tr('Your details'))}</h2>
           ${u.google || noPassword ? `<div class="signin-with">
-            ${noPassword ? '<p class="signin-line"><b>You sign in with Google.</b></p>' : ''}
-            ${u.google ? `<p class="badge good google-connected">${gIcon}Google connected</p>` : ''}
+            ${noPassword ? `<p class="signin-line"><b>${esc(tr('You sign in with Google.'))}</b></p>` : ''}
+            ${u.google ? `<p class="badge good google-connected">${gIcon}${esc(tr('Google connected'))}</p>` : ''}
           </div>` : ''}
           <form class="form" id="profile-form">
-            <label class="field">Email<input class="input" value="${esc(u.email)}" disabled></label>
-            <label class="field">Name<input class="input" name="name" value="${esc(u.name)}" maxlength="80" required></label>
-            <label class="field">Phone<input class="input" type="tel" name="phone" value="${esc(u.phone || '')}" maxlength="30"></label>
-            <div class="actions"><button type="submit" class="btn btn-primary">Save</button></div>
+            <label class="field">${esc(tr('Email'))}<input class="input" value="${esc(u.email)}" disabled dir="ltr"></label>
+            <label class="field">${esc(tr('Name'))}<input class="input" name="name" value="${esc(u.name)}" maxlength="80" required></label>
+            <label class="field">${esc(tr('Phone'))}<input class="input" type="tel" name="phone" value="${esc(u.phone || '')}" maxlength="30" dir="ltr"></label>
+            <div class="actions"><button type="submit" class="btn btn-primary">${esc(tr('Save'))}</button></div>
             <p class="form-msg" role="status"></p>
           </form>
         </div>
         <div class="card">
-          <h2>${noPassword ? 'Set a password' : 'Change password'}</h2>
+          <h2>${esc(tr(noPassword ? 'Set a password' : 'Change password'))}</h2>
           <form class="form" id="password-form">
-            ${noPassword ? '<p class="muted" style="margin:0">Optional. With a password you can also sign in with your email.</p>' : '<label class="field">Current password<input class="input" type="password" name="current" autocomplete="current-password" required></label>'}
-            <label class="field">${noPassword ? 'Password' : 'New password'} <small class="muted">(8+ characters)</small><input class="input" type="password" name="password" autocomplete="new-password" minlength="8" required></label>
-            <div class="actions"><button type="submit" class="btn btn-primary">${noPassword ? 'Set password' : 'Change password'}</button></div>
+            ${noPassword ? `<p class="muted" style="margin:0">${esc(tr('Optional. With a password you can also sign in with your email.'))}</p>` : `<label class="field">${esc(tr('Current password'))}<input class="input" type="password" name="current" autocomplete="current-password" required dir="ltr"></label>`}
+            <label class="field">${esc(tr(noPassword ? 'Password' : 'New password'))} <small class="muted">${esc(tr('(8+ characters)'))}</small><input class="input" type="password" name="password" autocomplete="new-password" minlength="8" required dir="ltr"></label>
+            <div class="actions"><button type="submit" class="btn btn-primary">${esc(tr(noPassword ? 'Set password' : 'Change password'))}</button></div>
             <p class="form-msg" role="status"></p>
-            ${noPassword ? '' : '<p class="small muted" style="margin:0">Changing your password signs you out on your other devices.</p>'}
+            ${noPassword ? '' : `<p class="small muted" style="margin:0">${esc(tr('Changing your password signs you out on your other devices.'))}</p>`}
           </form>
         </div>
       </div>
       <div class="card" id="signin-activity">
-        <h2>Sign-in activity</h2>
+        <h2>${esc(tr('Sign-in activity'))}</h2>
         ${u.lastLogin || u.prevLogin ? `<dl class="kv">
-          ${u.lastLogin ? `<dt>This time</dt><dd id="login-now">${esc(loginText(u.lastLogin))}</dd>` : ''}
-          <dt>Last time</dt><dd id="login-prev">${u.prevLogin ? esc(loginText(u.prevLogin)) : 'No earlier sign-in recorded.'}</dd>
+          ${u.lastLogin ? `<dt>${esc(tr('This time'))}</dt><dd id="login-now">${esc(loginText(u.lastLogin))}</dd>` : ''}
+          <dt>${esc(tr('Last time'))}</dt><dd id="login-prev">${u.prevLogin ? esc(loginText(u.prevLogin)) : esc(tr('No earlier sign-in recorded.'))}</dd>
         </dl>
-        <p class="small muted">“This time” is the sign-in you are using now. “Last time” is the one before it. If you don't recognise “Last time”, change your password and press “Sign out everywhere” below.</p>`
-        : '<p class="muted">We will show here how and when you last signed in, so you can spot a sign-in that was not you.</p>'}
+        <p class="small muted">${esc(tr(SIGNIN_NOTE))}</p>`
+        : `<p class="muted">${esc(tr('We will show here how and when you last signed in, so you can spot a sign-in that was not you.'))}</p>`}
       </div>
       <div class="card" id="your-data">
-        <h2>Your data</h2>
-        <p class="muted">Download a copy of everything we keep about your account (profile, pharmacies, reservations, refill customers, payments and statistics) as a JSON file.</p>
-        <div class="actions"><button type="button" class="btn btn-ghost" id="export-data">Download my data</button></div>
+        <h2>${esc(tr('Your data'))}</h2>
+        <p class="muted">${esc(tr('Download a copy of everything we keep about your account (profile, pharmacies, reservations, refill customers, payments and statistics) as a JSON file.'))}</p>
+        <div class="actions"><button type="button" class="btn btn-ghost" id="export-data">${esc(tr(nFiles() ? 'Save or share my data' : 'Download my data'))}</button></div>
         <p class="form-msg" id="export-msg" role="status"></p>
-        <p class="small muted">Read our <a href="privacy.html">Privacy Policy</a> and <a href="terms.html">Terms of Service</a>.</p>
+        <p class="small muted">${tr('Read our {privacy} and {terms}.', { privacy: `<a href="privacy.html">${esc(tr('Privacy Policy'))}</a>`, terms: `<a href="terms.html">${esc(tr('Terms of Service'))}</a>` })}</p>
       </div>
       <div class="card">
-        <h2>Sign out</h2>
+        <h2>${esc(tr('Sign out'))}</h2>
         <div class="actions">
-          <button type="button" class="btn btn-ghost" id="signout">Sign out</button>
-          <button type="button" class="btn btn-ghost" id="signout-all">Sign out everywhere</button>
+          <button type="button" class="btn btn-ghost" id="signout">${esc(tr('Sign out'))}</button>
+          <button type="button" class="btn btn-ghost" id="signout-all">${esc(tr('Sign out everywhere'))}</button>
         </div>
         <p class="form-msg" id="signout-msg" role="status"></p>
       </div>
       <div class="card">
-        <h2>Delete account</h2>
-        <p class="muted">This permanently deletes your account${u.role === 'pharmacy' ? ', your pharmacy listings' : ''}${u.role === 'developer' ? ', your API keys' : ''} and saved data. It cannot be undone. You may want to download your data first. <a href="delete-account.html">What is deleted and when</a>.</p>
+        <h2>${esc(tr('Delete account'))}</h2>
+        <p class="muted">${LANG === 'ur' ? esc(tr('This permanently deletes your account and saved data. It cannot be undone. You may want to download your data first.')) : `This permanently deletes your account${u.role === 'pharmacy' ? ', your pharmacy listings' : ''}${u.role === 'developer' ? ', your API keys' : ''} and saved data. It cannot be undone. You may want to download your data first.`} <a href="delete-account.html">${esc(tr('What is deleted and when'))}</a>.</p>
         <form class="form" id="delete-form">
           ${noPassword
-            ? '<label class="field">Type DELETE to confirm<input class="input" name="confirm" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="10" required></label>'
-            : '<label class="field">Your password<input class="input" type="password" name="password" autocomplete="current-password" required></label>'}
-          <label class="check"><input type="checkbox" name="sure" value="1"> I understand this cannot be undone</label>
-          <div class="actions"><button type="submit" class="btn btn-danger">Delete my account</button></div>
+            ? `<label class="field">${esc(tr('Type DELETE to confirm'))}<input class="input" name="confirm" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="10" required dir="ltr"></label>`
+            : `<label class="field">${esc(tr('Your password'))}<input class="input" type="password" name="password" autocomplete="current-password" required dir="ltr"></label>`}
+          <label class="check"><input type="checkbox" name="sure" value="1"> <span>${esc(tr('I understand this cannot be undone'))}</span></label>
+          <div class="actions"><button type="submit" class="btn btn-danger">${esc(tr('Delete my account'))}</button></div>
           <p class="form-msg" role="alert"></p>
         </form>
       </div>`;
@@ -779,11 +1052,11 @@
     onSubmit($('#profile-form', el), async (fd, out) => {
       await api('update-profile', { body: { name: val(fd, 'name'), phone: val(fd, 'phone') } });
       msg(out, 'Saved.', true);
-      $('.dash-head h1').textContent = 'Hi, ' + S.user.name;
+      $('.dash-head h1').textContent = tr('Hi, {name}', { name: S.user.name });
     });
     onSubmit($('#password-form', el), async (fd, out) => {
       const pw = String(fd.get('password') || '');
-      if (pw.length < 8) return msg(out, (noPassword ? 'Password' : 'New password') + ' must be at least 8 characters.');
+      if (pw.length < 8) return msg(out, noPassword ? 'Password must be at least 8 characters.' : 'New password must be at least 8 characters.');
       const body = { password: pw };
       if (!noPassword) body.current = String(fd.get('current') || '');
       const r = await api('change-password', { body });
@@ -799,16 +1072,19 @@
     });
     $('#export-data', el).addEventListener('click', async (ev) => {
       const out = $('#export-msg', el);
-      ev.target.disabled = true;
+      const btn = ev.currentTarget;
+      btn.disabled = true;
       msg(out, 'Preparing your file…', true);
       try {
         const data = await api('export', { raw: true });
-        downloadFile('sasta-dawa-my-data-' + today() + '.json', JSON.stringify(data, null, 2), 'application/json');
-        msg(out, 'Downloaded. Keep the file somewhere safe: it contains your personal details.', true);
+        const r = await downloadFile('sasta-dawa-my-data-' + today() + '.json', JSON.stringify(data, null, 2), 'application/json');
+        // Only claim success when the file really went somewhere (the app's save/share can fail or be refused).
+        if (!r.ok) msg(out, r.error || 'Could not save the file. Please try again.');
+        else msg(out, r.native ? 'File ready. Choose where to keep it (Files, Drive or WhatsApp). Keep it somewhere safe: it contains your personal details.' : 'Downloaded. Keep the file somewhere safe: it contains your personal details.', true);
       } catch (e) {
         if (!e.handled) msg(out, e.message);
       } finally {
-        ev.target.disabled = false;
+        btn.disabled = false;
       }
     });
     $('#signout', el).addEventListener('click', () => {
@@ -893,11 +1169,11 @@
         ${paymentBanner(u)}
         <div class="grid-2">
           <div class="card">
-            <h2>Your plan</h2>
-            <p><b>${esc(u.planName)}</b>${u.trial ? ' <span class="badge warn">Free trial</span>' : ''}</p>
-            ${u.planUntil ? `<p class="muted">${u.trial ? 'Trial ends' : 'Paid until'} <b>${esc(fmtDate(u.planUntil))}</b>.</p>` : '<p class="muted">No paid plan is active.</p>'}
+            <h2>${esc(tr('Your plan'))}</h2>
+            <p><b>${esc(u.plan === 'free' ? tr('Free plan') : u.planName)}</b>${u.trial ? ` <span class="badge warn">${esc(tr('Free trial'))}</span>` : ''}</p>
+            ${u.planUntil ? `<p class="muted">${esc(tr(u.trial ? 'Trial ends' : 'Paid until'))} <b>${esc(fmtDate(u.planUntil))}</b>.</p>` : `<p class="muted">${esc(tr('No paid plan is active.'))}</p>`}
             ${mine.length ? `<h3>Plans for your account</h3><ul class="items" style="list-style:none;padding:0;margin:0">${mine.map(([, p]) => `<li class="item"><div class="item-top"><span class="item-title">${esc(p.name)}</span><b>${esc(rs(p.price))} / ${per(p)}</b></div></li>`).join('')}</ul>
-            <p class="small muted" style="margin-block-start:10px">What each plan includes: <a href="business">see all plans</a>.</p>` : '<p class="muted">Personal accounts are free. You can still join your employer\'s benefit below.</p>'}
+            <p class="small muted" style="margin-block-start:10px">What each plan includes: <a href="business">see all plans</a>.</p>` : `<p class="muted">${esc(tr('Personal accounts are free. You can still join your employer\'s benefit below.'))}</p>`}
           </div>
           ${mine.length ? `<div class="card">
             <h2>Pay for your plan</h2>
@@ -940,11 +1216,11 @@
           </tbody></table></div>` : '<p class="empty-note">No payments yet.</p>'}
         </div>` : ''}
         <div class="card">
-          <h2>Join company benefit</h2>
-          ${u.joinedCompany ? `<p>You are part of <b>${esc(u.joinedCompany.name)}</b> (code ${esc(u.joinedCompany.code)}).</p>` : '<p class="muted">If your employer or insurer gave you a Sasta Dawa company code, enter it here.</p>'}
+          <h2>${esc(tr('Join company benefit'))}</h2>
+          ${u.joinedCompany ? `<p>${tr('You are part of {name} (code {code}).', { name: `<b>${esc(u.joinedCompany.name)}</b>`, code: `<span dir="ltr">${esc(u.joinedCompany.code)}</span>` })}</p>` : `<p class="muted">${esc(tr('If your employer or insurer gave you a Sasta Dawa company code, enter it here.'))}</p>`}
           <form class="form" id="join-form">
-            <label class="field">Company code<input class="input" name="code" maxlength="20" autocomplete="off" style="text-transform:uppercase"></label>
-            <div class="actions"><button type="submit" class="btn btn-ghost">Join company</button></div>
+            <label class="field">${esc(tr('Company code'))}<input class="input" name="code" maxlength="20" autocomplete="off" style="text-transform:uppercase" dir="ltr"></label>
+            <div class="actions"><button type="submit" class="btn btn-ghost">${esc(tr('Join company'))}</button></div>
             <p class="form-msg" role="status"></p>
           </form>
         </div>`;
@@ -989,7 +1265,7 @@
         const code = val(fd, 'code').toUpperCase();
         if (!/^[A-Z0-9]{4,12}$/.test(code)) return msg(out, 'Enter the code exactly as your company gave it.');
         await api('join-company', { body: { code } });
-        toast('You joined ' + S.user.joinedCompany.name + '.');
+        toast(tr('You joined {name}.', { name: S.user.joinedCompany.name }));
         renderDashboard('plan');
       });
     });
@@ -1012,15 +1288,15 @@
       }
       el.innerHTML = `
         <div class="card">
-          <h2>My Medicines</h2>
-          <p class="muted">This list syncs from <b>My Medicines</b> on the main site and app while you are signed in, so it is safe if you change phones.</p>
+          <h2>${esc(tr('My Medicines'))}</h2>
+          <p class="muted">${tr('This list syncs from {mm} on the main site and app while you are signed in, so it is safe if you change phones.', { mm: `<b>${esc(tr('My Medicines'))}</b>` })}</p>
           ${cab.length ? `<div class="items">${cab.map((c) => {
             const m = engine && engine.byId(c.id);
             const cost = m ? m.unitPrice * (c.perDay || 1) * 30 : 0;
             return `<div class="item"><div class="item-top"><div><div class="item-title">${esc(m ? medLabel(m) : c.id)}</div><div class="item-meta">${esc(m ? medMeta(m) : '')}</div></div>
-              <div class="n" style="text-align:end">${m ? `<b>${esc(rs(cost))}</b><div class="item-meta">a month at ${esc(c.perDay || 1)}/day</div>` : ''}</div></div></div>`;
-          }).join('')}</div>` : '<p class="empty-note">No medicines saved yet.</p>'}
-          <div class="actions" style="margin-block-start:14px"><a class="btn btn-primary" href="/#/my-medicines">Open My Medicines</a><a class="btn btn-ghost" href="/">Search medicines</a></div>
+              <div class="n" style="text-align:end">${m ? `<b>${esc(rs(cost))}</b><div class="item-meta">${esc(tr('a month at {n}/day', { n: c.perDay || 1 }))}</div>` : ''}</div></div></div>`;
+          }).join('')}</div>` : `<p class="empty-note">${esc(tr('No medicines saved yet.'))}</p>`}
+          <div class="actions" style="margin-block-start:14px"><a class="btn btn-primary" href="${esc(mainLink('#/my-medicines'))}">${esc(tr('Open My Medicines'))}</a><a class="btn btn-ghost" href="${esc(mainLink(''))}">${esc(tr('Search medicines'))}</a></div>
         </div>`;
     });
   }
@@ -1365,7 +1641,7 @@
       text = '';
     }
     if (!text) text = window.SDCsv.templateCsv(type);
-    downloadFile('sasta-dawa-' + type + '-template.csv', text);
+    fileToast(await downloadFile('sasta-dawa-' + type + '-template.csv', text));
   }
 
   const resultCount = (r) => {
@@ -1576,7 +1852,7 @@
         <div class="card report">
           <div class="item-top"><h2>Monthly report: ${esc(r.pharmacy.name)}</h2>
             <div class="actions no-print">
-              <button type="button" class="btn btn-primary" id="print-btn">Print / save as PDF</button>
+              <button type="button" class="btn btn-primary" id="print-btn">${esc(printLabel('Print / save as PDF', 'Share report'))}</button>
               ${own ? `<a class="btn btn-soft" id="report-wa" href="${esc(waLink(own, text))}" target="_blank" rel="noopener">Send to my WhatsApp</a>` : ''}
               <button type="button" class="btn btn-ghost" id="report-copy">Copy report</button>
             </div></div>
@@ -1594,7 +1870,7 @@
           ${r.topDemand.length ? `<ol>${r.topDemand.map((d) => `<li>${esc(d.name)} <span class="muted">(${esc(d.searches)} searches)</span></li>`).join('')}</ol>` : '<p class="muted">No searches recorded yet.</p>'}
           <p class="small muted print-only">Sasta Dawa Finder · sasta-dawa-finder.vercel.app</p>
         </div>`;
-      $('#print-btn', el).addEventListener('click', () => window.print());
+      $('#print-btn', el).addEventListener('click', () => printOrShare($('.report', el), 'Monthly report: ' + r.pharmacy.name, 'sasta-dawa-report-' + fileSlug(r.pharmacy.name) + '-' + today() + '.html'));
       $('#report-copy', el).addEventListener('click', () => copyText(text));
     });
   }
@@ -1843,7 +2119,7 @@
       svg = '';
     }
     el.innerHTML = `
-      <div class="actions no-print" style="margin-block-end:12px"><button type="button" class="btn btn-primary" id="qr-print">Print sticker</button><span class="small muted">Stick it on your counter so customers can save your pharmacy.</span></div>
+      <div class="actions no-print" style="margin-block-end:12px"><button type="button" class="btn btn-primary" id="qr-print">${esc(printLabel('Print sticker', 'Share sticker'))}</button><span class="small muted">${esc(printLabel('Stick it on your counter so customers can save your pharmacy.', 'Send the picture to a print shop or to your WhatsApp, then stick it on your counter.'))}</span></div>
       <div class="sticker">
         <h2>${esc(p.name)}</h2>
         <p><b>Find us on Sasta Dawa Finder</b></p>
@@ -1851,7 +2127,23 @@
         <p>Scan to see our stock, prices and WhatsApp</p>
         <p class="url">${esc(url)}</p>
       </div>`;
-    $('#qr-print', el).addEventListener('click', () => window.print());
+    $('#qr-print', el).addEventListener('click', async (ev) => {
+      if (!canShareFiles()) return window.print();
+      const btn = ev.currentTarget;
+      btn.disabled = true;
+      try {
+        const f = nFiles();
+        const name = 'sasta-dawa-qr-' + fileSlug(p.name) + '.png';
+        const b64 = stickerPng(p, url);
+        const r = typeof f.shareImage === 'function' ? await f.shareImage(name, b64) : await f.save(name, 'image/png', b64, { base64: true });
+        if (!r || r.ok === false) throw new Error((r && r.error) || '');
+        toast('Sticker picture ready. Send it to a print shop, Drive or WhatsApp.');
+      } catch (e) {
+        toast(tr('Could not open the share options. Please try again.'));
+      } finally {
+        btn.disabled = false;
+      }
+    });
   }
 
   // ===========================================================================
@@ -1936,7 +2228,7 @@
     };
     return `
       <div class="card report" id="quote-result">
-        <div class="item-top"><h2>Supplier quote comparison: ${esc(l.name)}</h2><button type="button" class="btn btn-primary no-print" id="quote-print">Print donor report</button></div>
+        <div class="item-top"><h2>Supplier quote comparison: ${esc(l.name)}</h2><button type="button" class="btn btn-primary no-print" id="quote-print">${esc(printLabel('Print donor report', 'Share comparison'))}</button></div>
         <p class="print-only">${esc(S.user.name)} · ${esc(fmtDate(new Date()))}</p>
         <div class="stat-grid stat-auto">
           <div class="stat"><small>At DRAP prices (these brands)</small><b class="num">${esc(rs(r.total_now))}</b></div>
@@ -2044,11 +2336,11 @@
           <p class="small muted" style="margin-block-start:10px">Prices are DRAP maximum retail prices. Brands with the same formula, strength and form are listed; doctors should confirm any switch.</p>
           <form class="form no-print" id="save-list-form" style="margin-block-start:12px">
             <div class="form-row"><label class="field">List name<input class="input" name="name" maxlength="80" value="${esc(ngoDraft.name || '')}" placeholder="e.g. Monthly diabetes camp"></label></div>
-            <div class="actions"><button type="submit" class="btn btn-ghost">${ngoDraft.id ? 'Update saved list' : 'Save as list'}</button><button type="button" class="btn btn-primary" id="donor-print">Print donor report</button></div>
+            <div class="actions"><button type="submit" class="btn btn-ghost">${ngoDraft.id ? 'Update saved list' : 'Save as list'}</button><button type="button" class="btn btn-primary" id="donor-print">${esc(printLabel('Print donor report', 'Share donor report'))}</button></div>
             <p class="form-msg" role="status"></p>
           </form>
         </div>`;
-      $('#donor-print', resEl).addEventListener('click', () => window.print());
+      $('#donor-print', resEl).addEventListener('click', () => printOrShare($('.report', resEl), 'Medicine savings report: ' + S.user.name, 'sasta-dawa-donor-report-' + today() + '.html'));
       onSubmit($('#save-list-form', resEl), async (fd, out) => {
         const name = val(fd, 'name') || 'Medicine list';
         const r2 = await api('save-list', { body: { id: ngoDraft.id || undefined, name, items: ngoDraft.items } });
@@ -2186,7 +2478,7 @@
         }
       });
       const qp = $('#quote-print', quotesEl);
-      if (qp) qp.addEventListener('click', () => window.print());
+      if (qp) qp.addEventListener('click', () => printOrShare($('#quote-result', quotesEl), 'Supplier quote comparison: ' + l.name, 'sasta-dawa-quotes-' + fileSlug(l.name) + '-' + today() + '.html'));
     };
     quotesEl.addEventListener('click', async (ev) => {
       const ed = ev.target.closest('button[data-qedit]');
@@ -2387,16 +2679,148 @@
     const s = String(v == null ? '' : v);
     return /[",\n\r]/.test(s) || /^[=+\-@]/.test(s) ? '"' + (/^[=+\-@]/.test(s) ? "'" : '') + s.replace(/"/g, '""') + '"' : s;
   }
-  function downloadFile(name, text, type) {
-    const blob = new Blob([text], { type: type || 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  /**
+   * Saves a text file. Website: a normal browser download. Android apps: the WebView ignores
+   * <a download> on blob: links, so the file goes through SastaNative.files.save, which writes it to the
+   * phone and opens the share sheet (Files, Drive, WhatsApp...).
+   * Resolves to { ok, native, error? }; callers only say "Downloaded" / "Saved" when ok is true.
+   */
+  async function downloadFile(name, text, type) {
+    const mime = type || 'text/csv;charset=utf-8';
+    const f = nFiles();
+    if (f) {
+      try {
+        const r = await f.save(name, mime.split(';')[0].trim(), String(text), { base64: false });
+        return r && r.ok ? { ok: true, native: true, uri: r.uri } : { ok: false, native: true, error: (r && r.error) || '' };
+      } catch (e) {
+        return { ok: false, native: true, error: (e && e.message) || '' };
+      }
+    }
+    try {
+      const blob = new Blob([text], { type: mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      return { ok: true, native: false };
+    } catch (e) {
+      return { ok: false, native: false, error: (e && e.message) || '' };
+    }
+  }
+  /** Toast for a file saved by downloadFile(). */
+  function fileToast(r) {
+    if (!r.ok) toast('Could not save the file. Please try again.');
+    else if (r.native) toast('File ready. Choose where to keep it: Files, Drive or WhatsApp.');
+  }
+
+  // ---- Print (website) / Share (apps) ----
+  // Android WebViews ignore window.print(). In the apps every "Print" button becomes "Share": reports are
+  // saved as a small stand-alone HTML file (open it in Chrome / Drive to print or save as PDF), the QR
+  // sticker as a PNG image.
+  const canShareFiles = () => !!nFiles();
+  /** Button text: "Print …" on the website, "Share …" in the apps. */
+  const printLabel = (web, app) => (canShareFiles() ? app : web);
+  const REPORT_CSS = 'body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#121614;background:#fff;margin:0;padding:20px;line-height:1.45;font-size:15px}' +
+    'h1,h2,h3{margin:0 0 8px;line-height:1.25}h2{font-size:20px}h3{font-size:17px;margin-top:16px}p{margin:0 0 8px}' +
+    'table{border-collapse:collapse;width:100%;margin:8px 0 12px;font-size:14px}th,td{border:1px solid #c9ccc6;padding:6px 8px;text-align:start;vertical-align:top}th{background:#f1f2ee}' +
+    'td.n,th.n{text-align:end;white-space:nowrap}.sub{display:block;font-size:12px;color:#5a605c}.muted,.small{color:#5a605c;font-size:13px}' +
+    '.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:8px 0 12px}.stat{border:1px solid #c9ccc6;border-radius:4px;padding:8px 10px}.stat small{display:block;color:#5a605c}.stat b{font-size:18px}' +
+    '.badge{display:inline-block;border:1px solid #c9ccc6;border-radius:4px;padding:0 6px;font-size:12px}.save-txt{color:#0A6B3C;font-weight:600}.bad-txt{color:#B42318;font-weight:600}' +
+    'tr.best td{background:#E4F1E8}.print-only{display:block}.foot{margin-top:18px;color:#5a605c;font-size:12px}a{color:inherit}@media print{body{padding:0}}';
+  /** A clean stand-alone HTML copy of a report card (buttons, forms and screen-only parts removed). */
+  function reportDoc(node, title) {
+    const c = node.cloneNode(true);
+    $$('.no-print, button, form, input, select, textarea, script, .actions', c).forEach((x) => x.remove());
+    return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(title)}</title><style>${REPORT_CSS}</style></head><body>${c.outerHTML}<p class="foot">Sasta Dawa Finder · sasta-dawa-finder.vercel.app · ${esc(fmtDate(new Date()))}</p></body></html>`;
+  }
+  const fileSlug = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'report';
+  /** Print on the website; in the apps save the report as an HTML file and open the share sheet. */
+  async function printOrShare(node, title, filename) {
+    if (!canShareFiles()) {
+      window.print();
+      return { ok: true, printed: true };
+    }
+    if (!node) return { ok: false };
+    const r = await downloadFile(filename, reportDoc(node, title), 'text/html');
+    if (r.ok) toast('Report ready. Choose where to send it (WhatsApp, Drive, Files). Open it there to print or save as PDF.');
+    else toast(tr('Could not open the share options. Please try again.'));
+    return r;
+  }
+  /** Draws the QR sticker (pharmacy name, QR code, text, link) on a canvas: PNG base64 without the prefix. */
+  function stickerPng(p, url) {
+    if (!window.SDQR || typeof window.SDQR.qrMatrix !== 'function') throw new Error('QR encoder (js/qr.js) is not loaded');
+    const m = window.SDQR.qrMatrix(url);
+    const W = 800;
+    const H = 1080;
+    const cv = document.createElement('canvas');
+    cv.width = W;
+    cv.height = H;
+    const ctx = cv.getContext('2d');
+    if (!ctx) throw new Error('Could not draw the sticker on this phone.');
+    const green = '#0A6B3C';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = green;
+    ctx.lineWidth = 8;
+    ctx.strokeRect(14, 14, W - 28, H - 28);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    // Pharmacy name: up to two lines, shrunk to fit.
+    const fitLines = (text, font, maxW, maxLines) => {
+      ctx.font = font;
+      const words = String(text).split(/\s+/).filter(Boolean);
+      const lines = [];
+      let line = '';
+      words.forEach((w) => {
+        const t = line ? line + ' ' + w : w;
+        if (ctx.measureText(t).width <= maxW || !line) line = t;
+        else {
+          lines.push(line);
+          line = w;
+        }
+      });
+      if (line) lines.push(line);
+      if (lines.length > maxLines) {
+        const keep = lines.slice(0, maxLines);
+        keep[maxLines - 1] = keep[maxLines - 1].replace(/.{0,2}$/, '') + '…';
+        return keep;
+      }
+      return lines;
+    };
+    ctx.fillStyle = green;
+    let y = 110;
+    fitLines(p.name, 'bold 52px sans-serif', W - 100, 2).forEach((ln) => {
+      ctx.fillText(ln, W / 2, y);
+      y += 62;
+    });
+    ctx.fillStyle = '#121614';
+    ctx.font = 'bold 34px sans-serif';
+    ctx.fillText('Find us on Sasta Dawa Finder', W / 2, y + 10);
+    // QR code with a 4-module quiet zone.
+    const n = m.length;
+    const size = 600;
+    const cell = Math.floor(size / (n + 8));
+    const qrW = cell * (n + 8);
+    const x0 = Math.round((W - qrW) / 2);
+    const y0 = y + 40;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(x0, y0, qrW, qrW);
+    ctx.fillStyle = '#000000';
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (m[r][c]) ctx.fillRect(x0 + (c + 4) * cell, y0 + (r + 4) * cell, cell, cell);
+    ctx.fillStyle = '#121614';
+    ctx.font = '30px sans-serif';
+    ctx.fillText('Scan to see our stock, prices and WhatsApp', W / 2, y0 + qrW + 50);
+    ctx.fillStyle = '#3B413D';
+    ctx.font = '22px monospace';
+    fitLines(url, '22px monospace', W - 80, 2).forEach((ln, i) => ctx.fillText(ln, W / 2, y0 + qrW + 95 + i * 30));
+    const data = cv.toDataURL('image/png');
+    const b64 = String(data).split(',')[1] || '';
+    if (!b64) throw new Error('Could not draw the sticker on this phone.');
+    return b64;
   }
 
   function viewClaims(el) {
@@ -2416,7 +2840,7 @@
       }
       resEl.innerHTML = `
         <div class="card report">
-          <div class="item-top"><h2>Claims analysis</h2><div class="actions no-print"><button type="button" class="btn btn-primary" id="claims-print">Print / save as PDF</button><button type="button" class="btn btn-ghost" id="claims-csv">Download CSV</button></div></div>
+          <div class="item-top"><h2>Claims analysis</h2><div class="actions no-print"><button type="button" class="btn btn-primary" id="claims-print">${esc(printLabel('Print / save as PDF', 'Share report'))}</button><button type="button" class="btn btn-ghost" id="claims-csv">Download CSV</button></div></div>
           <p class="print-only">${esc(S.user.name)} · ${esc(fmtDate(new Date()))}</p>
           <div class="stat-grid stat-auto">
             <div class="stat"><small>Total paid</small><b class="num">${esc(rs(r.total_paid))}</b></div>
@@ -2431,13 +2855,13 @@
           ${r.unmatched.length ? `<h3 style="margin-block-start:14px">Not matched (${esc(r.unmatched.length)})</h3><p class="small">${r.unmatched.map((x) => esc(x)).join('<br>')}</p><p class="small muted">Use the exact brand and strength, or the medicine id from the site.</p>` : ''}
           <p class="small muted" style="margin-block-start:10px">These are possible savings if the cheapest brand with the same formula, strength and form had been bought at its DRAP maximum retail price. Medicine names are matched automatically, so check the matches. Doctors should confirm any brand switch.</p>
         </div>`;
-      $('#claims-print', resEl).addEventListener('click', () => window.print());
+      $('#claims-print', resEl).addEventListener('click', () => printOrShare($('.report', resEl), 'Claims analysis: ' + S.user.name, 'sasta-dawa-claims-analysis-' + today() + '.html'));
       $('#claims-csv', resEl).addEventListener('click', () => {
         const head = ['Your line', 'Matched medicine', 'Quantity', 'Paid (Rs)', 'DRAP price (Rs)', 'Cheapest option', 'Cheapest cost (Rs)', 'Possible saving (Rs)'];
         const lines = [head.join(',')].concat(r.rows.map((x) => [x.input, x.medicine, x.qty, x.paid, x.mrp, x.cheapest, x.cheapest_cost, x.possible_saving].map(csvCell).join(',')));
         r.unmatched.forEach((x) => lines.push([x, 'NOT MATCHED', '', '', '', '', '', ''].map(csvCell).join(',')));
         lines.push(['TOTAL', '', '', r.total_paid, r.total_mrp, '', r.total_cheapest, r.possible_saving].map(csvCell).join(','));
-        downloadFile('sasta-dawa-claims-analysis.csv', '﻿' + lines.join('\r\n'));
+        downloadFile('sasta-dawa-claims-analysis.csv', '﻿' + lines.join('\r\n')).then(fileToast);
       });
     };
     csvImport($('#claims-import', el), {
@@ -2567,10 +2991,15 @@
   // ===========================================================================
   const yr = $('#copyright-year');
   if (yr) yr.textContent = new Date().getFullYear();
-  const navAcc = $('#nav-account');
-  if (navAcc) navAcc.addEventListener('click', () => {
-    if (location.hash === '#/') route();
-  });
+  // Language toggle (EN | اردو) in the header: same setting as the main site.
+  $$('[data-acc-lang]').forEach((b) =>
+    b.addEventListener('click', () => {
+      if (b.getAttribute('data-acc-lang') === LANG) return;
+      setLang(b.getAttribute('data-acc-lang'));
+      route();
+    })
+  );
+  applyLang();
   if (S.token && !S.user) S.user = { id: '', name: '', role: 'patient', plan: 'free' }; // filled by 'me' below
   const userKey = (x) => (x ? x.id + '|' + x.role + '|' + x.plan + '|' + x.planUntil + '|' + x.hasPassword + '|' + x.google : '');
   const before = userKey(S.user);

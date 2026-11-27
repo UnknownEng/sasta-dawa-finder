@@ -128,8 +128,9 @@ function build(app) {
     fs.writeFileSync(path.join(OUT, p + '.html'), prepPage(src, { ...opts, isIndex: false }));
   }
 
-  // On-device OCR (scan button) ships inside the app so it works offline
-  require('./ocr_assets').copy(OUT);
+  // On-device OCR (scan button) ships inside the app so it works offline. The language file is
+  // written un-gzipped (eng.traineddata): Android's packaging strips ".gz" from asset names.
+  require('./ocr_assets').copy(OUT, { native: true });
 
   console.log(`Built ${APPS[which].out}/ (${which} app) with ${countFiles(OUT)} files; pages: ${local.join(', ')}`);
   return OUT;

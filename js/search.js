@@ -18,9 +18,132 @@
       .normalize('NFKD')
       .replace(/[̀-ͯ]/g, '')
       .replace(/[^a-z0-9؀-ۿ%.+\s-]/g, ' ')
+      // a full stop that is not part of a number ("Panadol." from the phone keyboard, "Tab. Risek")
+      // is punctuation; "0.5mg" and "2.5" keep theirs
+      .replace(/\.(?!\d)/g, ' ')
+      .replace(/(^|[^\d])\./g, '$1 ')
       .replace(/(\d)\s+(mg|mcg|g|ml|iu)\b/g, '$1$2')
       .replace(/\s+/g, ' ')
       .trim();
+  }
+
+  // --------------------------------------------------------------------------
+  // Urdu script → Latin letters (typed in Urdu, or what the phone's ur-PK voice recogniser returns).
+  // Urdu leaves most short vowels out, so پیناڈول becomes "pinadol"; matching then compares
+  // consonant skeletons (phoneticKey), which is what both spellings share.
+  // --------------------------------------------------------------------------
+  const URDU_LETTERS = {
+    'ا': 'a', 'آ': 'a', 'أ': 'a', 'إ': 'i', 'ٱ': 'a', 'ب': 'b', 'پ': 'p', 'ت': 't', 'ٹ': 't', 'ث': 's', 'ج': 'j', 'چ': 'ch',
+    'ح': 'h', 'خ': 'kh', 'د': 'd', 'ڈ': 'd', 'ذ': 'z', 'ر': 'r', 'ڑ': 'r', 'ز': 'z', 'ژ': 'zh', 'س': 's', 'ش': 'sh',
+    'ص': 's', 'ض': 'z', 'ط': 't', 'ظ': 'z', 'ع': 'a', 'غ': 'gh', 'ف': 'f', 'ق': 'q', 'ک': 'k', 'ك': 'k', 'گ': 'g',
+    'ل': 'l', 'م': 'm', 'ن': 'n', 'ں': 'n', 'و': 'o', 'ؤ': 'o', 'ہ': 'h', 'ۂ': 'h', 'ۃ': 'h', 'ة': 'h', 'ه': 'h', 'ھ': 'h',
+    'ی': 'i', 'ي': 'i', 'ى': 'i', 'ئ': 'i', 'ے': 'e', 'ۓ': 'e', 'ء': '',
+    // vowel marks, when written
+    'َ': 'a', 'ِ': 'i', 'ُ': 'u', 'ً': 'an', 'ٍ': 'in', 'ٌ': 'un', 'ٰ': 'a', 'ّ': '', 'ْ': '', 'ٔ': '', 'ٓ': '', 'ؕ': '',
+    '۔': ' ', '،': ' ', '؟': ' ', '٪': '%',
+  };
+  const URDU_RE = /[؀-ۿ]/;
+  function hasUrdu(s) {
+    return URDU_RE.test(String(s || ''));
+  }
+  /** "پیناڈول" → "pinadol", "بروفین" → "brofin", "رسک" → "rsk". Latin text passes through unchanged. */
+  function transliterateUrdu(s) {
+    const str = String(s || '').normalize('NFC');
+    if (!URDU_RE.test(str)) return str;
+    let out = '';
+    for (let i = 0; i < str.length; i++) {
+      const ch = str[i];
+      const prev = i > 0 ? str[i - 1] : ' ';
+      const atStart = !URDU_RE.test(prev) || /[\s۔،؟]/.test(prev);
+      if (ch >= '۰' && ch <= '۹') { out += String(ch.charCodeAt(0) - 0x06f0); continue; }
+      if (ch >= '٠' && ch <= '٩') { out += String(ch.charCodeAt(0) - 0x0660); continue; }
+      // ی / و at the start of a word are consonants (y / w), inside a word mostly vowels
+      if (atStart && (ch === 'ی' || ch === 'ي')) { out += 'y'; continue; }
+      if (atStart && ch === 'و') { out += 'w'; continue; }
+      out += Object.prototype.hasOwnProperty.call(URDU_LETTERS, ch) ? URDU_LETTERS[ch] : URDU_RE.test(ch) ? '' : ch;
+    }
+    return out.replace(/\s+/g, ' ').trim();
+  }
+
+  /**
+   * Consonant skeleton for sound-alike matching: "panadool", "pinadol" (پیناڈول) → "pndl";
+   * "glucofage" / "glucophage" → "glkfg"; "brufin" / "brofin" (بروفین) / "brufen" → "brfn";
+   * "augmenten" / "augmentin" → "_gmntn" (a leading vowel is kept as "_").
+   */
+  function phoneticKey(word) {
+    let s = String(word || '').toLowerCase().replace(/[^a-z]/g, '');
+    if (!s) return '';
+    s = s.replace(/ph/g, 'f').replace(/ck/g, 'k').replace(/ch/g, 'k').replace(/kh/g, 'k').replace(/gh/g, 'g')
+      .replace(/sh/g, 's').replace(/zh/g, 's').replace(/q/g, 'k').replace(/c/g, 'k').replace(/x/g, 'ks')
+      .replace(/z/g, 's').replace(/w/g, 'v').replace(/y/g, 'i').replace(/h/g, '');
+    if (!s) return '';
+    const lead = /[aeiou]/.test(s[0]) ? '_' : '';
+    return (lead + s.replace(/[aeiou]/g, '')).replace(/(.)\1+/g, '$1');
+  }
+
+  // --------------------------------------------------------------------------
+  // Roman Urdu / plain-English symptom words → a common medicine (generic names, tried in order
+  // until one is in the price list) and the category to browse. Matched on phoneticKey, so
+  // "bukhar", "bukhaar" and بخار all hit "fever".
+  // --------------------------------------------------------------------------
+  const SYMPTOMS = [
+    { words: ['pait dard', 'pet dard', 'pate dard', 'stomach pain', 'stomach ache', 'maroor', 'marore'], generics: ['hyoscine', 'drotaverine', 'mebeverine'], category: 'stomach', label: 'stomach pain' },
+    { words: ['sar dard', 'sir dard', 'sardard', 'sirdard', 'headache', 'head ache', 'migraine', 'adha sar'], generics: ['paracetamol', 'ibuprofen'], category: 'pain', label: 'headache' },
+    { words: ['daant dard', 'dant dard', 'toothache', 'tooth pain'], generics: ['ibuprofen', 'mefenamic', 'paracetamol'], category: 'pain', label: 'toothache' },
+    { words: ['kamar dard', 'joron ka dard', 'jodon ka dard', 'joint pain', 'back pain', 'body pain', 'badan dard', 'dard', 'pain'], generics: ['ibuprofen', 'diclofenac', 'paracetamol'], category: 'pain', label: 'pain' },
+    { words: ['bukhar', 'bukhaar', 'bokhar', 'fever', 'tap', 'temperature'], generics: ['paracetamol', 'ibuprofen'], category: 'pain', label: 'fever' },
+    { words: ['khansi', 'khaansi', 'khasi', 'khaasi', 'cough', 'balgham'], generics: ['dextromethorphan', 'ambroxol', 'bromhexine', 'guaifenesin', 'diphenhydramine'], category: 'respiratory', label: 'cough' },
+    { words: ['nazla', 'nazla zukam', 'zukam', 'zukaam', 'zukham', 'cold', 'flu', 'runny nose', 'chheenk', 'cheenk'], generics: ['chlorpheniramine', 'cetirizine', 'loratadine', 'pseudoephedrine'], category: 'respiratory', label: 'cold & flu' },
+    { words: ['allergy', 'alergy', 'kharish', 'khujli', 'itching'], generics: ['cetirizine', 'loratadine', 'fexofenadine', 'levocetirizine'], category: 'respiratory', label: 'allergy' },
+    { words: ['tezabiyat', 'tezab', 'acidity', 'gas', 'heartburn', 'jalan', 'seene ki jalan', 'ulcer'], generics: ['omeprazole', 'esomeprazole', 'famotidine', 'pantoprazole'], category: 'stomach', label: 'acidity' },
+    { words: ['dast', 'pechish', 'loose motion', 'loose motions', 'diarrhea', 'diarrhoea'], generics: ['oral rehydration', 'loperamide', 'metronidazole'], category: 'stomach', label: 'diarrhoea' },
+    { words: ['qabz', 'qabz kusha', 'constipation'], generics: ['lactulose', 'ispaghula', 'bisacodyl'], category: 'stomach', label: 'constipation' },
+    { words: ['ulti', 'qai', 'matli', 'vomiting', 'nausea'], generics: ['domperidone', 'metoclopramide', 'ondansetron'], category: 'stomach', label: 'vomiting' },
+    { words: ['sugar', 'shugar', 'sugar ki bimari', 'diabetes', 'ziabetes', 'ziabetus'], generics: ['metformin', 'glimepiride', 'gliclazide'], category: 'diabetes', label: 'diabetes' },
+    { words: ['bp', 'b p', 'blood pressure', 'high bp', 'high blood pressure', 'hypertension', 'fishar e khoon'], generics: ['amlodipine', 'losartan', 'bisoprolol'], category: 'heart', label: 'blood pressure' },
+    { words: ['neend', 'neend na ana', 'insomnia', 'sleep'], generics: ['melatonin', 'zolpidem'], category: 'brain', label: 'sleep' },
+    { words: ['khoon ki kami', 'anemia', 'anaemia'], generics: ['ferrous', 'iron', 'folic acid'], category: 'vitamins', label: 'anaemia' },
+    { words: ['keeray', 'keere', 'pait ke keeray', 'worms'], generics: ['albendazole', 'mebendazole'], category: 'infections', label: 'worms' },
+  ];
+  /** Words in a query that only say "medicine for…" (dropped before matching). */
+  const FILLER = new Set(['ki', 'ka', 'ke', 'kay', 'ko', 'k', 'liye', 'liay', 'lye', 'ke liye', 'dawa', 'dawai', 'dawaa', 'dwa', 'medicine', 'medicines', 'tablet', 'tablets', 'goli', 'golian', 'goliyan', 'syrup', 'sharbat', 'capsule', 'capsules', 'cap', 'tab', 'for', 'of', 'the', 'a', 'an', 'mujhe', 'chahiye', 'chaiye', 'koi', 'wali', 'wala', 'ilaj', 'treatment', 'best', 'achi', 'acha', 'sasti', 'sasta', 'price', 'qeemat', 'drops', 'cream', 'injection', 'hai', 'he', 'kya', 'aur', 'se', 'mein', 'ka ilaj', 'ki dawa', 'please', 'plz', 'bata', 'batao']);
+  /** Form words in Roman Urdu / English → a word the engine scores against the dosage form. */
+  const FORM_WORDS = { goli: 'tablet', golian: 'tablet', goliyan: 'tablet', tablet: 'tablet', tablets: 'tablet', tab: 'tablet', syrup: 'syrup', sharbat: 'syrup', capsule: 'capsule', capsules: 'capsule', cap: 'capsule', drops: 'drops', cream: 'cream', marham: 'cream', injection: 'injection', teeka: 'injection' };
+  let symptomIndex = null;
+  function buildSymptomIndex() {
+    symptomIndex = [];
+    SYMPTOMS.forEach((s) => s.words.forEach((w) => {
+      const keys = w.split(' ').map(phoneticKey).filter(Boolean);
+      if (keys.length) symptomIndex.push({ keys, entry: s, len: keys.length });
+    }));
+    // longest phrases first ("pait dard" before "dard")
+    symptomIndex.sort((a, b) => b.len - a.len);
+  }
+  /**
+   * Symptom phrase in a (Latin or transliterated) query → { entry, form } or null.
+   * "bukhar ki dawa" → fever; "khansi ka syrup" → cough (form syrup); "sar dard ki goli" → headache (tablet).
+   */
+  function findSymptom(query) {
+    if (!symptomIndex) buildSymptomIndex();
+    const words = normalize(transliterateUrdu(query)).split(' ').filter(Boolean);
+    if (!words.length) return null;
+    const keys = words.map(phoneticKey);
+    let form = '';
+    for (const w of words) if (FORM_WORDS[w]) { form = FORM_WORDS[w]; break; }
+    for (const s of symptomIndex) {
+      for (let i = 0; i + s.len <= keys.length; i++) {
+        let ok = true;
+        for (let j = 0; j < s.len; j++) if (keys[i + j] !== s.keys[j]) { ok = false; break; }
+        // a single short word ("tap", "gas", "bp") must be typed as is, not merely sound alike
+        if (ok && s.len === 1 && s.keys[0].replace('_', '').length < 3) ok = s.entry.words.includes(words[i]);
+        if (ok) {
+          // whole: the query is only this symptom (+ "ki dawa", "goli"…), e.g. "bp", "sugar ki dawa"
+          const whole = words.every((w, k) => (k >= i && k < i + s.len) || FILLER.has(w) || FORM_WORDS[w]);
+          return { entry: s.entry, form, whole };
+        }
+      }
+    }
+    return null;
   }
 
   function tokens(s) {
@@ -204,32 +327,156 @@
       return out;
     }
 
-    /** "Did you mean" for misspelled queries. */
+    // Sound-alike index: phoneticKey → names / generic words (built on first use)
+    let phonIndex = null;
+    let termRank = null;
+    function ensurePhonIndex() {
+      ensureIndex();
+      if (phonIndex) return;
+      phonIndex = new Map();
+      termRank = new Map();
+      const add = (k, kind, list) => {
+        // index single words only (and the first word of multi-word names): what people type
+        if (k.includes(' ') || k.length < 3 || /\d/.test(k)) return;
+        const pk = phoneticKey(k);
+        if (pk.replace('_', '').length < 3) return;
+        if (!phonIndex.has(pk)) phonIndex.set(pk, []);
+        phonIndex.get(pk).push({ term: k, kind });
+        const pop = list.some((m) => m.popular) ? 1 : 0;
+        const prev = termRank.get(k);
+        if (!prev || prev.pop < pop || prev.n < list.length) termRank.set(k, { pop: Math.max(pop, prev ? prev.pop : 0), n: Math.max(list.length, prev ? prev.n : 0) });
+      };
+      nameIndex.forEach((list, k) => add(k, 'brand', list));
+      genericIndex.forEach((list, k) => add(k, 'generic', list));
+    }
+    const rankOf = (term) => (termRank && termRank.get(term)) || { pop: 0, n: 0 };
+
+    /**
+     * Candidate corrections for one word (Latin, or Urdu script transliterated):
+     * [{ term, d, sound }] best-first. sound: 2 = same consonant skeleton (panadool ~ panadol),
+     * 1 = skeleton one consonant off, 0 = spelling only.
+     */
+    function wordCandidates(word, wasUrdu) {
+      ensurePhonIndex();
+      const q = normalize(transliterateUrdu(word)).replace(/[^a-z]/g, '');
+      if (q.length < 3) return [];
+      const fromUrdu = !!wasUrdu || hasUrdu(word);
+      const max = q.length >= 8 ? 2 : 1;
+      const found = new Map();
+      const put = (term, d, sound) => {
+        const prev = found.get(term);
+        if (!prev) found.set(term, { term, d, sound });
+        else { prev.d = Math.min(prev.d, d); prev.sound = Math.max(prev.sound, sound); }
+      };
+      // 1. spelling: edit distance on brand and generic words (needs 4+ letters)
+      if (q.length >= 4 && !fromUrdu) {
+        const scan = (keys) => {
+          for (const k of keys) {
+            const head = k.slice(0, q.length + max);
+            const d = Math.min(editDistance(q, k, max), editDistance(q, head, max));
+            if (d <= max) put(k, d, 0);
+          }
+        };
+        scan(nameKeys);
+        scan(genericKeys);
+      }
+      // 2. sound: same consonant skeleton (and, for longer words, one consonant off)
+      const pk = phoneticKey(q);
+      if (pk.replace('_', '').length >= 3) {
+        for (const c of phonIndex.get(pk) || []) put(c.term, editDistance(q, c.term, 9), 2);
+        if (pk.replace('_', '').length >= 4) {
+          phonIndex.forEach((list, k) => {
+            if (k === pk || Math.abs(k.length - pk.length) > 1 || k[0] !== pk[0]) return;
+            if (editDistance(pk, k, 1) <= 1) for (const c of list) put(c.term, editDistance(q, c.term, 9) + 1, 1);
+          });
+        }
+      }
+      // sounding alike is not enough when the spelling is far off ("zzqqxx" is not "skymox")
+      const far = Math.max(2, Math.floor(q.length / 3));
+      return [...found.values()].filter((c) => c.d <= far + (c.sound === 1 ? 1 : 0)).sort((a, b) => {
+        // Urdu script has no short vowels: rank by sound first, then popularity
+        if (fromUrdu) return (b.sound - a.sound) || (rankOf(b.term).pop - rankOf(a.term).pop) || a.d - b.d || rankOf(b.term).n - rankOf(a.term).n;
+        return a.d - b.d || (b.sound - a.sound) || (rankOf(b.term).pop - rankOf(a.term).pop) || rankOf(b.term).n - rankOf(a.term).n || a.term.length - b.term.length;
+      });
+    }
+
+    /** "Did you mean" for misspelled queries (also Urdu script and Roman Urdu spellings). */
     function didYouMean(query, limit) {
       ensureIndex();
-      const q = normalize(query).split(' ')[0] || '';
-      if (q.length < 4) return [];
-      const max = q.length >= 8 ? 2 : 1;
-      const found = [];
-      const consider = (keys, kind) => {
-        for (const k of keys) {
-          const head = k.slice(0, q.length + max);
-          const d = Math.min(editDistance(q, k, max), editDistance(q, head, max));
-          if (d <= max) found.push({ term: k, d, kind });
-        }
-      };
-      consider(nameKeys, 'brand');
-      consider(genericKeys, 'generic');
-      found.sort((a, b) => a.d - b.d || a.term.length - b.term.length);
+      const words = normalize(query).split(' ').filter((w) => w && !FILLER.has(w) && !/^\d/.test(w));
       const uniq = [];
       const seen = new Set();
-      for (const f of found) {
-        if (seen.has(f.term)) continue;
-        seen.add(f.term);
-        uniq.push(f.term);
-        if (uniq.length >= (limit || 5)) break;
+      for (const w of words) {
+        for (const c of wordCandidates(w)) {
+          if (seen.has(c.term)) continue;
+          seen.add(c.term);
+          uniq.push(c.term);
+          if (uniq.length >= (limit || 5)) return uniq;
+        }
+        if (uniq.length) break; // suggestions for the first word that has any
       }
       return uniq;
+    }
+
+    /**
+     * Search, and when nothing matches, work out what was meant:
+     *  - Urdu script (typed or spoken): transliterate, then match by sound (پیناڈول → panadol)
+     *  - a symptom in Roman Urdu / English: "bukhar ki dawa" → paracetamol (Pain & Fever)
+     *  - a misspelling: "panadool" → panadol, "glucofage" → glucophage
+     * Returns { kind: 'exact'|'urdu'|'symptom'|'typo'|'none', query, results, suggestions, symptom? }.
+     * `query` is what the results are for; suggestions are other did-you-mean terms.
+     */
+    function resolve(query, opts) {
+      const o = opts || {};
+      const direct = search(query, o);
+      // "bp" or "sugar" alone mean the condition, unless a brand is called exactly that
+      const sym = findSymptom(query);
+      const nq = normalize(query);
+      const preferSymptom = sym && sym.whole && !direct.some((x) => normalize(x.med.name) === nq);
+      if (direct.length && !preferSymptom) return { kind: 'exact', query: String(query), results: direct, suggestions: [] };
+      const urdu = hasUrdu(query);
+      const latin = urdu ? normalize(transliterateUrdu(query)) : normalize(query);
+      if (urdu && latin) {
+        const r = search(latin, o);
+        if (r.length) return { kind: 'urdu', query: latin, results: r, suggestions: [] };
+      }
+      // symptom words ("bukhar ki dawa", "khansi ka syrup", "sar dard", "bp")
+      if (sym) {
+        for (const g of sym.entry.generics) {
+          const q2 = sym.form ? g + ' ' + sym.form : g;
+          let r = search(q2, o);
+          let used = q2;
+          if (!r.length && sym.form) { r = search(g, o); used = g; }
+          if (r.length) {
+            return { kind: 'symptom', query: used, results: r, suggestions: sym.entry.generics.filter((x) => x !== g), symptom: { label: sym.entry.label, category: sym.entry.category } };
+          }
+        }
+      }
+      // misspelled / sound-alike words: correct each unknown word, keep numbers and forms
+      const words = latin.split(' ').filter(Boolean);
+      const fixed = [];
+      let changed = false;
+      let firstCands = null;
+      for (const w of words) {
+        if (/^\d/.test(w) || FORM_WORDS[w]) { fixed.push(FORM_WORDS[w] || w); continue; }
+        if (FILLER.has(w)) { changed = true; continue; }
+        if (search(w, { limit: 1 }).length) { fixed.push(w); continue; }
+        const cands = wordCandidates(w, urdu);
+        if (!cands.length) { changed = true; continue; } // unknown word: drop it
+        if (!firstCands) firstCands = cands;
+        fixed.push(cands[0].term);
+        changed = true;
+      }
+      if (changed && fixed.some((w) => !/^\d/.test(w))) {
+        const q2 = fixed.join(' ');
+        let r = search(q2, o);
+        let used = q2;
+        if (!r.length && firstCands) { used = firstCands[0].term; r = search(used, o); }
+        if (r.length) {
+          return { kind: urdu ? 'urdu' : 'typo', query: used, results: r, suggestions: (firstCands || []).map((c) => c.term).filter((t) => t !== used).slice(0, 4) };
+        }
+      }
+      return { kind: 'none', query: String(query), results: [], suggestions: didYouMean(query, 6) };
     }
 
     function byId(id) {
@@ -491,6 +738,7 @@
       search,
       suggest,
       didYouMean,
+      resolve,
       byId,
       alternatives,
       cheapest,
@@ -629,5 +877,5 @@
     return { warm: ensure, search, byReg, pricedAlternatives, unpricedAlternatives, size: items.length };
   }
 
-  return { createEngine, createRegistryIndex, normalize, editDistance };
+  return { createEngine, createRegistryIndex, normalize, editDistance, transliterateUrdu, phoneticKey, hasUrdu, findSymptom };
 });

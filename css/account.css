@@ -11,6 +11,25 @@ html, body { overflow-x: hidden; }
 .acc-top .topnav { display: flex; flex-wrap: wrap; }
 .acc-top .topnav-link { min-height: 44px; }
 @media (max-width: 600px) { .acc-top .topnav .hide-sm { display: none; } }
+/* "Sasta Dawa" home link: a full-height tap target, not just the text line. */
+.acc-top .brand { min-block-size: 48px; align-self: center; }
+.acc-top .acc-lang { flex-shrink: 0; }
+.acc-top .acc-lang .seg-btn { block-size: 44px; min-inline-size: 48px; padding-inline: 10px; font-size: 16px; }
+@media (max-width: 400px) { .acc-top .topbar-inner { gap: 6px; } .acc-top .topnav-link { padding-inline: 8px; } }
+
+/* Honeypot spam trap in the sign-up form. style.css hides .hp with a large negative left offset, which in RTL (Urdu)
+   widens the page and lets it scroll sideways. Visually hidden without any offset instead. */
+.hp { position: absolute !important; left: auto !important; inset-inline-start: 0 !important; inline-size: 1px !important; block-size: 1px !important; overflow: hidden !important; clip-path: inset(50%) !important; white-space: nowrap; opacity: 0; pointer-events: none; }
+.form { position: relative; }
+
+/* Urdu: Nastaliq needs more line height; English words inside fall back to the normal font. */
+[dir='rtl'] .acc-main, [dir='rtl'] .acc-footer { font-family: var(--font-ur), var(--font); }
+[dir='rtl'] .acc-main .input, [dir='rtl'] .acc-main code, [dir='rtl'] .acc-main .keybox { font-family: var(--font); }
+[dir='rtl'] .dash-head h1, [dir='rtl'] .card h2, [dir='rtl'] .card h3 { letter-spacing: 0; line-height: 1.8; }
+[dir='rtl'] .auth-switch a, [dir='rtl'] .tabs a { line-height: 1.6; }
+[dir='rtl'] .check { line-height: 1.9; }
+[dir='rtl'] .tbl th, [dir='rtl'] .tbl td { line-height: 1.7; }
+[dir='rtl'] .last-login a { margin-inline-start: 6px; }
 .acc-main { flex: 1; padding-block: 20px 72px; }
 .acc-footer { padding-block-end: 32px; }
 
@@ -31,8 +50,10 @@ html, body { overflow-x: hidden; }
 .field textarea.input, textarea.input { padding: 10px 12px; line-height: 1.5; min-height: 88px; resize: vertical; }
 .input[type='color'] { padding: 4px; inline-size: 88px; }
 .input[type='file'] { padding: 8px; }
-.check { display: flex; align-items: center; gap: 12px; min-height: 48px; font-weight: 500; font-size: 18px; cursor: pointer; }
-.check input { inline-size: 26px; block-size: 26px; accent-color: var(--brand); flex-shrink: 0; }
+/* Whole row is the tap target (the <label> wraps the box): at least 48px tall, box at least 32px. */
+.check { display: flex; align-items: center; gap: 12px; min-height: 48px; padding-block: 6px; font-weight: 500; font-size: 18px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.check input { inline-size: 32px; block-size: 32px; min-inline-size: 32px; margin: 0; accent-color: var(--brand); flex-shrink: 0; cursor: pointer; }
+.check:has(input:disabled) { cursor: not-allowed; }
 .check small { font-weight: 400; color: var(--muted); }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .form-msg { font-size: 17px; font-weight: 500; min-height: 1em; }

@@ -43,6 +43,12 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Voice search (@capacitor-community/speech-recognition); asked only when the mic is tapped. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- "Use my location" on a medicine page (pharmacies near you; navigator.geolocation in the
+         WebView). Asked only when the button is tapped; if refused, the app shows the city picker. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-feature android:name="android.hardware.location" android:required="false" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
     <!-- Medicine reminders don't need to fire to the exact second, and Google Play restricts
          exact-alarm permissions, so drop the one the notifications plugin asks for. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" tools:node="remove" />

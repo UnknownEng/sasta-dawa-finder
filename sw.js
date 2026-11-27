@@ -8,7 +8,7 @@
  * On-device OCR files (vendor/ocr, ~7 MB) are never precached: they are saved in their own cache
  * the first time someone scans, so the next scan works offline, and that cache survives app updates.
  */
-const CACHE_NAME = 'sasta-dawa-v2.8.0';
+const CACHE_NAME = 'sasta-dawa-v2.9.0';
 // Kept across releases. scripts/build_public.js renames it after the tesseract.js version, so a
 // package update starts a fresh OCR cache.
 const OCR_CACHE = 'sasta-dawa-ocr-v1';
@@ -17,13 +17,13 @@ const PRECACHE_URLS = [
   './',
   './index.html',
   './manifest.json',
-  './css/style.css?v=2.8.0',
-  './js/i18n.js?v=2.8.0',
-  './js/data.js?v=2.8.0',
-  './js/search.js?v=2.8.0',
-  './js/ocr-match.js?v=2.8.0',
-  './js/assistant.js?v=2.8.0',
-  './js/app.js?v=2.8.0',
+  './css/style.css?v=2.9.0',
+  './js/i18n.js?v=2.9.0',
+  './js/data.js?v=2.9.0',
+  './js/search.js?v=2.9.0',
+  './js/ocr-match.js?v=2.9.0',
+  './js/assistant.js?v=2.9.0',
+  './js/app.js?v=2.9.0',
   './data/medicines.json',
   './icons/icon.svg',
   './icons/icon-192.png',

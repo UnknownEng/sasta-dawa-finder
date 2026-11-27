@@ -99,9 +99,13 @@ test('search results, not-found with suggestions', async () => {
   const d = w.document;
   assert.ok(visible(d, 'view-search'));
   assert.ok(d.querySelectorAll('#search-results .result').length >= 3);
+  // A typo now shows results for the best did-you-mean, with the suggestion line
   await nav(w, '#/search/panadool');
+  assert.ok(visible(d, 'view-search'));
+  assert.match(d.getElementById('search-corrected').textContent, /panadol/);
+  // When even the best guess finds nothing, the not-found view stays
+  await nav(w, '#/search/zzqqxxvv');
   assert.ok(visible(d, 'view-empty'));
-  assert.match(d.getElementById('empty-suggest').textContent, /panadol/);
 });
 
 test('category page lists formulas and filters', async () => {

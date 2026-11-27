@@ -360,12 +360,38 @@
     if (!meds.length || onCompare) {
       tray.hidden = true;
       tray.innerHTML = '';
+      syncTrayPadding();
       return;
     }
     tray.hidden = false;
     tray.innerHTML = `<span class="ct-text"><svg class="ic" aria-hidden="true"><use href="#i-compare"/></svg><span>${esc(t('compare_tray', { n: meds.length }))}</span></span>
       <a class="btn btn-primary sm" href="#/compare">${esc(t('compare_open', { n: meds.length }))}</a>
       <button type="button" class="btn btn-ghost sm" data-compare-clear>${esc(t('compare_clear'))}</button>`;
+    syncTrayPadding();
+  }
+
+  /** Room at the bottom of the page for the fixed compare tray (css: body.has-tray), so it covers nothing. */
+  function syncTrayPadding() {
+    const tray = $('#compare-tray');
+    const on = !!(tray && !tray.hidden);
+    document.body.classList.toggle('has-tray', on);
+    if (on) document.body.style.setProperty('--tray-h', Math.ceil(tray.getBoundingClientRect().height || tray.offsetHeight || 72) + 'px');
+    else document.body.style.removeProperty('--tray-h');
+  }
+  window.addEventListener('resize', () => { if (document.body.classList.contains('has-tray')) syncTrayPadding(); });
+
+  /**
+   * Double-tap guard. Older users often double-tap; on a toggle ("Add to My Medicines", Compare,
+   * reminders) the second tap undid the first. Returns false for a repeat of the same action
+   * within `ms`, so the caller ignores it.
+   */
+  const lastTaps = new Map();
+  function tapOk(key, ms) {
+    const now = Date.now();
+    const prev = lastTaps.get(key) || 0;
+    if (now - prev < (ms || 700)) return false;
+    lastTaps.set(key, now);
+    return true;
   }
 
   function onCompareToggle(id, btn) {
@@ -541,10 +567,22 @@
     const input = $('#search-input');
     if (document.activeElement !== input) input.value = q;
     updateSearchButtons();
-    const raw = state.engine.search(q, { limit: 200 });
+    // resolve(): the plain search, or, when that finds nothing (or the query is only a symptom like
+    // "bp"), the best guess for Urdu script, a symptom ("bukhar ki dawa") or a typo ("panadool").
+    const res = state.engine.resolve ? state.engine.resolve(q, { limit: 200 }) : { kind: 'exact', results: state.engine.search(q, { limit: 200 }) };
+    let raw = res.kind === 'exact' ? res.results : [];
     // Registered brands with no DRAP price (Valtec, Starcox...): brand-name matches only
-    const unpriced = state.reg ? state.reg.search(q, { limit: 20, minScore: 60 }) : [];
+    let unpriced = state.reg ? state.reg.search(q, { limit: 20, minScore: 60 }) : [];
+    let fixed = null;
+    if (res.kind !== 'exact' && res.results.length && !(res.kind !== 'symptom' && unpriced.length)) {
+      // a registered brand typed correctly ("Valtec") beats a guess; a symptom phrase beats a loose brand match
+      fixed = res;
+      raw = res.results;
+      unpriced = state.reg ? state.reg.search(res.query, { limit: 20, minScore: 60 }) : [];
+    }
     if (!raw.length && !unpriced.length) return renderNotFound(q);
+    renderCorrected(q, fixed);
+    const hq = fixed ? fixed.query : q; // words to highlight in the rows
     // One row per brand + strength + form (cheapest pack per unit), with a count of pack sizes
     const byKey = new Map();
     for (const r of raw) {
@@ -566,7 +604,7 @@
       : t('unpriced_only_sub');
     const unpricedHtml = unpriced.length
       ? `<div class="unpriced-head"><h2>${esc(t('unpriced_title'))}</h2><p>${esc(t('unpriced_sub'))}</p></div>` +
-        unpriced.map((r) => unpricedRow(r.med, q)).join('')
+        unpriced.map((r) => unpricedRow(r.med, hq)).join('')
       : '';
     // The unpriced section leads when there are no priced results, or when the unpriced brand is a
     // clearly better name match ("valtec" also loosely matches priced valsartan products).
@@ -574,9 +612,29 @@
     const unpricedFirst = !results.length || (top && top.score > Math.max(...results.map((r) => r.score)));
     $('#search-results').innerHTML =
       (unpricedFirst ? unpricedHtml : '') +
-      results.map((r) => resultRow(r.med, q, null, r.packs)).join('') +
+      results.map((r) => resultRow(r.med, hq, null, r.packs)).join('') +
       (results.length >= 80 ? `<p class="more-note">${esc(t('results_more', { n: 80 }))}</p>` : '') +
       (unpricedFirst ? '' : unpricedHtml);
+  }
+
+  /**
+   * "Showing results for “panadol”" above the results when the query was corrected
+   * (resolve() in js/search.js), plus the other did-you-mean chips and, for a symptom, its category.
+   */
+  function renderCorrected(q, fixed) {
+    const el = $('#search-corrected');
+    if (!el) return;
+    if (!fixed || fixed.kind === 'exact') {
+      el.hidden = true;
+      el.innerHTML = '';
+      return;
+    }
+    const cat = fixed.symptom && state.ds.categories.find((c) => c.id === fixed.symptom.category);
+    const chips = (fixed.suggestions || []).slice(0, 4)
+      .map((d) => `<a class="chip" href="#/search/${encodeURIComponent(d)}">${esc(d)}</a>`).join('');
+    el.innerHTML = `<span class="sc-line"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg><span>${esc(t('no_exact_for', { q }))} <b>${esc(t('showing_results_for', { q: fixed.query }))}</b></span></span>` +
+      (chips || cat ? `<span class="chips sc-chips">${chips ? `<span class="muted small">${esc(t('did_you_mean'))}</span>${chips}` : ''}${cat ? `<a class="chip" href="#/category/${esc(cat.id)}">${esc(t('symptom_category', { cat: catName(cat) }))}</a>` : ''}</span>` : '');
+    el.hidden = false;
   }
 
   /** A registered brand with no DRAP price: shows the formula and how many priced options exist. */
@@ -791,6 +849,7 @@
     if (more) more.open = false;
 
     const onCabinet = () => {
+      if (!tapOk('cabinet:' + med.id)) return; // a double-tap must not add and then remove it
       if (cabinet.has(med.id)) {
         cabinet.remove(med.id);
         toast(t('removed'));
@@ -964,6 +1023,8 @@
         const btn = e.target.closest('[data-act]');
         if (!btn) return;
         const act = btn.dataset.act;
+        // +/- may be tapped quickly on purpose; remove / switch may not repeat
+        if ((act === 'remove' || act === 'switch') && !tapOk('cab-' + act + ':' + id)) return;
         if (act === 'inc') cabinet.setQty(id, (parseFloat(input.value) || 0) + step);
         else if (act === 'dec') cabinet.setQty(id, (parseFloat(input.value) || 0) - step);
         else if (act === 'remove') { cabinet.remove(id); toast(t('removed')); }
@@ -1034,11 +1095,13 @@
     card.addEventListener('click', (e) => {
       const del = e.target.closest('[data-rem-del]');
       if (del) {
+        if (!tapOk('rem-del:' + del.dataset.remDel)) return;
         apply(NATIVE.reminders.get().times.filter((x) => x !== del.dataset.remDel), t('reminder_removed'));
         return;
       }
       if (e.target.closest('#rem-save')) {
         const v = $('#rem-new', card).value;
+        if (!tapOk('rem-save:' + v)) return;
         if (!NATIVE.reminders.validTime(v)) return;
         apply(NATIVE.reminders.get().times.concat(v), t('reminder_saved', { time: fmtTime(v) }));
       }
@@ -1212,6 +1275,7 @@
     $('#nearby-city', box).addEventListener('change', (e) => {
       save('sd_city', e.target.value);
       nearby.geo = null;
+      locMessage('');
       loadNearby(med);
     });
     $('#nearby-locate', box).addEventListener('click', () => locateAndLoad(med));
@@ -1286,10 +1350,28 @@
 
   function locateAndLoad(med) {
     const btn = $('#nearby-locate');
-    if (!navigator.geolocation) { toast(t('nearby_loc_denied')); return; }
+    if (!navigator.geolocation) {
+      toast(t('nearby_loc_denied'));
+      locMessage('nearby_loc_denied');
+      return;
+    }
     if (btn) btn.disabled = true;
     const list = $('#nearby-list');
     if (list) list.innerHTML = `<p class="muted small">${esc(t('nearby_locating'))}</p>`;
+    locMessage('');
+    // Location refused (code 1) or not found: say so plainly, keep the city list, and put the
+    // city picker in front of the user so they can carry on without location.
+    const failed = (err) => {
+      if (btn) btn.disabled = false;
+      nearby.geo = null;
+      const key = err && err.code === 1 ? 'nearby_loc_off' : 'nearby_loc_denied';
+      toast(t(key));
+      locMessage(key);
+      refreshCityOptions();
+      loadNearby(med);
+      const sel = $('#nearby-city');
+      if (sel) { try { sel.focus({ preventScroll: true }); } catch (e) { sel.focus(); } }
+    };
     try {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
@@ -1298,18 +1380,30 @@
           refreshCityOptions();
           loadNearby(med);
         },
-        () => {
-          if (btn) btn.disabled = false;
-          toast(t('nearby_loc_denied'));
-          loadNearby(med);
-        },
+        failed,
         { enableHighAccuracy: false, timeout: 10000, maximumAge: 5 * 60 * 1000 }
       );
     } catch (e) {
-      if (btn) btn.disabled = false;
-      toast(t('nearby_loc_denied'));
-      loadNearby(med);
+      failed(e);
     }
+  }
+
+  /** Message under the "Near you" header (location refused / not found); '' removes it. */
+  function locMessage(key) {
+    const box = $('#med-nearby');
+    if (!box) return;
+    let el = $('#nearby-loc-msg', box);
+    if (!key) { if (el) el.remove(); return; }
+    if (!el) {
+      el = document.createElement('p');
+      el.id = 'nearby-loc-msg';
+      el.className = 'notice nearby-loc-msg';
+      el.setAttribute('role', 'alert');
+      const list = $('#nearby-list', box);
+      if (list) list.parentNode.insertBefore(el, list);
+      else box.appendChild(el);
+    }
+    el.textContent = t(key);
   }
 
   function onNearbyClick(e, med) {
@@ -1469,24 +1563,70 @@
    * Read the text in a photo on the phone. job.cancel() stops it (rejects with 'cancelled').
    * onProgress(0..100) covers downloading the reader (first time only) and reading.
    */
+  /** Longest a scan may take before we stop and say so (slow phone + first-time load included). */
+  const OCR_TIMEOUT_MS = 45000;
+  /**
+   * Which language file to ask for. The website serves eng.traineddata.gz (smaller download).
+   * Android's app packaging un-gzips *.gz assets and drops the ".gz", so the app bundle ships a
+   * plain eng.traineddata (scripts/ocr_assets.js) and asks for that (gzip: false). Tesseract.js
+   * detects gzip by the file's first bytes, so either file works with either setting.
+   */
+  function ocrGzipFirst() {
+    return !(NATIVE || document.querySelector('meta[name="sd-app"]'));
+  }
+  /**
+   * Start a Tesseract worker. Tesseract.js 7 never settles createWorker() when the language file
+   * fails to load (it only calls errorHandler), so the error and a timeout are raced here.
+   */
+  function startOcrWorker(T, gzip, onProgress, job) {
+    const STAGES = { 'loading tesseract core': [0, 35], 'loading language traineddata': [35, 65], 'initializing api': [65, 70], 'recognizing text': [70, 100] };
+    let failWorker;
+    const failed = new Promise((resolve, reject) => { failWorker = reject; });
+    const created = T.createWorker('eng', 1, {
+      workerPath: ocrUrl('worker.min.js'),
+      corePath: ocrUrl(wasmSimd() ? 'tesseract-core-simd-lstm.wasm.js' : 'tesseract-core-lstm.wasm.js'),
+      langPath: new URL(OCR_DIR, document.baseURI).href.replace(/\/$/, ''),
+      gzip,
+      workerBlobURL: false, // load the worker from our own origin (service worker can cache it)
+      cacheMethod: 'none', // the service worker / browser cache keeps the files, no second copy in IndexedDB
+      errorHandler: (err) => failWorker(new Error('ocr load: ' + String((err && err.message) || err || 'failed'))),
+      logger: (m) => {
+        const st = m && STAGES[m.status];
+        if (st && typeof m.progress === 'number') onProgress(Math.round(st[0] + (st[1] - st[0]) * Math.min(1, Math.max(0, m.progress))));
+      },
+    });
+    // A worker that turns up after we gave up is stopped straight away.
+    created.then((w) => { if (job.cancelled || job.gaveUp) w.terminate(); }, () => {});
+    return Promise.race([created, failed]);
+  }
+  /**
+   * Read the text in a photo on the phone. job.cancel() stops it (rejects with 'cancelled').
+   * onProgress(0..100) covers downloading the reader (first time only) and reading.
+   * Rejects (never hangs) when the reader cannot load or takes longer than OCR_TIMEOUT_MS.
+   */
   function readPhotoText(image, onProgress, job) {
-    return (async () => {
+    let timer;
+    const timeout = new Promise((resolve, reject) => {
+      timer = setTimeout(() => {
+        job.gaveUp = true;
+        if (job.stop) { try { job.stop(); } catch (e) { /* already stopped */ } }
+        reject(new Error('ocr timeout'));
+      }, OCR_TIMEOUT_MS);
+    });
+    const run = (async () => {
       if (typeof WebAssembly !== 'object' || typeof Worker !== 'function') throw new Error('no wasm');
       const T = await loadOcrLib();
       if (job.cancelled) throw new Error('cancelled');
-      const STAGES = { 'loading tesseract core': [0, 35], 'loading language traineddata': [35, 65], 'initializing api': [65, 70], 'recognizing text': [70, 100] };
-      const worker = await T.createWorker('eng', 1, {
-        workerPath: ocrUrl('worker.min.js'),
-        corePath: ocrUrl(wasmSimd() ? 'tesseract-core-simd-lstm.wasm.js' : 'tesseract-core-lstm.wasm.js'),
-        langPath: new URL(OCR_DIR, document.baseURI).href.replace(/\/$/, ''),
-        gzip: true,
-        workerBlobURL: false, // load the worker from our own origin (service worker can cache it)
-        cacheMethod: 'none', // the service worker / browser cache keeps the files, no second copy in IndexedDB
-        logger: (m) => {
-          const st = m && STAGES[m.status];
-          if (st && typeof m.progress === 'number') onProgress(Math.round(st[0] + (st[1] - st[0]) * Math.min(1, Math.max(0, m.progress))));
-        },
-      });
+      const first = ocrGzipFirst();
+      let worker;
+      try {
+        worker = await startOcrWorker(T, first, onProgress, job);
+      } catch (e) {
+        if (job.cancelled || job.gaveUp) throw e;
+        // Wrong file name for this build (e.g. .gz stripped by the app packaging): try the other once.
+        worker = await startOcrWorker(T, !first, onProgress, job);
+      }
+      if (job.gaveUp) { try { await worker.terminate(); } catch (e) { /* stopped */ } throw new Error('ocr timeout'); }
       job.stop = () => worker.terminate();
       try {
         if (job.cancelled) throw new Error('cancelled');
@@ -1498,6 +1638,8 @@
         try { await worker.terminate(); } catch (e) { /* already stopped */ }
       }
     })();
+    run.catch(() => {}); // the race below reports the error; never an unhandled rejection
+    return Promise.race([run, timeout]).finally(() => clearTimeout(timer));
   }
 
   function rxProgress(pct, msgKey) {
@@ -1545,6 +1687,7 @@
     rxProgress(0);
     try {
       let found = [];
+      let readerFailed = false;
       try {
         const ctx = { ds: state.ds, engine: state.engine, normalize: window.SDSearch.normalize, editDistance: window.SDSearch.editDistance };
         // the bar never goes backwards
@@ -1554,7 +1697,8 @@
         found = window.SDOcrMatch.match(text, ctx);
       } catch (e) {
         if (job.cancelled) throw e;
-        found = []; // reader could not load (old phone, files missing): try the server below
+        found = []; // reader could not load (old phone, files missing, too slow): try the server below
+        readerFailed = true;
       }
       if (job.cancelled) throw new Error('cancelled');
       const brands = found.some((f) => !f.generic);
@@ -1570,10 +1714,10 @@
         if (meds.length || !found.length) return renderOcrResult(meds.map((med) => ({ med })), meds.length > 0);
       }
       // only salt names read ("Paracetamol 500mg"), or nothing
-      renderOcrResult(found, false);
+      renderOcrResult(found, false, readerFailed ? 'rx_failed' : '');
     } catch (e) {
       if (job.cancelled) { $('#rx-result').hidden = true; toast(t('rx_cancelled')); }
-      else renderOcrResult([], false);
+      else renderOcrResult([], false, 'rx_failed');
     } finally {
       if (rxJob === job) {
         rxJob = null;
@@ -1620,13 +1764,13 @@
   }
 
   /** Big rows for older eyes: name, pack price, "Cheaper option: save X%", View + Add. */
-  function renderOcrResult(found, viaServer) {
+  function renderOcrResult(found, viaServer, noneKey) {
     const box = $('#rx-result');
     box.hidden = false;
     const head = `<div class="rx-head"><h2 class="hs-title">${esc(t('rx_title'))}</h2>
         <button type="button" class="icon-btn ghost sm" data-rx-close aria-label="${esc(t('close'))}"><svg class="ic"><use href="#i-x"/></svg></button></div>`;
     if (!found.length) {
-      box.innerHTML = `${head}<p class="rx-none">${esc(t('rx_nothing'))}</p>
+      box.innerHTML = `${head}<p class="rx-none">${esc(t(noneKey || 'rx_nothing'))}</p>
         <button type="button" class="btn btn-primary rx-type" data-rx-type><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg><span>${esc(t('rx_type'))}</span></button>`;
       return;
     }
@@ -2056,6 +2200,7 @@
       const tog = e.target.closest('[data-compare]');
       if (tog) {
         e.preventDefault();
+        if (!tapOk('compare:' + tog.dataset.compare)) return; // double-tap: keep the first tap's result
         onCompareToggle(tog.dataset.compare, tog);
         return;
       }

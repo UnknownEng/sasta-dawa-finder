@@ -14,6 +14,7 @@
  *  - opens the pages bundled in the app (account.html, legal pages) instead of the website
  *  - Google / password login through the system browser (auth.startBrowserLogin, deep link back)
  *  - voice search with the phone's speech recogniser (voice.available / voice.listen)
+ *  - saving / sharing files (files.save, files.shareImage): downloads and print don't work in the WebView
  *
  * Two apps are built from the same pages (scripts/build_app.js writes <meta name="sd-app">):
  *  - "customer" (pk.sastadawa.app): home = index.html, deep link sastadawa://auth?code=…
@@ -159,8 +160,95 @@
   }
 
   // ------------------------------------------------------------------------
+  // Saving / sharing files (the WebView cannot download blobs or print)
+  // ------------------------------------------------------------------------
+  // In the Android WebView, <a download>, blob: links and window.print() do nothing. Pages that
+  // produce a file ("Download my data", CSV templates and CSV results, the QR sticker image,
+  // monthly reports) call these instead:
+  //
+  //   const r = await SastaNative.files.save('my-data.json', 'application/json', jsonText);
+  //   const r = await SastaNative.files.save('stock.csv', 'text/csv', csvText);
+  //   const r = await SastaNative.files.save('report.pdf', 'application/pdf', pdfBase64, { base64: true });
+  //   const r = await SastaNative.files.shareImage('qr-sticker.png', pngBase64); // "data:image/png;base64,…" also accepted
+  //
+  // The file is written to the app's cache folder (@capacitor/filesystem, Directory.Cache) and the
+  // phone's share sheet opens with it (@capacitor/share), so the user picks Files / Drive /
+  // WhatsApp / Gmail. Resolves { ok: true, uri } when written (shared or the sheet was closed),
+  // { ok: false, error } when it could not be written; never rejects. On the website
+  // window.SastaNative is null, so callers keep their normal download code there.
+  function safeFileName(name) {
+    const s = String(name || 'file').replace(/[\\/:*?"<>|\u0000-\u001f]+/g, '-').replace(/^\.+/, '').trim();
+    return (s || 'file').slice(0, 120);
+  }
+  function stripDataUrl(b64) {
+    return String(b64 || '').replace(/^data:[^,]*;base64,/, '').replace(/\s+/g, '');
+  }
+  async function saveFile(filename, mimeType, data, opts) {
+    const FS = P.Filesystem;
+    if (!FS || !FS.writeFile) return { ok: false, error: 'Saving files is not available in this version of the app.' };
+    const name = safeFileName(filename);
+    const base64 = !!(opts && opts.base64);
+    const path = 'exports/' + Date.now() + '-' + name;
+    let uri = '';
+    try {
+      const w = await FS.writeFile({
+        path,
+        data: base64 ? stripDataUrl(data) : String(data == null ? '' : data),
+        directory: 'CACHE', // Directory.Cache
+        encoding: base64 ? undefined : 'utf8', // Encoding.UTF8; no encoding = base64 data
+        recursive: true,
+      });
+      uri = (w && w.uri) || '';
+      if (!uri && FS.getUri) uri = ((await FS.getUri({ path, directory: 'CACHE' })) || {}).uri || '';
+    } catch (e) {
+      return { ok: false, error: 'Could not save the file on this phone: ' + String((e && e.message) || e) };
+    }
+    if (P.Share && P.Share.share && uri && !(opts && opts.share === false)) {
+      try {
+        await P.Share.share({ title: name, dialogTitle: name, files: [uri] });
+      } catch (e) {
+        /* the user closed the share sheet: the file is still written */
+      }
+    }
+    return { ok: true, uri, name, mimeType: String(mimeType || '') };
+  }
+  const files = {
+    /** save(filename, mimeType, data, { base64: false }) → Promise<{ ok, uri }>. See above. */
+    save: saveFile,
+    /** shareImage(filename, pngBase64) → Promise<{ ok, uri }>. Base64 PNG, with or without data: prefix. */
+    shareImage(filename, pngBase64) {
+      const name = /\.(png|jpe?g|webp)$/i.test(String(filename || '')) ? filename : String(filename || 'image') + '.png';
+      return saveFile(name, 'image/png', pngBase64, { base64: true });
+    },
+  };
+
+  // ------------------------------------------------------------------------
   // Android back button: close the open panel, else go back, else leave the app
   // ------------------------------------------------------------------------
+  // In-page depth: every hash change inside this page gets history.state.sdDepth (0 = the entry the
+  // page opened with). Back then knows whether there is an in-app screen to return to: a top-level
+  // tab opened directly (#/plan in the business app, a reminder's #/my-medicines) has depth 0, and
+  // history.back() there would do nothing or leave the app.
+  function hashDepth() {
+    const s = history.state;
+    return s && typeof s.sdDepth === 'number' ? s.sdDepth : 0;
+  }
+  let lastDepth = hashDepth();
+  let resettingHash = false;
+  window.addEventListener('hashchange', () => {
+    const s = history.state;
+    if (resettingHash) {
+      resettingHash = false;
+      lastDepth = 0;
+    } else if (s && typeof s.sdDepth === 'number') {
+      lastDepth = s.sdDepth; // came back to an entry we already numbered
+      return;
+    } else {
+      lastDepth += 1;
+    }
+    try { history.replaceState(Object.assign({}, s && typeof s === 'object' ? s : {}, { sdDepth: lastDepth }), ''); } catch (e) { /* old webview */ }
+  });
+
   if (P.App && platform === 'android') {
     P.App.addListener('backButton', () => {
       const openPanel = ['assistant', 'fb-modal'].map((id) => document.getElementById(id)).find((el) => el && !el.hidden);
@@ -169,7 +257,15 @@
         return;
       }
       const h = location.hash.replace(/^#\/?/, '');
-      if (h) return history.back();
+      if (h) {
+        if (hashDepth() > 0) return history.back();
+        // A top-level screen with nothing to pop: go to this page's root (search home / dashboard)
+        if (isHomePage() || /account\.html$/.test(location.pathname)) {
+          resettingHash = true;
+          location.replace(location.pathname + location.search + '#/');
+          return;
+        }
+      }
       // On another bundled page (account, terms, the business app's search): go back, not out.
       if (!isHomePage()) {
         if (history.length > 1) history.back();
@@ -311,7 +407,8 @@
       f.title = 'usage count';
       f.setAttribute('aria-hidden', 'true');
       f.tabIndex = -1;
-      f.style.cssText = 'position:absolute;width:1px;height:1px;left:-9999px;top:-9999px;border:0;opacity:0';
+      // Hidden in place: an off-screen left offset widens the page in Urdu (RTL) and it scrolls sideways.
+      f.style.cssText = 'position:fixed;width:1px;height:1px;top:0;inset-inline-start:0;border:0;opacity:0;pointer-events:none;clip-path:inset(50%)';
       let done = false;
       f.addEventListener('load', () => {
         if (done) return;
@@ -529,6 +626,7 @@
     pageUrl,
     openExternal,
     share,
+    files,
     reminders,
     countUsage,
     auth,
