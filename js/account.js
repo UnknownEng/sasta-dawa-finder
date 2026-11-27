@@ -7,240 +7,13 @@
 (function () {
   'use strict';
 
-  // ===========================================================================
-  // QR code generator (byte mode, error correction M, versions 1-6 -> up to 106 bytes)
-  // ===========================================================================
-  const QR_TOTAL = [0, 26, 44, 70, 100, 134, 172]; // total codewords per version
-  const QR_EC = [0, 10, 16, 26, 18, 24, 16]; // EC codewords per block (level M)
-  const QR_BLOCKS = [0, 1, 1, 1, 2, 2, 4]; // number of blocks (level M)
-  const QR_ALIGN = [0, 0, 18, 22, 26, 30, 34]; // the one alignment pattern centre (v2-6)
-
-  function gfMul(x, y) {
-    let z = 0;
-    for (let i = 7; i >= 0; i--) {
-      z = (z << 1) ^ ((z >>> 7) * 0x11d);
-      z ^= ((y >>> i) & 1) * x;
-    }
-    return z & 0xff;
-  }
-  function rsDivisor(degree) {
-    const r = new Array(degree).fill(0);
-    r[degree - 1] = 1;
-    let root = 1;
-    for (let i = 0; i < degree; i++) {
-      for (let j = 0; j < degree; j++) {
-        r[j] = gfMul(r[j], root);
-        if (j + 1 < degree) r[j] ^= r[j + 1];
-      }
-      root = gfMul(root, 2);
-    }
-    return r;
-  }
-  function rsRemainder(data, div) {
-    const r = new Array(div.length).fill(0);
-    for (const b of data) {
-      const f = b ^ r.shift();
-      r.push(0);
-      div.forEach((c, i) => (r[i] ^= gfMul(c, f)));
-    }
-    return r;
-  }
-
-  /** Returns a square boolean matrix (true = dark) for the text, or throws if it is too long. */
-  function qrMatrix(text, forceMask) {
-    const bytes = Array.from(new TextEncoder().encode(String(text)));
-    let ver = 0;
-    for (let v = 1; v <= 6; v++) {
-      const dataCap = QR_TOTAL[v] - QR_EC[v] * QR_BLOCKS[v];
-      if (4 + 8 + bytes.length * 8 <= dataCap * 8) {
-        ver = v;
-        break;
-      }
-    }
-    if (!ver) throw new Error('Text too long for QR');
-    const total = QR_TOTAL[ver];
-    const ecLen = QR_EC[ver];
-    const nBlocks = QR_BLOCKS[ver];
-    const dataCap = total - ecLen * nBlocks;
-
-    // Bit stream
-    const bits = [];
-    const put = (val, len) => {
-      for (let i = len - 1; i >= 0; i--) bits.push((val >>> i) & 1);
-    };
-    put(4, 4);
-    put(bytes.length, 8);
-    bytes.forEach((b) => put(b, 8));
-    put(0, Math.min(4, dataCap * 8 - bits.length));
-    while (bits.length % 8) bits.push(0);
-    const data = [];
-    for (let i = 0; i < bits.length; i += 8) data.push(parseInt(bits.slice(i, i + 8).join(''), 2));
-    for (let pad = 0xec; data.length < dataCap; pad ^= 0xec ^ 0x11) data.push(pad);
-
-    // Blocks + error correction, interleaved
-    const numShort = nBlocks - (total % nBlocks);
-    const shortLen = Math.floor(total / nBlocks);
-    const div = rsDivisor(ecLen);
-    const blocks = [];
-    for (let i = 0, k = 0; i < nBlocks; i++) {
-      const dl = shortLen - ecLen + (i < numShort ? 0 : 1);
-      const d = data.slice(k, k + dl);
-      k += dl;
-      const ec = rsRemainder(d, div);
-      if (i < numShort) d.push(-1); // placeholder so all blocks line up
-      blocks.push(d.concat(ec));
-    }
-    const words = [];
-    for (let i = 0; i < blocks[0].length; i++) {
-      blocks.forEach((b, j) => {
-        if (i !== shortLen - ecLen || j >= numShort) words.push(b[i]);
-      });
-    }
-
-    // Matrix + function patterns
-    const size = ver * 4 + 17;
-    const mod = Array.from({ length: size }, () => new Array(size).fill(false));
-    const fn = Array.from({ length: size }, () => new Array(size).fill(false));
-    const set = (x, y, dark) => {
-      mod[y][x] = dark;
-      fn[y][x] = true;
-    };
-    for (let i = 0; i < size; i++) {
-      set(6, i, i % 2 === 0);
-      set(i, 6, i % 2 === 0);
-    }
-    const finder = (cx, cy) => {
-      for (let dy = -4; dy <= 4; dy++) {
-        for (let dx = -4; dx <= 4; dx++) {
-          const x = cx + dx;
-          const y = cy + dy;
-          if (x < 0 || y < 0 || x >= size || y >= size) continue;
-          const d = Math.max(Math.abs(dx), Math.abs(dy));
-          set(x, y, d !== 2 && d !== 4);
-        }
-      }
-    };
-    finder(3, 3);
-    finder(size - 4, 3);
-    finder(3, size - 4);
-    if (ver >= 2) {
-      const c = QR_ALIGN[ver];
-      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) set(c + dx, c + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 1);
-    }
-    const drawFormat = (mask) => {
-      const dataBits = (0 << 3) | mask; // level M = 00
-      let rem = dataBits;
-      for (let i = 0; i < 10; i++) rem = (rem << 1) ^ ((rem >>> 9) * 0x537);
-      const fb = ((dataBits << 10) | rem) ^ 0x5412;
-      const bit = (i) => ((fb >>> i) & 1) === 1;
-      for (let i = 0; i <= 5; i++) set(8, i, bit(i));
-      set(8, 7, bit(6));
-      set(8, 8, bit(7));
-      set(7, 8, bit(8));
-      for (let i = 9; i < 15; i++) set(14 - i, 8, bit(i));
-      for (let i = 0; i < 8; i++) set(size - 1 - i, 8, bit(i));
-      for (let i = 8; i < 15; i++) set(8, size - 15 + i, bit(i));
-      set(8, size - 8, true);
-    };
-    drawFormat(0); // reserve the format areas
-
-    // Codewords (zig-zag)
-    let bi = 0;
-    for (let right = size - 1; right >= 1; right -= 2) {
-      if (right === 6) right = 5;
-      for (let vert = 0; vert < size; vert++) {
-        for (let j = 0; j < 2; j++) {
-          const x = right - j;
-          const up = ((right + 1) & 2) === 0;
-          const y = up ? size - 1 - vert : vert;
-          if (!fn[y][x] && bi < words.length * 8) {
-            mod[y][x] = ((words[bi >>> 3] >>> (7 - (bi & 7))) & 1) === 1;
-            bi++;
-          }
-        }
-      }
-    }
-
-    const maskFn = [
-      (x, y) => (x + y) % 2 === 0,
-      (x, y) => y % 2 === 0,
-      (x) => x % 3 === 0,
-      (x, y) => (x + y) % 3 === 0,
-      (x, y) => (Math.floor(x / 3) + Math.floor(y / 2)) % 2 === 0,
-      (x, y) => ((x * y) % 2) + ((x * y) % 3) === 0,
-      (x, y) => (((x * y) % 2) + ((x * y) % 3)) % 2 === 0,
-      (x, y) => (((x + y) % 2) + ((x * y) % 3)) % 2 === 0,
-    ];
-    const applyMask = (m) => {
-      for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) if (!fn[y][x] && maskFn[m](x, y)) mod[y][x] = !mod[y][x];
-    };
-    const penalty = () => {
-      let p = 0;
-      const line = (get) => {
-        for (let a = 0; a < size; a++) {
-          let run = 1;
-          for (let b = 1; b <= size; b++) {
-            if (b < size && get(a, b) === get(a, b - 1)) run++;
-            else {
-              if (run >= 5) p += 3 + run - 5;
-              run = 1;
-            }
-          }
-          for (let b = 0; b + 11 <= size; b++) {
-            const s = [];
-            for (let k = 0; k < 11; k++) s.push(get(a, b + k) ? 1 : 0);
-            const t = s.join('');
-            if (t === '10111010000' || t === '00001011101') p += 40;
-          }
-        }
-      };
-      line((a, b) => mod[a][b]);
-      line((a, b) => mod[b][a]);
-      let dark = 0;
-      for (let y = 0; y < size; y++) {
-        for (let x = 0; x < size; x++) {
-          if (mod[y][x]) dark++;
-          if (x < size - 1 && y < size - 1) {
-            const c = mod[y][x];
-            if (c === mod[y][x + 1] && c === mod[y + 1][x] && c === mod[y + 1][x + 1]) p += 3;
-          }
-        }
-      }
-      p += Math.floor(Math.abs((dark * 100) / (size * size) - 50) / 5) * 10;
-      return p;
-    };
-    let best = forceMask;
-    if (best == null) {
-      let bestP = Infinity;
-      for (let m = 0; m < 8; m++) {
-        applyMask(m);
-        drawFormat(m);
-        const p = penalty();
-        if (p < bestP) {
-          bestP = p;
-          best = m;
-        }
-        applyMask(m); // undo
-      }
-    }
-    applyMask(best);
-    drawFormat(best);
-    return mod;
-  }
-
-  /** SVG markup (safe: only numbers) for a QR matrix with a 4-module quiet zone. */
-  function qrSvg(text) {
-    const m = qrMatrix(text);
-    const n = m.length + 8;
-    let d = '';
-    m.forEach((row, y) => row.forEach((dark, x) => {
-      if (dark) d += `M${x + 4} ${y + 4}h1v1h-1z`;
-    }));
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${n} ${n}" width="260" height="260" role="img" aria-label="QR code" shape-rendering="crispEdges"><rect width="${n}" height="${n}" fill="#fff"/><path d="${d}" fill="#000"/></svg>`;
-  }
-
-  if (typeof module === 'object' && module.exports) module.exports = { qrMatrix, qrSvg };
   if (typeof document === 'undefined' || !document.getElementById('app')) return;
+
+  // QR codes come from js/qr.js (shared with the admin panel); CSV and upload checks from js/csvkit.js.
+  const qrSvg = (text) => {
+    if (!window.SDQR) throw new Error('QR encoder (js/qr.js) is not loaded');
+    return window.SDQR.qrSvg(text);
+  };
 
   // ===========================================================================
   // Basics
@@ -254,6 +27,10 @@
   // Inside the Capacitor app. Google blocks its sign-in inside app webviews, so the Google button is hidden there.
   const IN_APP = /^capacitor:/.test(location.origin) || location.origin === 'https://localhost';
   const GSI_SRC = 'https://accounts.google.com/gsi/client';
+  const LAST_METHOD_KEY = 'sd_last_method'; // 'password' | 'google': shown as a hint on the next sign-in
+  const HANDOFF_KEY = 'sd_app_handoff'; // 'customer' | 'business': this browser tab was opened by an app to sign in
+  const APP_SCHEMES = { customer: 'sastadawa', business: 'sastadawabiz' };
+  const METHOD_LABEL = { password: 'email and password', google: 'Google', app: 'the app' };
 
   const app = document.getElementById('app');
   const $ = (s, r) => (r || document).querySelector(s);
@@ -271,6 +48,19 @@
     const d = new Date(s);
     return isNaN(d) ? '' : d.toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   };
+  const fmtDateTime = (s) => {
+    const d = new Date(s);
+    return isNaN(d) ? '' : d.toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+  const today = () => new Date().toISOString().slice(0, 10);
+  /** "Google · 26 Nov 2026, 14:05 on Chrome on Android" (plain text; escape before use in HTML). */
+  function loginText(l) {
+    if (!l || typeof l !== 'object') return '';
+    const how = METHOD_LABEL[l.method] || 'password';
+    const when = fmtDateTime(l.at);
+    const dev = String(l.device || l.ua || '').slice(0, 80);
+    return how + (when ? ' · ' + when : '') + (dev ? ' on ' + dev : '');
+  }
   const waLink = (phone, text) => {
     let p = String(phone || '').replace(/[^\d]/g, '');
     if (p.startsWith('0')) p = '92' + p.slice(1);
@@ -380,8 +170,9 @@
       go('#/signin');
       throw Object.assign(new Error(data.error || 'Please sign in.'), { status: 401, handled: true });
     }
-    if (!res.ok) throw Object.assign(new Error(data.error || 'Something went wrong (' + res.status + '). Please try again.'), { status: res.status });
-    if (data.user) setSession(undefined, data.user);
+    // data travels with the error so callers can show row errors from CSV imports ({ errors: [{row, error}] })
+    if (!res.ok) throw Object.assign(new Error(data.error || 'Something went wrong (' + res.status + '). Please try again.'), { status: res.status, data });
+    if (data.user && !o.raw) setSession(undefined, data.user);
     return data;
   }
 
@@ -470,6 +261,58 @@
   // ===========================================================================
   const params = new URLSearchParams(location.search);
 
+  // Opened by the customer / business app (?app=customer|business) to sign in with Google in the real browser.
+  // Kept for this tab only, because signing in removes ?app= from the address.
+  function ssGet(k) {
+    try {
+      return sessionStorage.getItem(k);
+    } catch (e) {
+      return S['ss_' + k] || null;
+    }
+  }
+  function ssSet(k, v) {
+    try {
+      if (v == null) sessionStorage.removeItem(k);
+      else sessionStorage.setItem(k, v);
+    } catch (e) {
+      S['ss_' + k] = v;
+    }
+  }
+  if (!IN_APP && APP_SCHEMES[params.get('app')]) ssSet(HANDOFF_KEY, params.get('app'));
+  // The Capacitor apps (js/native.js) expose window.SastaNative (null / absent on the website).
+  const native = () => window.SastaNative || window.SDNative || null;
+  const nativeApp = () => {
+    const n = native();
+    return n && (n.app === 'business' || n.app === 'customer') ? n.app : '';
+  };
+  const nativeAuth = () => {
+    const n = native();
+    return n && n.auth && typeof n.auth.startBrowserLogin === 'function' ? n.auth : null;
+  };
+  // Browser login finished: the app stored sd_user_token / sd_user and tells us here.
+  window.addEventListener('sd-native-login', (e) => {
+    const r = (e && e.detail) || {};
+    if (r.ok) {
+      let stored = null;
+      try {
+        stored = JSON.parse(lsGet(USER_KEY) || 'null');
+      } catch (err) {
+        stored = null;
+      }
+      setSession(lsGet(TOKEN_KEY) || S.token, r.user || stored);
+      if (!S.token || !S.user) return;
+      lsSet(LAST_METHOD_KEY, 'google');
+      S.pharmacies = null;
+      toast('Welcome, ' + S.user.name + '!');
+      go('#/');
+    } else {
+      const out = $('#google-msg');
+      if (out) msg(out, r.error || 'Sign-in in the browser did not finish. Please try again.');
+      else toast(r.error || 'Sign-in in the browser did not finish. Please try again.');
+    }
+  });
+  const handoffApp = () =>(IN_APP ? '' : APP_SCHEMES[ssGet(HANDOFF_KEY)] ? ssGet(HANDOFF_KEY) : '');
+
   function tabsFor(role) {
     const t = {
       patient: [['medicines', 'My Medicines']],
@@ -515,6 +358,7 @@
       const mode = parts[0] === 'signup' || (parts[0] !== 'signin' && params.get('mode') === 'signup') ? 'signup' : 'signin';
       return renderAuth(mode);
     }
+    if (handoffApp() && S.user.id) return renderHandoff();
     const tabs = tabsFor(S.user.role);
     let tab = parts[0] || '';
     if (tab === 'signin' || tab === 'signup') tab = '';
@@ -529,8 +373,15 @@
   // ===========================================================================
   function renderAuth(mode) {
     setTitle(mode === 'signup' ? 'Create account' : 'Sign in');
-    const pre = ROLE_LABEL[params.get('type')] ? params.get('type') : 'patient';
-    const typeOpts = Object.keys(ROLE_LABEL)
+    // Inside the apps: the customer app signs up personal accounts, the business app only business types.
+    const nApp = nativeApp();
+    const roles = Object.keys(ROLE_LABEL).filter((r) => (nApp === 'business' ? r !== 'patient' : nApp === 'customer' ? r === 'patient' : true));
+    let pre = ROLE_LABEL[params.get('type')] ? params.get('type') : roles[0];
+    if (!roles.includes(pre)) pre = roles[0];
+    const bizLink = nApp === 'customer' && mode === 'signup'
+      ? '<p class="small biz-app-link" id="biz-app-link">Own a pharmacy? <a href="https://sasta-dawa-finder.vercel.app/download?app=business" target="_blank" rel="noopener">Get the Sasta Dawa for Pharmacies app</a></p>'
+      : '';
+    const typeOpts = roles
       .map((r) => `<label class="type-opt"><input type="radio" name="role" value="${r}"${r === pre ? ' checked' : ''}><span>${esc(ROLE_LABEL[r])}<small>${esc(ROLE_HINT[r])}</small></span></label>`)
       .join('');
     // Filled in by mountGoogle() only when Google sign-in is configured (hidden until then).
@@ -540,6 +391,13 @@
             <p class="form-msg" id="google-msg" role="alert"></p>
             <div class="or-divider" role="separator"><span>or</span></div>
           </div>`;
+    const last = lsGet(LAST_METHOD_KEY);
+    const lastHint = METHOD_LABEL[last] && last !== 'app'
+      ? `<p class="last-hint notice info" id="last-hint">${icInfo}<span>Last time you used <b>${esc(last === 'google' ? 'Google' : 'your email and password')}</b>.</span></p>`
+      : '';
+    const appNote = handoffApp()
+      ? `<div class="notice info handoff-note">${icInfo}<p>Sign in here and we will take you back to the <b>${handoffApp() === 'business' ? 'Sasta Dawa for Pharmacies' : 'Sasta Dawa'}</b> app.</p></div>`
+      : '';
     app.innerHTML = `
       <section class="auth view">
         <h1 class="view-title">${mode === 'signup' ? 'Create your account' : 'Sign in to Sasta Dawa'}</h1>
@@ -548,10 +406,16 @@
           <a href="#/signin"${mode === 'signin' ? ' aria-current="page"' : ''}>Sign in</a>
           <a href="#/signup"${mode === 'signup' ? ' aria-current="page"' : ''}>Create account</a>
         </nav>
+        ${appNote}
         <div class="card">
         ${mode === 'signup' ? `
           <form class="form" id="signup-form" novalidate>
             <fieldset class="types"><legend>Account type</legend>${typeOpts}</fieldset>
+            ${bizLink}
+            <div class="terms-box">
+              <label class="check terms-check"><input type="checkbox" name="terms" id="accept-terms" value="1" required> <span>I agree to the <a href="terms.html" target="_blank" rel="noopener">Terms of Service</a> and <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a></span></label>
+              <p class="small muted">Needed for both ways of signing up below. We never sell your data.</p>
+            </div>
             ${googleBox}
             <label class="field">Name (or business name)<input class="input" name="name" autocomplete="name" required maxlength="80"></label>
             <div class="form-row">
@@ -560,10 +424,10 @@
             </div>
             <label class="field">Password <small class="muted">(at least 8 characters)</small><input class="input" type="password" name="password" autocomplete="new-password" required minlength="8" maxlength="200"></label>
             <label class="hp" aria-hidden="true">Website<input type="text" name="website" tabindex="-1" autocomplete="off"></label>
-            <p class="small muted" style="margin:0">By creating an account you agree to our <a href="privacy.html">privacy policy</a>. We never sell your data.</p>
             <div class="actions"><button type="submit" class="btn btn-primary">Create account</button></div>
             <p class="form-msg" role="alert"></p>
           </form>` : `
+          ${lastHint}
           ${googleBox}
           <form class="form" id="signin-form" novalidate>
             <label class="field">Email<input class="input" type="email" name="email" autocomplete="email" required maxlength="200"></label>
@@ -578,7 +442,7 @@
     onSubmit($('#signin-form'), async (fd, out) => {
       if (!val(fd, 'email') || !val(fd, 'password')) return msg(out, 'Enter your email and password.');
       const r = await api('login', { body: { email: val(fd, 'email'), password: String(fd.get('password') || '') } });
-      afterAuth(r);
+      afterAuth(r, 'password');
     });
     onSubmit($('#signup-form'), async (fd, out) => {
       const body = {
@@ -592,8 +456,10 @@
       if (body.name.length < 2) return msg(out, 'Please enter your name (or your business name).');
       if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(body.email)) return msg(out, 'Please enter a valid email address.');
       if (body.password.length < 8) return msg(out, 'Password must be at least 8 characters.');
+      if (!fd.get('terms')) return msg(out, 'Please tick “I agree to the Terms of Service and Privacy Policy” to create an account.');
+      body.acceptTerms = true;
       const r = await api('signup', { body });
-      afterAuth(r);
+      afterAuth(r, 'password');
     });
     mountGoogle(mode);
   }
@@ -622,6 +488,37 @@
 
   /** Shows the Google button on the Sign in / Create account screen when the server has a client id. */
   async function mountGoogle(mode) {
+    const n = nativeAuth();
+    if (n) {
+      // Inside the apps Google blocks its button in the webview: sign in in the real browser, come back by deep link.
+      const box = $('#google-box');
+      const holder = $('#google-btn');
+      if (!box || !holder) return;
+      holder.innerHTML = '<button type="button" class="btn btn-ghost native-google-btn" id="native-google">Continue with Google (opens browser)</button>';
+      box.hidden = false;
+      $('#native-google').addEventListener('click', async (ev) => {
+        const out = $('#google-msg');
+        msg(out, '');
+        if (mode === 'signup') {
+          const terms = $('#accept-terms');
+          if (terms && !terms.checked) {
+            terms.focus();
+            return msg(out, 'Please tick “I agree to the Terms of Service and Privacy Policy” first.');
+          }
+        }
+        ev.currentTarget.disabled = true;
+        const btn = ev.currentTarget;
+        msg(out, 'Opening your browser… finish signing in there and you will come back here.', true);
+        try {
+          await n.startBrowserLogin();
+        } catch (e) {
+          msg(out, (e && e.message) || 'Could not open the browser. Please try again, or use your email below.');
+        } finally {
+          btn.disabled = false;
+        }
+      });
+      return;
+    }
     if (IN_APP) return;
     let clientId = '';
     try {
@@ -655,26 +552,99 @@
     msg(out, '');
     const credential = resp && resp.credential;
     if (!credential) return msg(out, 'Google sign-in was cancelled. Please try again, or use your email below.');
+    const signup = $('#signup-form');
     const picked = $('#signup-form input[name="role"]:checked');
     const body = { credential };
     if (picked) body.role = picked.value;
+    if (signup) {
+      const terms = $('#accept-terms');
+      if (!terms || !terms.checked) {
+        if (terms) terms.focus();
+        return msg(out, 'Please tick “I agree to the Terms of Service and Privacy Policy” first, then press the Google button again.');
+      }
+      body.acceptTerms = true;
+    }
     msg(out, 'Signing you in…', true);
     try {
       const r = await api('google', { body });
-      afterAuth(r);
+      afterAuth(r, 'google');
     } catch (e) {
-      msg($('#google-msg'), (e && e.message) || 'Google sign-in failed. Please try again, or use your email below.');
+      const m = (e && e.message) || 'Google sign-in failed. Please try again, or use your email below.';
+      // New Google account from the Sign in screen: the server needs the terms checkbox, which is on Create account.
+      if (!signup && e && e.status === 400 && /terms/i.test(m)) {
+        const box = $('#google-msg');
+        msg(box, '');
+        if (box) box.innerHTML = 'You don\'t have an account yet. <a href="#/signup">Create an account</a>, tick “I agree to the Terms”, then use Google again.';
+        if (box) box.className = 'form-msg bad';
+        return;
+      }
+      msg($('#google-msg'), m);
     }
   }
 
-  function afterAuth(r) {
+  function afterAuth(r, method) {
     if (!r || !r.token || !r.user) throw new Error('Could not sign you in. Please try again.');
     setSession(r.token, r.user);
+    if (method) lsSet(LAST_METHOD_KEY, method);
     S.pharmacies = null;
     toast('Welcome, ' + r.user.name + '!');
     if (location.search) history.replaceState(null, '', location.pathname + '#/');
     if (location.hash === '#/' || !location.hash) route();
     else location.hash = '#/';
+  }
+
+  // ---- Back to the app (Google sign-in for the Android apps happens here, in the real browser) ----
+  async function renderHandoff() {
+    const which = handoffApp();
+    const scheme = APP_SCHEMES[which];
+    const appName = which === 'business' ? 'Sasta Dawa for Pharmacies' : 'Sasta Dawa';
+    setTitle('Return to the app');
+    app.innerHTML = `
+      <section class="auth view handoff">
+        <div class="card handoff-card">
+          <h1 class="view-title">Taking you back to the ${esc(appName)} app…</h1>
+          <p>Signed in as <b>${esc(S.user.name)}</b>${S.user.email ? ' (' + esc(S.user.email) + ')' : ''}.</p>
+          <div id="handoff-body">${loadingHtml}</div>
+          <div class="actions handoff-alt">
+            <button type="button" class="btn btn-ghost" id="handoff-switch">Not you? Use a different account</button>
+            <button type="button" class="btn btn-ghost" id="handoff-stay">Stay on the website</button>
+          </div>
+        </div>
+      </section>`;
+    $('#handoff-switch').addEventListener('click', () => {
+      signOutLocal();
+      go('#/signin');
+    });
+    $('#handoff-stay').addEventListener('click', () => {
+      ssSet(HANDOFF_KEY, null);
+      go('#/');
+    });
+    const body = $('#handoff-body');
+    try {
+      const r = await api('app-code', { body: { app: which } });
+      const code = String((r && r.code) || '');
+      if (!/^[A-Za-z0-9_-]{16,128}$/.test(code)) throw new Error('Could not create a sign-in code for the app. Please try again.');
+      const link = scheme + '://auth?code=' + encodeURIComponent(code);
+      ssSet(HANDOFF_KEY, null); // the code works once; reloading this page should not loop back to the app
+      if (!document.body.contains(body)) return;
+      body.innerHTML = `
+        <a class="btn btn-primary handoff-btn" id="handoff-open" href="${esc(link)}">Return to the app</a>
+        <p class="small muted">If the app did not open by itself, press the button above. The sign-in link works once and expires in 5 minutes.</p>`;
+      openUrl(link);
+    } catch (e) {
+      if (e && e.handled) return;
+      body.innerHTML = errorHtml(e) + '<div class="actions"><button type="button" class="btn btn-primary" id="handoff-retry">Try again</button></div>';
+      $('#handoff-retry').addEventListener('click', () => renderHandoff());
+    }
+  }
+  /** Leaves the page for the app's deep link (kept separate so tests can watch it). */
+  function openUrl(link) {
+    if (typeof window.__sdOpenUrl === 'function') return window.__sdOpenUrl(link);
+    try {
+      window.location.href = link;
+    } catch (e) {
+      /* blocked: the "Return to the app" button is there */
+    }
   }
 
   // ===========================================================================
@@ -686,6 +656,15 @@
     else b.push('<span class="badge">Free plan</span>');
     if (u.joinedCompany) b.push(`<span class="badge">Staff of ${esc(u.joinedCompany.name)}</span>`);
     return b.join('');
+  }
+
+  /** Header line: the sign-in BEFORE this one ("this one" is always now, so it tells you nothing). */
+  function lastLoginHtml(u) {
+    if (u.prevLogin && u.prevLogin.at) {
+      return `<p class="last-login" id="last-login">Last signed in with ${esc(loginText(u.prevLogin))} <a href="#/profile" class="small">Not you?</a></p>`;
+    }
+    if (u.lastLogin && u.lastLogin.at) return '<p class="last-login" id="last-login">This is the first sign-in we have recorded for this account.</p>';
+    return '';
   }
 
   function renderDashboard(tab, rest) {
@@ -702,7 +681,7 @@
     }
     app.innerHTML = `
       <div class="dash-head no-print">
-        <div><h1>Hi, ${esc(u.name)}</h1><div class="badges">${planBadges(u)}</div></div>
+        <div><h1>Hi, ${esc(u.name)}</h1><div class="badges">${planBadges(u)}</div>${lastLoginHtml(u)}</div>
       </div>
       ${banner}
       <nav class="tabs no-print" aria-label="Account sections" style="margin-block-start:14px">
@@ -760,6 +739,22 @@
           </form>
         </div>
       </div>
+      <div class="card" id="signin-activity">
+        <h2>Sign-in activity</h2>
+        ${u.lastLogin || u.prevLogin ? `<dl class="kv">
+          ${u.lastLogin ? `<dt>This time</dt><dd id="login-now">${esc(loginText(u.lastLogin))}</dd>` : ''}
+          <dt>Last time</dt><dd id="login-prev">${u.prevLogin ? esc(loginText(u.prevLogin)) : 'No earlier sign-in recorded.'}</dd>
+        </dl>
+        <p class="small muted">“This time” is the sign-in you are using now. “Last time” is the one before it. If you don't recognise “Last time”, change your password and press “Sign out everywhere” below.</p>`
+        : '<p class="muted">We will show here how and when you last signed in, so you can spot a sign-in that was not you.</p>'}
+      </div>
+      <div class="card" id="your-data">
+        <h2>Your data</h2>
+        <p class="muted">Download a copy of everything we keep about your account (profile, pharmacies, reservations, refill customers, payments and statistics) as a JSON file.</p>
+        <div class="actions"><button type="button" class="btn btn-ghost" id="export-data">Download my data</button></div>
+        <p class="form-msg" id="export-msg" role="status"></p>
+        <p class="small muted">Read our <a href="privacy.html">Privacy Policy</a> and <a href="terms.html">Terms of Service</a>.</p>
+      </div>
       <div class="card">
         <h2>Sign out</h2>
         <div class="actions">
@@ -770,7 +765,7 @@
       </div>
       <div class="card">
         <h2>Delete account</h2>
-        <p class="muted">This permanently deletes your account${u.role === 'pharmacy' ? ', your pharmacy listings' : ''}${u.role === 'developer' ? ', your API keys' : ''} and saved data. It cannot be undone.</p>
+        <p class="muted">This permanently deletes your account${u.role === 'pharmacy' ? ', your pharmacy listings' : ''}${u.role === 'developer' ? ', your API keys' : ''} and saved data. It cannot be undone. You may want to download your data first. <a href="delete-account.html">What is deleted and when</a>.</p>
         <form class="form" id="delete-form">
           ${noPassword
             ? '<label class="field">Type DELETE to confirm<input class="input" name="confirm" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="10" required></label>'
@@ -801,6 +796,20 @@
       }
       $('#password-form', el).reset();
       msg(out, 'Password changed.', true);
+    });
+    $('#export-data', el).addEventListener('click', async (ev) => {
+      const out = $('#export-msg', el);
+      ev.target.disabled = true;
+      msg(out, 'Preparing your file…', true);
+      try {
+        const data = await api('export', { raw: true });
+        downloadFile('sasta-dawa-my-data-' + today() + '.json', JSON.stringify(data, null, 2), 'application/json');
+        msg(out, 'Downloaded. Keep the file somewhere safe: it contains your personal details.', true);
+      } catch (e) {
+        if (!e.handled) msg(out, e.message);
+      } finally {
+        ev.target.disabled = false;
+      }
     });
     $('#signout', el).addEventListener('click', () => {
       signOutLocal();
@@ -1336,126 +1345,155 @@
       });
   }
 
-  // -- Bulk CSV upload
-  function parseCsv(text) {
-    const rows = [];
-    let row = [];
-    let cell = '';
-    let q = false;
-    for (let i = 0; i < text.length; i++) {
-      const c = text[i];
-      if (q) {
-        if (c === '"' && text[i + 1] === '"') {
-          cell += '"';
-          i++;
-        } else if (c === '"') q = false;
-        else cell += c;
-      } else if (c === '"') q = true;
-      else if (c === ',' || c === '\t' || c === ';') {
-        row.push(cell);
-        cell = '';
-      } else if (c === '\n' || c === '\r') {
-        if (c === '\r' && text[i + 1] === '\n') i++;
-        row.push(cell);
-        rows.push(row);
-        row = [];
-        cell = '';
-      } else cell += c;
+  // -- CSV imports (strict templates, checked here first, then all-or-nothing on the server)
+  /** Downloads the template from the server (a=csv-template), or the built-in copy when offline. */
+  async function downloadTemplate(type) {
+    let text = '';
+    try {
+      const headers = {};
+      if (S.token) headers.Authorization = 'Bearer ' + S.token;
+      const res = await fetch(API + '/api/account?a=csv-template&type=' + encodeURIComponent(type), { headers, cache: 'no-store' });
+      if (res && res.ok) {
+        const ct = (res.headers && res.headers.get && res.headers.get('content-type')) || '';
+        if (/csv|text\/plain/i.test(ct) && typeof res.text === 'function') text = await res.text();
+        else {
+          const j = await res.json();
+          text = (j && typeof j.csv === 'string' && j.csv) || '';
+        }
+      }
+    } catch (e) {
+      text = '';
     }
-    if (cell || row.length) {
-      row.push(cell);
-      rows.push(row);
-    }
-    return rows.map((r) => r.map((x) => x.trim())).filter((r) => r.some(Boolean));
+    if (!text) text = window.SDCsv.templateCsv(type);
+    downloadFile('sasta-dawa-' + type + '-template.csv', text);
   }
 
-  function matchRows(rows, engine) {
-    if (rows.length && /^(medicine|name|id|product|item)/i.test(rows[0][0] || '')) rows = rows.slice(1);
-    const matched = [];
-    const unmatched = [];
-    rows.slice(0, 5000).forEach((r, i) => {
-      const key = r[0] || '';
-      const st = /^(out|no|0|n|false|out of stock)$/i.test(r[1] || '') ? 'out' : 'in';
-      const price = Number(String(r[2] || '').replace(/[^\d.]/g, '')) || undefined;
-      let m = engine.byId(key);
-      if (!m && key) {
-        const hit = engine.search(key, { limit: 1 })[0];
-        m = hit ? hit.med : null;
+  const resultCount = (r) => {
+    for (const k of ['imported', 'count', 'created', 'changed', 'added', 'updated']) if (r && typeof r[k] === 'number') return r[k];
+    return null;
+  };
+  function rowErrorsHtml(errors, title) {
+    const list = (Array.isArray(errors) ? errors : []).filter((x) => x && typeof x === 'object');
+    if (!list.length) return '';
+    return `<div class="row-errors"><p class="row-errors-h">${esc(title)} (${esc(list.length)})</p><ul>${list
+      .slice(0, 200)
+      .map((x) => `<li><b>Row ${esc(x.row)}</b>: ${esc(x.error)}</li>`)
+      .join('')}</ul>${list.length > 200 ? `<p class="small muted">Showing the first 200 of ${esc(list.length)}.</p>` : ''}</div>`;
+  }
+
+  /**
+   * A strict CSV import box. opts: { type, title, intro, send(csv, partial) -> Promise<result>, onDone(result, box) }
+   * Steps: download template -> choose file -> checked preview (first 10 rows, every problem listed) -> import.
+   * All-or-nothing by default; "import only the valid rows" sends partial:true.
+   */
+  function csvImport(host, opts) {
+    const t = window.SDCsv && window.SDCsv.TEMPLATES[opts.type];
+    if (!host) return;
+    if (!t) {
+      host.innerHTML = errorHtml(new Error('CSV import is not available (js/csvkit.js is not loaded).'));
+      return;
+    }
+    host.innerHTML = `
+      <div class="card import-card" data-import="${esc(opts.type)}">
+        <h3>${esc(opts.title || 'Import from a spreadsheet (CSV)')}</h3>
+        ${opts.intro ? `<p class="muted">${opts.intro}</p>` : ''}
+        <p class="small">The first row must be exactly: <code>${esc(t.headers.join(','))}</code></p>
+        <div class="actions"><button type="button" class="btn btn-ghost" data-tpl>Download template</button></div>
+        <ol class="small muted import-steps">
+          <li>Download the template and fill it in (Excel or Google Sheets).</li>
+          <li>Save it as <b>CSV</b> (File → Save as / Download → CSV). Up to 2 MB and ${esc(window.SDCsv.MAX_ROWS)} rows.</li>
+          <li>Choose the file below, check the preview, then import.</li>
+        </ol>
+        <label class="field">CSV file<input class="input" type="file" name="file" accept=".csv,text/csv" data-file></label>
+        <p class="form-msg" data-msg role="status"></p>
+        <div data-preview></div>
+      </div>`;
+    const card = $('.import-card', host);
+    const out = $('[data-msg]', card);
+    const prev = $('[data-preview]', card);
+    $('[data-tpl]', card).addEventListener('click', () => downloadTemplate(opts.type));
+    $('[data-file]', card).addEventListener('change', async (ev) => {
+      const file = ev.target.files && ev.target.files[0];
+      prev.innerHTML = '';
+      msg(out, '');
+      if (!file) return;
+      let text;
+      try {
+        text = await window.SDCsv.readCsvFile(file);
+      } catch (e) {
+        return msg(out, e.message);
       }
-      if (m) matched.push({ line: i + 1, input: key, med: m, s: st, price });
-      else unmatched.push({ line: i + 1, input: key });
+      showPreview(text);
     });
-    return { matched, unmatched };
+    // exposed for tests and for pasting: card.sdLoad(text)
+    card.sdLoad = (text) => showPreview(String(text || ''));
+
+    function showPreview(text) {
+      const c = window.SDCsv.check(opts.type, text);
+      if (c.headerError) {
+        prev.innerHTML = `<div class="notice bad">${icInfo}<p>${esc(c.headerError)}</p></div>`;
+        return;
+      }
+      const bad = c.errors.length;
+      const good = c.total - bad;
+      prev.innerHTML = `
+        <div class="import-preview">
+          <h4>${esc(c.total)} row${c.total === 1 ? '' : 's'} found · ${bad ? `<span class="bad-txt">${esc(bad)} with problems</span>` : '<span class="save-txt">all look fine</span>'}</h4>
+          <p class="small muted">First ${esc(c.preview.length)} rows (row numbers are the rows in your spreadsheet; the header is row 1):</p>
+          <div class="table-wrap"><table class="tbl"><thead><tr><th>Row</th>${c.headers.map((h) => `<th>${esc(h)}</th>`).join('')}<th>Check</th></tr></thead><tbody>${c.preview
+            .map((r) => `<tr${r.error ? ' class="row-bad"' : ''}><td>${esc(r.row)}</td>${c.headers.map((h, i) => `<td>${esc(r.cells[i] == null ? '' : r.cells[i])}</td>`).join('')}<td>${r.error ? `<span class="badge bad">Problem</span>` : '<span class="badge good">OK</span>'}</td></tr>`)
+            .join('')}</tbody></table></div>
+          ${rowErrorsHtml(c.errors, 'Rows with problems')}
+          ${bad ? `<p class="small">Fix these rows in your spreadsheet and choose the file again, or import only the rows without problems.</p>
+          <label class="check"><input type="checkbox" data-partial> Import only the valid rows (skip ${esc(bad)} row${bad === 1 ? '' : 's'} with problems)</label>` : ''}
+          <div class="actions"><button type="button" class="btn btn-primary" data-go${bad ? ' disabled' : ''}>Import ${esc(bad ? good : c.total)} row${(bad ? good : c.total) === 1 ? '' : 's'}</button></div>
+          <p class="form-msg" data-go-msg role="status"></p>
+          <div data-result></div>
+        </div>`;
+      const goBtn = $('[data-go]', prev);
+      const partialBox = $('[data-partial]', prev);
+      if (partialBox) partialBox.addEventListener('change', () => (goBtn.disabled = !partialBox.checked || good === 0));
+      goBtn.addEventListener('click', async () => {
+        const gm = $('[data-go-msg]', prev);
+        const resBox = $('[data-result]', prev);
+        const partial = !!(partialBox && partialBox.checked);
+        goBtn.disabled = true;
+        msg(gm, 'Importing…', true);
+        resBox.innerHTML = '';
+        try {
+          const r = await opts.send(text, partial);
+          const n = resultCount(r);
+          msg(gm, n == null ? 'Import finished.' : `Imported ${n} row${n === 1 ? '' : 's'}.`, true);
+          resBox.innerHTML = rowErrorsHtml(r && r.errors, 'Rows skipped');
+          if (opts.onDone) opts.onDone(r || {}, resBox);
+        } catch (e) {
+          if (e.handled) return;
+          goBtn.disabled = false;
+          if (e.status === 402) {
+            gm.innerHTML = errorHtml(e);
+            gm.className = 'form-msg';
+          } else msg(gm, e.message + (e.data && Array.isArray(e.data.errors) && e.data.errors.length ? ' Nothing was imported.' : ''));
+          resBox.innerHTML = rowErrorsHtml(e.data && e.data.errors, 'Rows with problems');
+        }
+      });
+    }
   }
 
   function branchBulk(el, p) {
     const premium = S.user.plan === 'pharmacy_premium';
     el.innerHTML = `
-      <div class="card">
-        <h3>Bulk upload from a spreadsheet</h3>
-        ${premium ? '' : '<div class="upgrade" style="margin-block-end:12px"><p>Uploading more than 50 medicines at once needs Pharmacy Premium.</p><div class="actions"><a class="btn btn-primary" href="#/plan">Upgrade</a></div></div>'}
-        <p class="muted">Save your sheet as CSV with three columns: <b>medicine name or id</b>, <b>in/out</b>, <b>your price</b>. Example:</p>
-        <pre class="code">Medicine,Stock,Price
-Panadol 500mg,in,35
-Augmentin 625mg,out,
-Risek 20mg,in,480</pre>
-        <form class="form" id="bulk-form">
-          <label class="field">CSV file<input class="input" type="file" name="file" accept=".csv,text/csv,text/plain"></label>
-          <label class="field">…or paste rows here<textarea class="input" name="text" rows="6" placeholder="Panadol 500mg,in,35"></textarea></label>
-          <div class="actions"><button type="submit" class="btn btn-ghost">Check rows</button></div>
-          <p class="form-msg" role="status"></p>
-        </form>
-      </div>
-      <div id="bulk-preview"></div>`;
-    const prev = $('#bulk-preview', el);
-    onSubmit($('#bulk-form', el), async (fd, out) => {
-      const file = fd.get('file');
-      let text = val(fd, 'text');
-      if (file && file.size) {
-        if (file.size > 2 * 1024 * 1024) return msg(out, 'The file is too large (2 MB max).');
-        text = await file.text();
-      }
-      if (!text) return msg(out, 'Choose a CSV file or paste some rows.');
-      msg(out, 'Matching medicines…', true);
-      const engine = await loadEngine();
-      const res = matchRows(parseCsv(text), engine);
-      msg(out, '');
-      prev.innerHTML = `
-        <div class="card">
-          <h3>${res.matched.length} matched, ${res.unmatched.length} not found</h3>
-          <p class="small muted">Check the matches: names are matched with the same search as the website. Fix any wrong ones in your sheet (use the exact brand and strength, or the medicine id) and check again.</p>
-          ${res.matched.length ? `<div class="table-wrap"><table class="tbl"><thead><tr><th>#</th><th>Your row</th><th>Matched medicine</th><th>Stock</th><th class="n">Price</th></tr></thead><tbody>${res.matched
-            .slice(0, 500)
-            .map((r) => `<tr><td>${r.line}</td><td>${esc(r.input)}</td><td><b>${esc(medLabel(r.med))}</b><span class="sub">${esc(medMeta(r.med))}</span></td><td>${r.s === 'out' ? '<span class="badge bad">Out</span>' : '<span class="badge good">In</span>'}</td><td class="n">${r.price ? esc(rs2(r.price)) : ''}</td></tr>`)
-            .join('')}</tbody></table></div>${res.matched.length > 500 ? `<p class="small muted">Showing the first 500 of ${res.matched.length}.</p>` : ''}` : ''}
-          ${res.unmatched.length ? `<h3 style="margin-block-start:14px">Not found</h3><p class="small">${res.unmatched.slice(0, 200).map((r) => `Row ${r.line}: ${esc(r.input || '(empty)')}`).join('<br>')}</p>` : ''}
-          ${res.matched.length ? `<div class="actions" style="margin-block-start:12px"><button type="button" class="btn btn-primary" id="bulk-go">Upload ${res.matched.length} medicines</button></div><p class="form-msg" id="bulk-msg" role="status"></p>` : ''}
-        </div>`;
-      const go = $('#bulk-go', prev);
-      if (!go) return;
-      go.addEventListener('click', async () => {
-        go.disabled = true;
-        const bm = $('#bulk-msg', prev);
-        const items = res.matched.map((r) => ({ id: r.med.id, s: r.s, price: r.price }));
-        let done = 0;
-        try {
-          for (let i = 0; i < items.length; i += 1000) {
-            const r = await api('set-stock', { body: { id: p.id, items: items.slice(i, i + 1000) } });
-            done += r.changed;
-            p.stock = r.stock;
-            msg(bm, `Uploaded ${done} of ${items.length}…`, true);
-          }
-          msg(bm, `Done: ${done} medicines updated.`, true);
-          toast('Stock list updated.');
-        } catch (e) {
-          if (e.handled) return;
-          if (e.status === 402) {
-            bm.innerHTML = errorHtml(e);
-            bm.className = 'form-msg';
-          } else msg(bm, e.message);
-          go.disabled = false;
-        }
-      });
+      ${premium ? '' : '<div class="upgrade" style="margin-block-end:12px"><p>Uploading more than 50 medicines at once needs Pharmacy Premium.</p><div class="actions"><a class="btn btn-primary" href="#/plan">Upgrade</a></div></div>'}
+      <div id="bulk-import"></div>`;
+    csvImport($('#bulk-import', el), {
+      type: 'stock',
+      title: 'Bulk upload your stock list',
+      intro: 'One row per medicine: <b>medicine</b> (brand and strength, e.g. Panadol 500mg, or the medicine id), <b>status</b> (<code>in</code> or <code>out</code>) and <b>price</b> (your price in Rs, optional).',
+      send: (csv, partial) => api('import-stock', { body: { pid: p.id, id: p.id, csv, partial } }),
+      onDone: (r) => {
+        if (r.stock) p.stock = r.stock;
+        S.pharmacies = null;
+        toast('Stock list updated.');
+      },
     });
   }
 
@@ -1591,6 +1629,7 @@ Risek 20mg,in,480</pre>
 
   function branchRefills(el, p, rest) {
     const sub = (rest && rest[0]) || '';
+    if (sub === 'import') return refillImport(el, p);
     if (sub) return refillForm(el, p, sub);
     into(el, async () => {
       const r = await api('refills', { params: { id: p.id } });
@@ -1612,7 +1651,7 @@ Risek 20mg,in,480</pre>
         </div>`;
       el.innerHTML = `
         <div class="card">
-          <div class="item-top"><h3>Refill customers (${esc(cs.length)})</h3><a class="btn btn-primary" href="#/branch/${esc(p.id)}/refills/new">Add customer</a></div>
+          <div class="item-top"><h3>Refill customers (${esc(cs.length)})</h3><div class="actions"><a class="btn btn-ghost" href="#/branch/${esc(p.id)}/refills/import">Import from CSV</a><a class="btn btn-primary" href="#/branch/${esc(p.id)}/refills/new">Add customer</a></div></div>
           <p class="small muted">Keep a list of regular customers and how often they need their medicines. Customers due in the next 3 days are shown first. Only your account can see this list. Pharmacy Pro: up to 200 customers; Premium: more.</p>
           <p class="form-msg" id="refill-msg" role="status"></p>
           ${cs.length ? `
@@ -1638,6 +1677,21 @@ Risek 20mg,in,480</pre>
           } else msg(m, e.message);
         }
       };
+    });
+  }
+
+  function refillImport(el, p) {
+    el.onclick = null;
+    el.innerHTML = `<p class="no-print"><a class="back-link" href="#/branch/${esc(p.id)}/refills">← Refill customers</a></p><div id="refill-import"></div>`;
+    csvImport($('#refill-import', el), {
+      type: 'refills',
+      title: 'Import refill customers',
+      intro: 'One row per customer: <b>name</b>, <b>phone</b>, <b>medicines</b> (separate several with <code>;</code>), <b>every_days</b> (how often they need a refill) and <b>last_refill_date</b> (like 2026-11-01, optional).',
+      send: (csv, partial) => api('import-refills', { body: { pid: p.id, id: p.id, csv, partial } }),
+      onDone: (r, box) => {
+        toast('Refill customers imported.');
+        box.insertAdjacentHTML('beforeend', `<div class="actions"><a class="btn btn-primary" href="#/branch/${esc(p.id)}/refills">See refill customers</a></div>`);
+      },
     });
   }
 
@@ -1870,6 +1924,7 @@ Risek 20mg,in,480</pre>
   const ngoDraft = { id: null, name: '', items: [] }; // items: [{id, qty}]
   let ngoResult = null;
   let ngoQuoteResult = null; // { listId, data } from compare-quotes
+  let ngoImportOpen = false; // keep the CSV import box open after an import
 
   /** Printable supplier comparison (part of the donor report when shown). */
   function quoteResultHtml(r, l, engine) {
@@ -1920,6 +1975,7 @@ Risek 20mg,in,480</pre>
         <div class="actions" style="margin-block-start:12px"><button type="button" class="btn btn-primary" id="ngo-calc">Find cheapest options</button><button type="button" class="btn btn-ghost" id="ngo-clear">Clear list</button></div>
         <p class="form-msg" id="ngo-msg" role="status"></p>
       </div>
+      <details class="card no-print import-details" id="ngo-import-wrap"${ngoImportOpen ? ' open' : ''}><summary>Import a list from a spreadsheet (CSV)</summary><div id="ngo-import"></div></details>
       <div id="ngo-result"></div>
       <div id="ngo-quotes"></div>
       <div class="card no-print">
@@ -1932,6 +1988,28 @@ Risek 20mg,in,480</pre>
     const itemsEl = $('#ngo-items', el);
     const resEl = $('#ngo-result', el);
     let engine = null;
+    $('#ngo-import-wrap', el).addEventListener('toggle', (ev) => (ngoImportOpen = ev.target.open));
+    csvImport($('#ngo-import', el), {
+      type: 'list',
+      title: 'Import a medicine list',
+      intro: 'One row per medicine: <b>medicine</b> (brand and strength, or the medicine id) and <b>quantity</b> (tablets, capsules or ml). The medicines are added to your list above.',
+      send: (csv, partial) => api('import-list', { body: { csv, partial, name: ngoDraft.name || undefined } }),
+      onDone: (r) => {
+        const items = Array.isArray(r.items) ? r.items : r.list && Array.isArray(r.list.items) ? r.list.items : null;
+        if (items) {
+          items.filter((x) => x && x.id).forEach((x) => {
+            const qty = Math.max(1, Math.round(Number(x.qty || x.quantity) || 1));
+            const ex = ngoDraft.items.find((y) => y.id === x.id);
+            if (ex) ex.qty += qty;
+            else ngoDraft.items.push({ id: String(x.id), qty });
+          });
+          if (r.list && r.list.id) Object.assign(ngoDraft, { id: r.list.id, name: r.list.name || ngoDraft.name });
+          ngoResult = null;
+          toast('Medicines added to your list.');
+          viewOptimiser(el);
+        } else toast('List imported.');
+      },
+    });
     const drawItems = () => {
       if (!ngoDraft.items.length) {
         itemsEl.innerHTML = '<p class="empty-note">Search above and add medicines.</p>';
@@ -2303,24 +2381,6 @@ Risek 20mg,in,480</pre>
   }
 
   // -- Claims analysis: what staff paid vs the cheapest same-formula brand
-  /** CSV rows -> [{medicine, qty, paid}] (header row optional). */
-  function claimRows(rows) {
-    const numOf = (s) => {
-      const t = String(s == null ? '' : s).replace(/[^\d.]/g, '');
-      return t ? Number(t) : NaN;
-    };
-    if (rows.length && rows[0].length > 1 && isNaN(numOf(rows[0][1])) && isNaN(numOf(rows[0][2]))) rows = rows.slice(1);
-    return rows
-      .filter((r) => r[0])
-      .slice(0, 5000)
-      .map((r) => {
-        const q = numOf(r[1]);
-        const pd = numOf(r[2]);
-        const o = { medicine: r[0], qty: q > 0 ? q : 1 };
-        if (!isNaN(pd) && String(r[2] || '').trim() !== '') o.paid = pd;
-        return o;
-      });
-  }
   let claimsResult = null;
 
   function csvCell(v) {
@@ -2344,19 +2404,8 @@ Risek 20mg,in,480</pre>
       <div class="card no-print">
         <h2>Claims analysis</h2>
         <p class="muted">Upload the medicine claims or purchases your staff made. For each line we find the cheapest DRAP-registered brand with the same formula, strength and form, and show the possible saving.</p>
-        <p class="muted">CSV with three columns: <b>medicine name or id</b>, <b>quantity (tablets, capsules or ml)</b>, <b>amount paid (Rs)</b>. A header row is optional. If the amount is empty, the DRAP price is used.</p>
-        <pre class="code">Medicine,Quantity,Paid
-Augmentin 625mg,14,1150
-Risek 20mg,28,980
-Glucophage 500mg,60,</pre>
-        <form class="form" id="claims-form">
-          <label class="field">CSV file<input class="input" type="file" name="file" accept=".csv,text/csv,text/plain"></label>
-          <label class="field">…or paste rows here<textarea class="input" name="text" rows="6" placeholder="Augmentin 625mg,14,1150"></textarea></label>
-          <div class="actions"><button type="submit" class="btn btn-primary">Analyse claims</button></div>
-          <p class="form-msg" role="status"></p>
-        </form>
-        <p class="small muted" style="margin:0">The file is sent to Sasta Dawa only to match medicines and is not stored. Remove staff names before uploading: only medicine, quantity and amount are needed.</p>
       </div>
+      <div id="claims-import" class="no-print"></div>
       <div id="claims-result"></div>`;
     const resEl = $('#claims-result', el);
     const draw = () => {
@@ -2391,21 +2440,16 @@ Glucophage 500mg,60,</pre>
         downloadFile('sasta-dawa-claims-analysis.csv', '﻿' + lines.join('\r\n'));
       });
     };
-    onSubmit($('#claims-form', el), async (fd, out) => {
-      const file = fd.get('file');
-      let text = val(fd, 'text');
-      if (file && file.size) {
-        if (file.size > 900 * 1024) return msg(out, 'The file is too large (900 KB max). Split it into smaller files.');
-        text = await file.text();
-      }
-      if (!text) return msg(out, 'Choose a CSV file or paste some rows.');
-      const rows = claimRows(parseCsv(text));
-      if (!rows.length) return msg(out, 'No rows found. Put the medicine name in the first column.');
-      msg(out, `Analysing ${rows.length} line${rows.length === 1 ? '' : 's'}…`, true);
-      claimsResult = await api('claims-report', { body: { rows } });
-      msg(out, '');
-      draw();
-      if (resEl.scrollIntoView) resEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    csvImport($('#claims-import', el), {
+      type: 'claims',
+      title: 'Upload claims (CSV)',
+      intro: 'One row per claim or purchase: <b>medicine</b> (name or id), <b>quantity</b> (tablets, capsules or ml) and <b>amount_paid</b> in Rs (leave empty to use the DRAP price). The file is used only to match medicines and is not stored. Remove staff names first: only these three columns are needed.',
+      send: (csv, partial) => api('claims-report', { body: { csv, partial } }),
+      onDone: (r) => {
+        claimsResult = Object.assign({ rows: [], unmatched: [] }, r);
+        draw();
+        if (resEl.scrollIntoView) resEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      },
     });
     draw();
   }
@@ -2528,7 +2572,7 @@ Glucophage 500mg,60,</pre>
     if (location.hash === '#/') route();
   });
   if (S.token && !S.user) S.user = { id: '', name: '', role: 'patient', plan: 'free' }; // filled by 'me' below
-  const userKey = (x) => (x ? x.role + '|' + x.plan + '|' + x.planUntil + '|' + x.hasPassword + '|' + x.google : '');
+  const userKey = (x) => (x ? x.id + '|' + x.role + '|' + x.plan + '|' + x.planUntil + '|' + x.hasPassword + '|' + x.google : '');
   const before = userKey(S.user);
   route();
   if (S.token) {
@@ -2536,6 +2580,7 @@ Glucophage 500mg,60,</pre>
     api('me')
       .then(() => {
         if (!S.user) return;
+        if ($('.handoff')) return; // on the "Return to the app" screen: don't replace it
         if (userKey(S.user) !== before) return route();
         const h = $('.dash-head .badges');
         if (h) h.innerHTML = planBadges(S.user);

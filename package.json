@@ -15,10 +15,11 @@
     "build:app": "node scripts/build_app.js",
     "build:ocr": "node scripts/ocr_assets.js",
     "postinstall": "node scripts/ocr_assets.js",
-    "app:sync": "node scripts/build_app.js && npx cap sync",
-    "app:android": "npm run app:sync && npx cap open android",
-    "app:ios": "npm run app:sync && npx cap open ios",
-    "build:seo": "node scripts/build_seo.js public"
+    "app:sync": "node scripts/build_app.js && npx cap sync && node scripts/build_app.js --android-flavors",
+    "app:android": "npm run app:sync:android && npx cap open android",
+    "app:ios": "node scripts/build_app.js && npx cap sync ios && npx cap open ios",
+    "build:seo": "node scripts/build_seo.js public",
+    "app:sync:android": "node scripts/build_app.js && npx cap sync android && node scripts/build_app.js --android-flavors"
   },
   "keywords": [
     "medicine",
@@ -37,6 +38,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.7.0",
+    "@capacitor-community/speech-recognition": "^7.0.1",
     "@capacitor/app": "^8.1.2",
     "@capacitor/browser": "^8.0.5",
     "@capacitor/core": "^8.6.2",

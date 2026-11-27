@@ -49,9 +49,9 @@ test('platform', async (t) => {
   let pharmToken, pharmUser, pharmacy, patientToken, adminCookie;
 
   await t.test('signup validates input and never stores the password', async () => {
-    let r = await call('/api/account?a=signup', { body: { email: 'bad', name: 'X', password: 'short' }, headers: fresh() });
+    let r = await call('/api/account?a=signup', { body: { acceptTerms: true, email: 'bad', name: 'X', password: 'short' }, headers: fresh() });
     assert.equal(r.status, 400);
-    r = await call('/api/account?a=signup', { body: { email: 'shop@example.com', name: 'Shifa Pharmacy', password: 'pharmacy-123', role: 'pharmacy', phone: '0300 1234567' }, headers: fresh() });
+    r = await call('/api/account?a=signup', { body: { acceptTerms: true, email: 'shop@example.com', name: 'Shifa Pharmacy', password: 'pharmacy-123', role: 'pharmacy', phone: '0300 1234567' }, headers: fresh() });
     assert.equal(r.status, 200);
     assert.ok(r.body.token);
     pharmToken = r.body.token;
@@ -62,7 +62,7 @@ test('platform', async (t) => {
     assert.equal(pharmUser.passHash, undefined);
     const raw = fs.readFileSync(path.join(DIR, 'users', pharmUser.id + '.json'), 'utf8');
     assert.ok(!raw.includes('pharmacy-123'));
-    r = await call('/api/account?a=signup', { body: { email: 'SHOP@example.com', name: 'Dup', password: 'whatever-123' }, headers: fresh() });
+    r = await call('/api/account?a=signup', { body: { acceptTerms: true, email: 'SHOP@example.com', name: 'Dup', password: 'whatever-123' }, headers: fresh() });
     assert.equal(r.status, 409);
   });
 
@@ -139,7 +139,7 @@ test('platform', async (t) => {
   });
 
   await t.test('patients cannot use pharmacy actions or see other users data', async () => {
-    let r = await call('/api/account?a=signup', { body: { email: 'ayesha@example.com', name: 'Ayesha', password: 'patient-123' }, headers: fresh() });
+    let r = await call('/api/account?a=signup', { body: { acceptTerms: true, email: 'ayesha@example.com', name: 'Ayesha', password: 'patient-123' }, headers: fresh() });
     patientToken = r.body.token;
     assert.equal(r.body.user.plan, 'free');
     r = await call('/api/account?a=stats&id=' + pharmacy.id, { headers: bearer(patientToken) });
@@ -178,7 +178,7 @@ test('platform', async (t) => {
   });
 
   await t.test('NGO optimiser, company code, developer API', async () => {
-    let r = await call('/api/account?a=signup', { body: { email: 'ngo@example.com', name: 'Help Trust', password: 'ngo-pass-123', role: 'ngo' }, headers: fresh() });
+    let r = await call('/api/account?a=signup', { body: { acceptTerms: true, email: 'ngo@example.com', name: 'Help Trust', password: 'ngo-pass-123', role: 'ngo' }, headers: fresh() });
     const ngo = r.body.token;
     const alts = dataset.get().engine.alternatives(med, 'unit');
     r = await call('/api/account?a=optimise', { headers: bearer(ngo), body: { items: [{ id: med.id, qty: 100 }] } });
@@ -189,7 +189,7 @@ test('platform', async (t) => {
     r = await call('/api/account?a=save-patient', { headers: bearer(ngo), body: { name: 'Patient A', meds: [{ id: med.id, qty: 30 }] } });
     assert.equal(r.body.user.patients.length, 1);
 
-    r = await call('/api/account?a=signup', { body: { email: 'hr@example.com', name: 'Acme Ltd', password: 'company-123', role: 'company' }, headers: fresh() });
+    r = await call('/api/account?a=signup', { body: { acceptTerms: true, email: 'hr@example.com', name: 'Acme Ltd', password: 'company-123', role: 'company' }, headers: fresh() });
     const co = r.body.token;
     r = await call('/api/account?a=create-company', { headers: bearer(co), body: { name: 'Acme Ltd' } });
     const code = r.body.user.companyCode;
@@ -199,7 +199,7 @@ test('platform', async (t) => {
     r = await call('/api/account?a=company', { headers: bearer(co) });
     assert.equal(r.body.company.members, 1);
 
-    r = await call('/api/account?a=signup', { body: { email: 'dev@example.com', name: 'Dev', password: 'developer-123', role: 'developer' }, headers: fresh() });
+    r = await call('/api/account?a=signup', { body: { acceptTerms: true, email: 'dev@example.com', name: 'Dev', password: 'developer-123', role: 'developer' }, headers: fresh() });
     const dev = r.body.token;
     r = await call('/api/account?a=create-key', { headers: bearer(dev), body: {} });
     const key = r.body.key;

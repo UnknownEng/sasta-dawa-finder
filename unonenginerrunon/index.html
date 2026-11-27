@@ -6,20 +6,13 @@
   <meta name="robots" content="noindex, nofollow, noarchive">
   <meta name="referrer" content="no-referrer">
   <title>Admin · Sasta Dawa</title>
-  <script>
-    (function () {
-      var t = 'system';
-      try { var v = localStorage.getItem('sd_theme'); if (v) t = JSON.parse(v); } catch (e) {}
-      var dark = t === 'dark' || (t !== 'light' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
-      document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
-    })();
-  </script>
+  <script src="/js/theme-init.js?v=1"></script>
   <link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Nastaliq+Urdu:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css?v=2.8.0">
-  <link rel="stylesheet" href="/unonenginerrunon/admin.css?v=2.8.0">
+  <link rel="stylesheet" href="/unonenginerrunon/admin.css?v=2.9.0">
 </head>
 <body class="admin">
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -33,6 +26,11 @@
       <label class="ad-field">
         <span>Password</span>
         <input type="password" id="login-password" class="input" autocomplete="current-password" required>
+      </label>
+      <label class="ad-field" id="login-code-wrap" hidden>
+        <span>6-digit code from Google Authenticator</span>
+        <input type="text" id="login-code" class="input ad-code" autocomplete="one-time-code" inputmode="text" maxlength="20" spellcheck="false" autocapitalize="off" placeholder="123 456">
+        <small class="muted">Lost your phone? Type one of your recovery codes here instead.</small>
       </label>
       <p class="ad-error" id="login-error" role="alert" hidden></p>
       <button type="submit" class="btn btn-primary" id="login-btn">Sign in</button>
@@ -54,6 +52,8 @@
           <button role="tab" data-tab="pharmacies">Pharmacies <span class="count-badge" id="ph-badge" hidden>0</span></button>
           <button role="tab" data-tab="payments">Payments <span class="count-badge" id="pay-badge" hidden>0</span></button>
           <button role="tab" data-tab="settings">Site settings</button>
+          <button role="tab" data-tab="backup">Backup &amp; import</button>
+          <button role="tab" data-tab="security">Security</button>
         </nav>
         <div class="ad-top-actions">
           <button type="button" class="icon-btn" id="ad-theme" aria-label="Switch light / dark mode" title="Light / dark mode">◐</button>
@@ -204,6 +204,67 @@
           </div>
         </form>
       </section>
+
+      <!-- BACKUP & IMPORT -->
+      <section data-pane="backup" hidden>
+        <div class="ad-head"><h1>Backup &amp; import</h1><p class="muted">Keep a copy of all accounts, pharmacies and settings, restore it if something goes wrong, and add many price fixes or pharmacies at once from a spreadsheet.</p></div>
+        <div class="ad-grid2">
+          <div class="ad-card">
+            <h2>Download a full backup</h2>
+            <p class="muted small">One JSON file with everything the site has saved (accounts, pharmacies, reservations, payments, settings, reports). Passwords stay hashed and the 2-step login secret is not included. Keep the file private: it contains customers' names, phones and emails.</p>
+            <div class="ad-actions"><button type="button" class="btn btn-primary" id="bk-download">Download full backup</button></div>
+            <p class="muted small" id="bk-msg" role="status"></p>
+          </div>
+          <div class="ad-card">
+            <h2>Automatic daily backups</h2>
+            <div id="bk-list"><p class="muted small">Loading…</p></div>
+            <h3>How to turn on daily backups</h3>
+            <ol class="ad-steps">
+              <li>Open your project on <b>vercel.com</b> → <b>Settings</b> → <b>Environment Variables</b>.</li>
+              <li>Add <code>CRON_SECRET</code> with a long random value (for example 40 random letters and numbers). Nobody needs to type it; Vercel sends it by itself.</li>
+              <li>Press <b>Redeploy</b>. A backup is then saved every night at 2:00 am Pakistan time, and the last 14 are kept.</li>
+            </ol>
+          </div>
+        </div>
+        <div class="ad-card ad-danger-card">
+          <h2>Restore from a backup file</h2>
+          <p class="muted small">Puts the saved records from a backup file back. <b>Merge</b> mode: records in the file replace the same records on the site; records that are not in the file are left alone. Needs 2-step login (Security tab).</p>
+          <label class="ad-field"><span>Backup file (.json)</span><input type="file" id="rs-file" class="input" accept=".json,application/json"></label>
+          <div id="rs-summary"></div>
+          <div id="rs-confirm" hidden>
+            <div class="ad-grant">
+              <label class="ad-field"><span>Type RESTORE to confirm</span><input type="text" id="rs-word" class="input" autocomplete="off" spellcheck="false" maxlength="10"></label>
+              <label class="ad-field"><span>6-digit code from Google Authenticator</span><input type="text" id="rs-code" class="input ad-code" autocomplete="one-time-code" inputmode="numeric" maxlength="7"></label>
+              <button type="button" class="btn btn-ghost danger" id="rs-go">Restore now</button>
+            </div>
+          </div>
+          <p class="small" id="rs-msg" role="status"></p>
+        </div>
+        <div class="ad-grid2">
+          <div class="ad-card" id="imp-overrides"></div>
+          <div class="ad-card" id="imp-pharmacies"></div>
+        </div>
+      </section>
+
+      <!-- SECURITY -->
+      <section data-pane="security" hidden>
+        <div class="ad-head"><h1>Security</h1><p class="muted">2-step login: after the password, the admin panel also asks for a 6-digit code from the Google Authenticator app on your phone. Someone who learns the password still cannot get in.</p></div>
+        <div class="ad-grid2">
+          <div class="ad-card" id="sec-body"><p class="muted small">Loading…</p></div>
+          <div class="ad-card">
+            <h2>Locked out? (emergency)</h2>
+            <p class="small">If you lost your phone <b>and</b> your recovery codes:</p>
+            <ol class="ad-steps">
+              <li>On <b>vercel.com</b> → your project → <b>Settings</b> → <b>Environment Variables</b>, add <code>ADMIN_2FA_RESET</code> with the value <code>1</code>, then <b>Redeploy</b>.</li>
+              <li>Sign in with just the admin password. The server deletes the old 2-step login setup.</li>
+              <li><b>Remove</b> <code>ADMIN_2FA_RESET</code> again and redeploy (while it is set, 2-step login is switched off for everyone).</li>
+              <li>Come back here and turn 2-step login on again with your new phone.</li>
+            </ol>
+            <p class="muted small">Only someone with access to your Vercel account can do this, so keep that account safe too (use 2-step login on Vercel and on your email).</p>
+            <p class="muted small">Changing <code>ADMIN_PASSWORD</code> signs everyone out but does not turn 2-step login off.</p>
+          </div>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -211,6 +272,8 @@
 
   <script src="/js/data.js?v=2.6.0"></script>
   <script src="/js/search.js?v=2.6.0"></script>
-  <script src="/unonenginerrunon/admin.js?v=2.6.0"></script>
+  <script src="/js/qr.js?v=1.0.0"></script>
+  <script src="/js/csvkit.js?v=1.0.0"></script>
+  <script src="/unonenginerrunon/admin.js?v=2.7.0"></script>
 </body>
 </html>

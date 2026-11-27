@@ -127,3 +127,21 @@ body.admin { background: var(--paper); }
 .ad-renew-item { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--line); }
 .ad-renew-main { display: grid; gap: 2px; min-width: 0; flex: 1 1 240px; overflow-wrap: anywhere; justify-items: start; }
 .ad-renew .btn { min-height: 44px; }
+
+/* ---- Round 4: 2-step login, backups, CSV imports ---- */
+.ad-code { font-family: var(--font-mono); font-size: 20px; letter-spacing: .12em; }
+.ad-warn { padding: 10px 12px; border-radius: 0 4px 4px 0; background: var(--warn-soft); color: var(--warn-ink); border-inline-start: 6px solid var(--warn); font-size: 15px; }
+.ad-good { color: var(--brand); font-weight: 600; }
+.ad-bad { color: var(--danger); font-weight: 600; }
+.ad-on { color: var(--brand); }
+.ad-off { color: var(--danger); }
+.ad-qr { justify-self: start; padding: 8px; background: #fff; border: 1px solid var(--line); border-radius: 4px; }
+.ad-qr svg { display: block; width: 220px; height: 220px; }
+.ad-secret { display: inline-block; padding: 6px 10px; font-family: var(--font-mono); font-size: 17px; letter-spacing: .06em; background: var(--sunk); border: 1px solid var(--line-strong); border-radius: 4px; overflow-wrap: anywhere; }
+.ad-codes { margin: 0; padding-inline-start: 28px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 18px; font-family: var(--font-mono); font-size: 17px; }
+.ad-bk-list { margin: 0; padding-inline-start: 20px; display: grid; gap: 4px; max-height: 260px; overflow: auto; }
+.ad-danger-card { border-color: color-mix(in srgb, var(--danger) 40%, var(--line)); margin-block: 16px; }
+.ad-table tr.ad-row-bad td { background: var(--danger-soft); }
+.ad-rowerr { padding: 10px 12px; border-radius: 0 4px 4px 0; background: var(--danger-soft); border-inline-start: 6px solid var(--danger); font-size: 14px; }
+.ad-rowerr ul { margin: 4px 0 0; padding-inline-start: 18px; max-height: 220px; overflow: auto; }
+.ad-field small { font-weight: 400; }

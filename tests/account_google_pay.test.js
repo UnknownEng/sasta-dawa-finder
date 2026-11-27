@@ -67,7 +67,7 @@ async function boot(opts) {
     else if (a === 'payments') out = [200, { payments: [] }];
     return { ok: out[0] >= 200 && out[0] < 300, status: out[0], json: async () => JSON.parse(JSON.stringify(out[1])) };
   };
-  for (const s of ['js/data.js', 'js/search.js', 'js/account.js']) w.eval(fs.readFileSync(path.join(root, s), 'utf8'));
+  for (const s of ['js/data.js', 'js/search.js', 'js/qr.js', 'js/csvkit.js', 'js/account.js']) w.eval(fs.readFileSync(path.join(root, s), 'utf8'));
   await settle();
   return w;
 }
@@ -137,10 +137,11 @@ test('create account with Google: sends credential + chosen account type, stores
   await until(() => w.gsi.render.length, 'render');
   assert.equal(w.gsi.render[0].cfg.text, 'signup_with');
   d.querySelector('#signup-form input[name="role"][value="pharmacy"]').checked = true;
+  d.getElementById('accept-terms').checked = true; // round 4: terms must be accepted
   await w.gsi.init[0].callback({ credential: 'fake.id.token' });
   await settle();
   const call = w.calls.find((c) => c.a === 'google');
-  assert.deepEqual(call.body, { credential: 'fake.id.token', role: 'pharmacy' });
+  assert.deepEqual(call.body, { credential: 'fake.id.token', role: 'pharmacy', acceptTerms: true });
   assert.equal(w.localStorage.getItem('sd_user_token'), 'tok-google');
   assert.equal(JSON.parse(w.localStorage.getItem('sd_user')).email, 'owner@example.com');
   await until(() => d.querySelector('.dash-head'), 'dashboard');

@@ -213,7 +213,7 @@ test('website: Android download button points at the published APK; hidden insid
   assert.ok(require('../scripts/build_public').FILES.includes('download.html'));
   assert.match(fs.readFileSync(path.join(root, 'css/style.css'), 'utf8'), /\.native \.app-get(, \.native \.app-hide)?\s*\{\s*display:\s*none/);
   const wf = fs.readFileSync(path.join(root, '.github/workflows/mobile-apps.yml'), 'utf8');
-  assert.match(wf, /gh release upload android SastaDawa\.apk --clobber/);
+  assert.match(wf, /gh release upload android SastaDawa\.apk SastaDawa-Pharmacies\.apk --clobber/);
   const i18n = require('../js/i18n.js');
   for (const k of ['app_android', 'app_android_note', 'app_ios_note', 'footer_app', 'app_banner_t', 'app_banner_d', 'app_banner_btn']) {
     assert.ok(i18n.STRINGS.en[k] && i18n.STRINGS.ur[k], k);

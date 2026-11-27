@@ -4,29 +4,50 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
-  <title>Downloading Sasta Dawa Finder…</title>
+  <title>Download the Sasta Dawa apps</title>
   <link rel="canonical" href="https://sasta-dawa-finder.vercel.app/">
-  <!-- Every visit to this page = one download click in Vercel Analytics (page /download). -->
-  <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+  <!-- Every visit to this page = one download click in Vercel Analytics (page /download).
+       /download            → starts the customer app (Sasta Dawa Finder)
+       /download?app=business → starts the pharmacies app (Sasta Dawa for Pharmacies)
+       js/download.js does the auto-start (no inline scripts, so the site's CSP allows it). -->
+  <script src="/js/download.js"></script>
   <script defer src="/_vercel/insights/script.js"></script>
   <style>
-    body { margin: 0; min-height: 100vh; display: grid; place-items: center; font: 16px/1.55 'IBM Plex Sans', system-ui, sans-serif; background: #F6F5EF; color: #121614; text-align: center; padding: 24px; box-sizing: border-box; }
-    main { max-width: 460px; padding: 24px 20px; background: #fff; border: 1px solid #DCD8CC; border-top: 2px dashed #3B413D; border-radius: 4px; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; font: 16px/1.55 'IBM Plex Sans', system-ui, sans-serif; background: #F6F5EF; color: #121614; text-align: center; padding: 24px 16px; box-sizing: border-box; }
+    main { max-width: 480px; width: 100%; padding: 24px 20px; background: #fff; border: 1px solid #DCD8CC; border-top: 2px dashed #3B413D; border-radius: 4px; box-sizing: border-box; }
+    h1 { font-size: 24px; margin: 0 0 8px; font-weight: 700; }
+    p { margin: 0 0 16px; }
+    .apps { display: grid; gap: 12px; margin: 0 0 16px; }
+    .app { display: block; padding: 16px; border: 1px solid #DCD8CC; border-radius: 6px; text-decoration: none; color: inherit; text-align: start; }
+    .app strong { display: block; font-size: 18px; color: #0A6B3C; }
+    .app span { display: block; font-size: 14px; opacity: .85; }
+    .app .btn { display: inline-block; margin-top: 10px; padding: 10px 16px; min-height: 24px; border-radius: 4px; background: #0A6B3C; color: #fff; font-weight: 600; font-size: 16px; opacity: 1; }
+    .app.current { border-color: #0A6B3C; box-shadow: 0 0 0 2px #0A6B3C inset; }
     a { color: #0A6B3C; font-weight: 600; text-underline-offset: 3px; }
     a:focus-visible { outline: 3px solid #121614; outline-offset: 3px; box-shadow: 0 0 0 3px #FFD23F; }
-    @media (prefers-color-scheme: dark) { body { background: #0F1210; color: #ECEFEA; } main { background: #171B18; border-color: #2A302B; border-top-color: #C9CFC9; } a { color: #3FB874; } a:focus-visible { outline-color: #ECEFEA; } }
+    .note { opacity: .8; font-size: 14px; }
+    @media (prefers-color-scheme: dark) { body { background: #0F1210; color: #ECEFEA; } main { background: #171B18; border-color: #2A302B; border-top-color: #C9CFC9; } .app { border-color: #2A302B; } .app strong, a { color: #3FB874; } .app.current { border-color: #3FB874; box-shadow: 0 0 0 2px #3FB874 inset; } .app .btn { background: #3FB874; color: #0F1210; } a:focus-visible { outline-color: #ECEFEA; } }
   </style>
 </head>
 <body>
   <main>
-    <h1 style="font-size:24px;margin:0 0 8px;font-weight:700">Your download is starting…</h1>
-    <p style="margin:0 0 16px">If nothing happens, <a id="apk" href="https://github.com/UnknownEng/sasta-dawa-finder/releases/download/android/SastaDawa.apk">tap here to download the app</a>.</p>
-    <p style="margin:0;opacity:.8">After downloading, open the file and allow "Install unknown apps" if your phone asks.</p>
-    <p style="margin:16px 0 0"><a href="/">Back to Sasta Dawa Finder</a></p>
+    <h1 id="dl-title">Get the Sasta Dawa apps</h1>
+    <p id="dl-status">Pick the app you need. Both are free.</p>
+    <div class="apps">
+      <a class="app" id="apk" data-app="customer" href="https://github.com/UnknownEng/sasta-dawa-finder/releases/download/android/SastaDawa.apk">
+        <strong>Sasta Dawa Finder</strong>
+        <span>For everyone: official medicine prices, cheaper brands with the same formula, My Medicines and reminders.</span>
+        <span class="btn">Download for Android</span>
+      </a>
+      <a class="app" id="apk-business" data-app="business" href="https://github.com/UnknownEng/sasta-dawa-finder/releases/download/android/SastaDawa-Pharmacies.apk">
+        <strong>Sasta Dawa for Pharmacies</strong>
+        <span>For pharmacies, clinics, NGOs and companies: manage your listing, stock, refills and account.</span>
+        <span class="btn">Download for Android</span>
+      </a>
+    </div>
+    <p class="note">After downloading, open the file and allow "Install unknown apps" if your phone asks.</p>
+    <p style="margin:0"><a href="/">Back to Sasta Dawa Finder</a></p>
+    <p class="note" style="margin:16px 0 0"><a href="/terms">Terms</a> · <a href="/privacy">Privacy</a> · <a href="/refund">Refunds</a> · <a href="/disclaimer">Medical disclaimer</a> · <a href="/pharmacy-terms">Pharmacy terms</a> · <a href="/delete-account">Delete account</a></p>
   </main>
-  <script>
-    // Give the analytics beacon a moment, then start the APK download.
-    setTimeout(function () { location.href = document.getElementById('apk').href; }, 900);
-  </script>
 </body>
 </html>

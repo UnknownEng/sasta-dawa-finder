@@ -1,0 +1,30 @@
+{
+	"appId": "pk.sastadawa.business",
+	"appName": "Sasta Dawa for Pharmacies",
+	"webDir": "www",
+	"android": {
+		"allowMixedContent": false
+	},
+	"ios": {
+		"contentInset": "never",
+		"scheme": "Sasta Dawa"
+	},
+	"plugins": {
+		"SplashScreen": {
+			"launchShowDuration": 1200,
+			"launchAutoHide": true,
+			"backgroundColor": "#0f5c54",
+			"showSpinner": false,
+			"androidScaleType": "CENTER_CROP"
+		},
+		"StatusBar": {
+			"style": "DARK",
+			"backgroundColor": "#0f5c54",
+			"overlaysWebView": false
+		},
+		"LocalNotifications": {
+			"smallIcon": "ic_stat_icon",
+			"iconColor": "#0f5c54"
+		}
+	}
+}

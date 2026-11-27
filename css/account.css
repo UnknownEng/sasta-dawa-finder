@@ -242,6 +242,56 @@ code { font-family: var(--font-mono); font-size: .9em; overflow-wrap: anywhere; 
 .widget-foot a { color: var(--ink-2); text-decoration: underline; }
 .widget .warn-note { margin-block-start: 12px; padding: 12px 14px; border-radius: 0 6px 6px 0; background: var(--warn-soft); border-inline-start: 6px solid var(--warn); font-size: 17px; font-weight: 600; }
 
+/* ---- Round 4: terms, last sign-in, app handoff, CSV imports ---- */
+@media (min-width: 720px) { .acc-footer .footer-cols { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); } }
+.terms-box { display: grid; gap: 2px; padding: 10px 14px; border-radius: 6px; border: 1px solid var(--line-strong); background: var(--sunk); }
+.terms-box p { margin: 0; }
+.terms-check { font-size: 17px; align-items: flex-start; padding-block: 8px; }
+.terms-check span { padding-block-start: 1px; }
+.last-login { margin: 8px 0 0; font-size: 16px; color: var(--muted); overflow-wrap: anywhere; }
+.last-login a { margin-inline-start: 6px; }
+.last-hint { margin: 0 0 14px; }
+.last-hint span { flex: 1; }
+.handoff-note { margin: 0 0 14px; }
+.handoff-card { text-align: center; display: grid; gap: 12px; }
+.handoff-card .view-title { font-size: clamp(24px, 4vw, 30px); }
+.handoff-btn { inline-size: 100%; min-block-size: 64px; font-size: 21px; }
+.handoff-alt { justify-content: center; }
+dl.kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px; margin: 0 0 10px; }
+dl.kv dt { font-weight: 600; }
+dl.kv dd { margin: 0; overflow-wrap: anywhere; }
+.import-card, .import-details { margin-block: 16px; }
+.import-details summary { cursor: pointer; font-weight: 600; font-size: 18px; min-block-size: 44px; display: flex; align-items: center; }
+.import-details .import-card { margin-block-end: 0; padding: 0; border: 0; }
+.import-steps { margin: 0 0 10px; padding-inline-start: 22px; }
+.import-preview { display: grid; gap: 10px; margin-block-start: 6px; }
+.import-preview h4 { margin: 0; font-size: 18px; }
+.import-preview p { margin: 0; }
+.tbl tr.row-bad td { background: var(--danger-soft); }
+.row-errors { padding: 10px 14px; border-radius: 0 6px 6px 0; border-inline-start: 6px solid var(--danger); background: var(--danger-soft); }
+.row-errors-h { margin: 0 0 4px; font-weight: 700; }
+.row-errors ul { margin: 0; padding-inline-start: 20px; max-block-size: 260px; overflow: auto; font-size: 16px; }
+
+/* ---- Legal pages (terms.html, privacy.html, refund.html, ...) ---- */
+.legal { max-inline-size: 780px; padding-block: 24px 64px; line-height: 1.65; font-size: 18px; }
+.legal h1 { margin: 0 0 6px; font-size: clamp(30px, 5vw, 42px); letter-spacing: -0.02em; line-height: 1.15; }
+.legal h2 { font-size: 22px; margin: 32px 0 8px; letter-spacing: -0.01em; }
+.legal h3 { font-size: 19px; margin: 20px 0 6px; }
+.legal p { margin: 0 0 12px; }
+.legal ul, .legal ol { padding-inline-start: 24px; margin: 0 0 12px; }
+.legal li { margin: 6px 0; }
+.legal .updated { color: var(--muted); font-size: 16px; margin-block-end: 18px; }
+.legal .urdu-summary { margin: 0 0 24px; padding: 14px 18px; border-radius: 6px 0 0 6px; border-inline-start: 6px solid var(--brand); background: var(--brand-tint); font-family: var(--font-ur); font-size: 19px; line-height: 2.2; }
+.legal .urdu-summary p { margin: 0; }
+.legal .urdu-summary .ur-h { font-weight: 700; }
+.legal .contact-box { margin-block-start: 28px; padding: 16px 18px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface); }
+.legal .contact-box p { margin: 0 0 6px; }
+.legal-nav { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0 0 8px; font-size: 16px; }
+.legal-nav a { color: var(--ink-2); min-block-size: 44px; display: inline-flex; align-items: center; }
+.legal-nav a[aria-current='page'] { color: var(--ink); font-weight: 700; text-decoration-color: var(--brand); }
+.legal-links { display: flex; flex-wrap: wrap; gap: 0 14px; margin: 10px 0 0; font-size: 15px; }
+.legal-links a { color: var(--ink-2); min-block-size: 44px; display: inline-flex; align-items: center; }
+
 /* ---- Print ---- */
 @media print {
   .topbar, .footer, .tabs, .no-print, .acc-top, .mobile-nav, .toast, .widget-head .no-print { display: none !important; }
@@ -253,3 +303,5 @@ code { font-family: var(--font-mono); font-size: .9em; overflow-wrap: anywhere; 
   .sticker { border-color: #0A6B3C; margin-block-start: 20px; }
   a { color: #000; }
 }
+.native-google-btn { inline-size: 100%; min-block-size: 56px; font-size: 18px; border: 2px solid var(--ink-2); }
+.biz-app-link { margin: 0; }

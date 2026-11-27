@@ -8,15 +8,8 @@
   <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
   <link rel="canonical" href="https://sasta-dawa-finder.vercel.app/">
   <meta name="theme-color" content="#F6F5EF" id="meta-theme">
-  <script>
-    /* Apply the saved light/dark choice before the page paints (no white flash) */
-    (function () {
-      var t = 'system';
-      try { var v = localStorage.getItem('sd_theme'); if (v) t = JSON.parse(v); } catch (e) {}
-      var dark = t === 'dark' || (t !== 'light' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
-      document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
-    })();
-  </script>
+  <!-- Apply the saved light/dark choice before the page paints (a file: the CSP allows no inline scripts) -->
+  <script src="js/theme-init.js?v=1"></script>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Sasta Dawa">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
@@ -77,7 +70,7 @@
   <meta name="google-site-verification" content="3cEM1rgBhqtmleu10rlZdkZGlOmGgGdDlC8OHP7GuNk" />
   <!-- Vercel Web Analytics (cookieless). Page views are sent by js/app.js for each screen, since
        the app uses #/hash routes. The Android/iOS build strips this (scripts/build_app.js). -->
-  <script data-sd-analytics>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+  <script data-sd-analytics src="js/va-init.js?v=1"></script>
   <script data-sd-analytics defer src="/_vercel/insights/script.js" data-disable-auto-track="1"></script>
 </head>
 <body>
@@ -372,7 +365,15 @@
           <a class="footer-link app-hide" href="/browse/a" data-i18n="footer_all">All medicines A–Z</a>
           <a class="footer-link" href="/account" data-ext-link="account" data-i18n="footer_account">Your account</a>
           <a class="footer-link" href="/business" data-ext-link="business" data-i18n="footer_business">For pharmacies, clinics &amp; companies</a>
-          <a class="footer-link" href="https://sasta-dawa-finder.vercel.app/privacy" data-i18n="footer_privacy">Privacy policy</a>
+        </div>
+        <div>
+          <p class="footer-h">Legal</p>
+          <a class="footer-link" href="terms.html">Terms of Service</a>
+          <a class="footer-link" href="privacy.html" data-i18n="footer_privacy">Privacy policy</a>
+          <a class="footer-link" href="refund.html">Refund &amp; cancellation</a>
+          <a class="footer-link" href="disclaimer.html">Medical disclaimer</a>
+          <a class="footer-link" href="pharmacy-terms.html">Pharmacy listing terms</a>
+          <a class="footer-link" href="delete-account.html">Delete my account</a>
         </div>
         <div>
           <p class="footer-h" data-i18n="footer_emergency">Emergency</p>

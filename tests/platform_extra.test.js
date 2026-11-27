@@ -41,7 +41,7 @@ function call(p, { method, body, headers } = {}) {
 }
 const B = (t) => ({ Authorization: 'Bearer ' + t });
 async function signup(role, email) {
-  const r = await call('/api/account?a=signup', { body: { email, name: role + ' test', password: 'password-123', role } });
+  const r = await call('/api/account?a=signup', { body: { acceptTerms: true, email, name: role + ' test', password: 'password-123', role } });
   assert.equal(r.status, 200, r.text);
   return r.body;
 }
@@ -187,7 +187,7 @@ test('platform extras', async (t) => {
 
   await t.test('prescription photo is read and matched to medicines', async () => {
     platform._setRxClient({ messages: { create: async () => ({ content: [{ type: 'text', text: '{"medicines":[{"name":"Panadol","strength":"500mg"},{"name":"Augmentin","strength":""}]}' }] }) } });
-    let r = await call('/api/places?a=rx', { body: { image: 'data:image/jpeg;base64,' + Buffer.from('fake').toString('base64') } });
+    let r = await call('/api/places?a=rx', { body: { image: 'data:image/jpeg;base64,' + Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.from('fake jpeg body')]).toString('base64') } });
     assert.equal(r.status, 200, r.text);
     assert.equal(r.body.items.length, 2);
     assert.match(r.body.items[0].match.product, /Panadol/i);

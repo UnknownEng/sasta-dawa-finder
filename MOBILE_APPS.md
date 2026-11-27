@@ -3,6 +3,31 @@
 The website is wrapped into real Android and iOS apps with [Capacitor](https://capacitorjs.com). It's the same code: one
 codebase, three outputs (website, Play Store app, App Store app).
 
+## Two Android apps (since round 4)
+
+One Android project builds two apps (Gradle `productFlavors` in `android/app/build.gradle`):
+
+| Flavor | App id | Name | Home screen | Login deep link | APK on the "android" release |
+|---|---|---|---|---|---|
+| `customer` | `pk.sastadawa.app` (unchanged, updates install over the old app) | Sasta Dawa Finder | medicine search (`index.html`) | `sastadawa://auth?code=…` | `SastaDawa.apk` |
+| `business` | `pk.sastadawa.business` | Sasta Dawa for Pharmacies | account portal (`account.html`, business type preselected) + "Search medicines" (`search.html`) | `sastadawabiz://auth?code=…` | `SastaDawa-Pharmacies.apk` |
+
+How they are assembled:
+
+1. `npm run build:app` → `www/` (customer) and `www-business/` (business). Both bundle the search page, `account.html`,
+   the legal pages, `css/ js/ icons/ data/` and the OCR files. Each page gets `<meta name="sd-app">` and
+   `<meta name="sd-pages">` and loads `js/native.js` first.
+2. `npx cap sync android` → copies `www/` into `android/app/src/main/assets` (used only by the customer flavor) and
+   updates the plugin list.
+3. `node scripts/build_app.js --android-flavors` → copies `www-business/` plus its own `capacitor.config.json` into
+   `android/app/src/business/assets` (used only by the business flavor).
+
+`npm run app:sync:android` runs all three. Gradle stops with a clear message if a flavor's web files are missing.
+iOS ships only the customer app.
+
+Google sign-in inside the apps goes through the phone's browser: `SastaNative.auth.startBrowserLogin()` opens
+`/account?app=customer|business`, the website sends the user back with a one-time code, and the app swaps it for a session.
+
 ## What the apps add over the website
 
 - **Works fully offline from the first launch.** The DRAP medicine list ships inside the app, so nothing has to download first.
@@ -42,8 +67,8 @@ On the website none of this code runs (`js/native.js` switches itself off), so t
 
 1. Push the `mobile-app` branch and open a pull request (or merge into `main`).
 2. GitHub → **Actions** → **Mobile apps** → **Run workflow** (pick the branch).
-3. When it finishes, open the run → **Artifacts** → download `android-<number>`. Inside is
-   `SastaDawa-1.0.0-<n>-debug.apk`.
+3. When it finishes, open the run → **Artifacts** → download `android-<number>`. Inside are
+   `SastaDawa-1.0.0-<n>-debug.apk` (customer app) and `SastaDawa-Pharmacies-1.0.0-<n>-debug.apk` (business app).
 4. Send it to your phone and install it (allow "install unknown apps"). This debug APK is for testing only. The Play Store
    needs the signed AAB from step 2.
 
@@ -159,8 +184,8 @@ Before a new store release, bump `MARKETING_VERSION` in `.github/workflows/mobil
 
 ```bash
 npm install
-npm run app:sync        # build www/ and copy it into android/ and ios/
-npm run app:android     # opens Android Studio → Run ▶ on a phone or emulator
+npm run app:sync        # build www/ + www-business/ and copy them into android/ (both flavors) and ios/
+npm run app:android     # opens Android Studio → pick the build variant (customerDebug / businessDebug) → Run ▶
 npm run app:ios         # opens Xcode (Mac only) → Run ▶
 ```
 

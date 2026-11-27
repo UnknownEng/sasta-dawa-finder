@@ -70,7 +70,7 @@ test('Google sign-in and JazzCash online payments', async (t) => {
 
   let gToken;
   await t.test('Google sign-in creates an account, then signs the same person in', async () => {
-    let r = await call('/api/account?a=google', { body: { credential: 'good:g-111:ayesha@gmail.com:Ayesha Khan', role: 'pharmacy' } });
+    let r = await call('/api/account?a=google', { body: { acceptTerms: true, credential: 'good:g-111:ayesha@gmail.com:Ayesha Khan', role: 'pharmacy' } });
     assert.equal(r.status, 200, r.text);
     assert.equal(r.body.created, true);
     assert.equal(r.body.user.role, 'pharmacy');
@@ -96,14 +96,22 @@ test('Google sign-in and JazzCash online payments', async (t) => {
   });
 
   await t.test('existing email account gets linked to Google', async () => {
-    let r = await call('/api/account?a=signup', { body: { email: 'bilal@gmail.com', name: 'Bilal', password: 'bilal-pass-1' } });
+    let r = await call('/api/account?a=signup', { body: { acceptTerms: true, email: 'bilal@gmail.com', name: 'Bilal', password: 'bilal-pass-1' } });
     assert.equal(r.status, 200);
     r = await call('/api/account?a=google', { body: { credential: 'good:g-222:bilal@gmail.com:Bilal' } });
     assert.equal(r.body.created, false);
     assert.equal(r.body.user.google, true);
-    assert.equal(r.body.user.hasPassword, true);
+    // The email sign-up never proved the address, so its password is dropped on linking
+    // (pre-account hijack protection, see tests/security_review.test.js); a new one can be set.
+    assert.equal(r.body.user.hasPassword, false);
+    assert.equal(r.body.passwordRemoved, true);
+    const gTok = r.body.token;
     r = await call('/api/account?a=login', { body: { email: 'bilal@gmail.com', password: 'bilal-pass-1' } });
-    assert.equal(r.status, 200, 'password still works');
+    assert.equal(r.status, 401, 'the unproven password no longer works');
+    r = await call('/api/account?a=change-password', { headers: B(gTok), body: { password: 'bilal-new-pass' } });
+    assert.equal(r.status, 200);
+    r = await call('/api/account?a=login', { body: { email: 'bilal@gmail.com', password: 'bilal-new-pass' } });
+    assert.equal(r.status, 200, 'a password set after linking works');
   });
 
   await t.test('Google-only account can set a password and delete with DELETE', async () => {
@@ -111,7 +119,7 @@ test('Google sign-in and JazzCash online payments', async (t) => {
     assert.equal(r.status, 200, r.text);
     r = await call('/api/account?a=login', { body: { email: 'ayesha@gmail.com', password: 'new-pass-123' } });
     assert.equal(r.status, 200);
-    const g2 = (await call('/api/account?a=google', { body: { credential: 'good:g-333:sara@gmail.com:Sara' } })).body.token;
+    const g2 = (await call('/api/account?a=google', { body: { acceptTerms: true, credential: 'good:g-333:sara@gmail.com:Sara' } })).body.token;
     r = await call('/api/account?a=delete-account', { headers: B(g2), body: { confirm: 'nope' } });
     assert.equal(r.status, 400);
     r = await call('/api/account?a=delete-account', { headers: B(g2), body: { confirm: 'delete' } });
@@ -153,7 +161,7 @@ test('Google sign-in and JazzCash online payments', async (t) => {
   });
 
   await t.test('JazzCash: forged, tampered or failed replies never upgrade', async () => {
-    const login = await call('/api/account?a=signup', { body: { email: 'clinic@gmail.com', name: 'Clinic', password: 'clinic-pass-1', role: 'clinic' } });
+    const login = await call('/api/account?a=signup', { body: { acceptTerms: true, email: 'clinic@gmail.com', name: 'Clinic', password: 'clinic-pass-1', role: 'clinic' } });
     const tk = B(login.body.token);
     const start = async () => (await call('/api/account?a=pay-online', { headers: tk, body: { plan: 'clinic' } })).body.form.fields;
     // forged hash

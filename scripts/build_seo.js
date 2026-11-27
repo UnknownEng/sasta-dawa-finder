@@ -36,7 +36,7 @@ function ver(rel) {
 }
 const CSS_V = ver('css/seo.css');
 const JS_V = ver('js/seo-search.js');
-const ANALYTICS = `<script>window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments)};</script>
+const ANALYTICS = `<script src="/js/va-init.js"></script>
 <script defer src="/_vercel/insights/script.js"></script>`;
 
 function esc(s) {

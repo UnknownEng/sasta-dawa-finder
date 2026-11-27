@@ -41,12 +41,11 @@ const MIME_TYPES = {
 const COMPRESSIBLE = new Set(['.html', '.css', '.js', '.json', '.xml', '.txt', '.svg', '.webmanifest']);
 const BLOCKED = /^\/(\.|node_modules|scripts|tests|lib|api|public|\.cache|\.data|vercel\.json|package(-lock)?\.json|server\.js|.*\.md$)/i;
 
-const SECURITY_HEADERS = {
-  'X-Content-Type-Options': 'nosniff',
-  'X-Frame-Options': 'SAMEORIGIN',
-  'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Permissions-Policy': 'geolocation=(self), camera=(self), microphone=(self)',
-};
+// CSP + security headers (same values as vercel.json, see lib/headers.js)
+const headersLib = require('./lib/headers');
+const SECURITY_HEADERS = headersLib.PAGE;
+// Pages other sites (clinic widget) or the mobile app (/app/*) may show in a frame.
+const EMBEDDABLE = { 'X-Frame-Options': '', 'Content-Security-Policy': headersLib.CSP_EMBEDDABLE };
 
 // ---------------------------------------------------------------------------
 // Static files
@@ -93,6 +92,12 @@ function serveFile(req, res, filePath, stats) {
   };
   if (filePath.endsWith('sw.js')) headers['Cache-Control'] = 'no-cache';
   if (ocr) headers['Cache-Control'] = 'public, max-age=2592000';
+  let sec = SECURITY_HEADERS;
+  const rel = path.relative(ROOT_DIR, filePath).split(path.sep).join('/');
+  if (rel === 'widget.html' || rel.startsWith('app/')) {
+    sec = { ...SECURITY_HEADERS, ...EMBEDDABLE };
+    delete sec['X-Frame-Options'];
+  }
   const accepts = /\bgzip\b/.test(req.headers['accept-encoding'] || '');
   if (accepts && COMPRESSIBLE.has(ext)) {
     const key = filePath + ':' + stats.mtimeMs;
@@ -101,10 +106,10 @@ function serveFile(req, res, filePath, stats) {
       gz = zlib.gzipSync(fs.readFileSync(filePath), { level: 9 });
       gzCache.set(key, gz);
     }
-    res.writeHead(200, { ...SECURITY_HEADERS, ...headers, 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding', 'Content-Length': gz.length });
+    res.writeHead(200, { ...sec, ...headers, 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding', 'Content-Length': gz.length });
     return res.end(req.method === 'HEAD' ? undefined : gz);
   }
-  res.writeHead(200, { ...SECURITY_HEADERS, ...headers, 'Content-Length': stats.size });
+  res.writeHead(200, { ...sec, ...headers, 'Content-Length': stats.size });
   if (req.method === 'HEAD') return res.end();
   fs.createReadStream(filePath).pipe(res);
 }
@@ -141,10 +146,10 @@ const server = http.createServer((req, res) => {
     return send(req, res, 200, html, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow', 'X-Frame-Options': 'DENY' }, '.html');
   }
 
-  // Clean URLs for the account / business pages (Vercel does this with cleanUrls)
-  if (/^\/(account|business|widget|developers)$/.test(pathname)) {
+  // Clean URLs: /account, /business, /privacy, /terms ... serve <name>.html (Vercel does this with cleanUrls)
+  if (/^\/[a-z0-9-]+$/.test(pathname) && pathname !== '/404' && fs.existsSync(path.join(ROOT_DIR, pathname.slice(1) + '.html'))) {
     const page = fs.readFileSync(path.join(ROOT_DIR, pathname.slice(1) + '.html'));
-    const extra = pathname === '/widget' ? { 'X-Frame-Options': '', 'Content-Security-Policy': 'frame-ancestors *' } : {};
+    const extra = pathname === '/widget' ? EMBEDDABLE : {};
     return send(req, res, 200, page, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', ...extra }, '.html');
   }
 

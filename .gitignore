@@ -37,3 +37,6 @@ sim-report.json
 
 # On-device OCR files, copied from node_modules (scripts/ocr_assets.js)
 vendor/
+
+# Business app web files (scripts/build_app.js)
+www-business/

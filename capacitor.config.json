@@ -1,6 +1,6 @@
 {
   "appId": "pk.sastadawa.app",
-  "appName": "Sasta Dawa",
+  "appName": "Sasta Dawa Finder",
   "webDir": "www",
   "android": {
     "allowMixedContent": false

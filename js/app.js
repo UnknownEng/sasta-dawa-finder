@@ -60,9 +60,13 @@
     const u = store('sd_user', null);
     return u && typeof u === 'object' ? u : null;
   }
-  /** Link to a page that lives on the website (/account, /business); inside the app it opens the live site. */
+  /**
+   * Link to a page that lives on the website (/account, /business). Inside the app, pages the app
+   * bundles (account.html) open locally and the rest (business) open on the live site.
+   */
   function siteLink(page) {
-    return NATIVE ? NATIVE.webUrl(page) : '/' + page;
+    if (!NATIVE) return '/' + page;
+    return NATIVE.pageUrl ? NATIVE.pageUrl(page) : NATIVE.webUrl(page);
   }
   /** fetch() that never throws: resolves to { ok, status, data } (status 0 = no network / no fetch). */
   async function apiCall(path, opts) {
@@ -1773,28 +1777,64 @@
       input.focus();
     });
 
-    // Voice search (Chrome / Android): great for brand names that are hard to spell
+    // Voice search: great for brand names that are hard to spell. In the app it uses the phone's
+    // recogniser (NATIVE.voice); on the website the browser's Web Speech API (Chrome / Android).
+    // Both listen in the UI language: Urdu → ur-PK, English → en-PK.
+    const mic = $('#search-mic');
+    const voiceSearch = (said) => {
+      said = String(said || '').trim().replace(/[.?!۔]$/, '');
+      if (!said) return toast(t('voice_none'));
+      input.value = said;
+      updateSearchButtons();
+      go('/search/' + encodeURIComponent(said));
+    };
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SR) {
-      const mic = $('#search-mic');
-      mic.hidden = false;
-      mic.addEventListener('click', () => {
-        const rec = new SR();
-        rec.lang = 'en-PK';
-        rec.interimResults = false;
-        rec.maxAlternatives = 1;
-        mic.classList.add('active');
-        rec.onresult = (ev) => {
-          const said = ev.results[0][0].transcript.replace(/[.?!]$/, '');
-          input.value = said;
-          updateSearchButtons();
-          go('/search/' + encodeURIComponent(said));
-        };
-        rec.onend = () => mic.classList.remove('active');
-        rec.onerror = () => mic.classList.remove('active');
-        rec.start();
+    if (NATIVE && NATIVE.voice) {
+      NATIVE.voice.available().then((ok) => {
+        if (!ok && !SR) return;
+        mic.hidden = false;
+        let busy = false;
+        mic.addEventListener('click', async () => {
+          if (busy) return;
+          if (!ok) return webVoice();
+          busy = true;
+          mic.classList.add('active');
+          try {
+            voiceSearch(await NATIVE.voice.listen(voiceLang()));
+          } catch (e) {
+            toast(t(e && e.code === 'denied' ? 'voice_denied' : 'voice_failed'));
+          } finally {
+            busy = false;
+            mic.classList.remove('active');
+          }
+        });
       });
+    } else if (SR) {
+      mic.hidden = false;
+      mic.addEventListener('click', webVoice);
     }
+    function webVoice() {
+      let rec;
+      try { rec = new SR(); } catch (e) { return toast(t('voice_failed')); }
+      rec.lang = voiceLang();
+      rec.interimResults = false;
+      rec.maxAlternatives = 1;
+      mic.classList.add('active');
+      rec.onresult = (ev) => voiceSearch(ev.results[0][0].transcript);
+      rec.onend = () => mic.classList.remove('active');
+      rec.onerror = (ev) => {
+        mic.classList.remove('active');
+        const err = ev && ev.error;
+        if (err === 'not-allowed' || err === 'service-not-allowed') toast(t('voice_denied'));
+        else if (err === 'no-speech') toast(t('voice_none'));
+        else if (err !== 'aborted') toast(t('voice_failed'));
+      };
+      try { rec.start(); } catch (e) { mic.classList.remove('active'); }
+    }
+  }
+  /** Speech recognition language that matches the UI language. */
+  function voiceLang() {
+    return I18N.getLang() === 'ur' ? 'ur-PK' : 'en-PK';
   }
 
   // ------------------------------------------------------------------------

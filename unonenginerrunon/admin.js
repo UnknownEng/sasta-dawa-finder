@@ -36,6 +36,7 @@
     toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
   }
 
+  const NO_RELOGIN = ['login', '2fa-enable', '2fa-disable', 'restore'];
   async function api(action, body, params) {
     const opts = { method: body ? 'POST' : 'GET', credentials: 'same-origin', headers: { 'X-SD-Admin': '1' }, cache: 'no-store' };
     if (body) {
@@ -46,11 +47,12 @@
     const res = await fetch('/api/admin?' + qs.toString(), opts);
     let data = {};
     try { data = await res.json(); } catch (e) { /* empty */ }
-    if (res.status === 401 && action !== 'login') {
+    // A wrong 2-step code (login, turning 2FA on/off, restore) is a 401 too: only a lost session goes back to sign-in.
+    if (res.status === 401 && !NO_RELOGIN.includes(action) && !data.need2fa) {
       showLogin();
-      throw new Error(data.error || 'Please sign in');
+      throw Object.assign(new Error(data.error || 'Please sign in'), { status: 401, data });
     }
-    if (!res.ok) throw new Error(data.error || 'Request failed (' + res.status + ')');
+    if (!res.ok) throw Object.assign(new Error(data.error || 'Request failed (' + res.status + ')'), { status: res.status, data });
     return data;
   }
 
@@ -70,6 +72,8 @@
     $('#booting').hidden = true;
     $('#panel').hidden = true;
     $('#login').hidden = false;
+    $('#login-code-wrap').hidden = true;
+    $('#login-code').value = '';
     if (note) $('#login-note').textContent = note;
     setTimeout(() => $('#login-password').focus(), 50);
   }
@@ -79,13 +83,34 @@
     const btn = $('#login-btn');
     btn.disabled = true;
     $('#login-error').hidden = true;
+    const codeWrap = $('#login-code-wrap');
+    const body = { password: $('#login-password').value };
+    const code = $('#login-code').value.replace(/\s+/g, '');
+    if (!codeWrap.hidden && code) body.code = code;
     try {
-      await api('login', { password: $('#login-password').value });
+      await api('login', body);
       $('#login-password').value = '';
+      $('#login-code').value = '';
+      codeWrap.hidden = true;
       await openPanel();
     } catch (err) {
-      $('#login-error').textContent = err.message;
-      $('#login-error').hidden = false;
+      if (err.data && err.data.need2fa) {
+        // Password was right: now ask for the code from Google Authenticator (or a recovery code)
+        const first = codeWrap.hidden;
+        codeWrap.hidden = false;
+        $('#login-note').textContent = '2-step login is on. Enter the 6-digit code from Google Authenticator on your phone.';
+        if (first && !code) {
+          $('#login-error').hidden = true;
+        } else {
+          $('#login-error').textContent = err.message;
+          $('#login-error').hidden = false;
+        }
+        $('#login-code').value = '';
+        setTimeout(() => $('#login-code').focus(), 30);
+      } else {
+        $('#login-error').textContent = err.message;
+        $('#login-error').hidden = false;
+      }
     } finally {
       btn.disabled = false;
     }
@@ -106,6 +131,8 @@
     if (name === 'prices') ensureData();
     if (name === 'analytics') loadAnalytics();
     if (name === 'users' || name === 'pharmacies' || name === 'payments') loadBusiness(name);
+    if (name === 'security') loadSecurity();
+    if (name === 'backup') loadBackupTab();
     window.scrollTo(0, 0);
   }
   $$('[role="tab"]').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab)));
@@ -729,6 +756,401 @@
     } finally {
       btns.forEach((b) => (b.disabled = false));
     }
+  }
+
+  // ------------------------------------------------------------------------
+  // Security: 2-step login (TOTP, Google Authenticator)
+  // ------------------------------------------------------------------------
+  const sec = { enabled: null, setup: null, codes: null };
+  const today = () => new Date().toISOString().slice(0, 10);
+  const cleanCode = (v) => String(v || '').replace(/\s+/g, '');
+
+  function saveFile(name, blobOrText, type) {
+    const blob = blobOrText instanceof Blob ? blobOrText : new Blob([blobOrText], { type: type || 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast('Copied');
+    } catch (e) {
+      toast('Select the text and copy it', true);
+    }
+  }
+
+  async function loadSecurity() {
+    const box = $('#sec-body');
+    if (sec.codes) return renderSecurity(); // still showing the new recovery codes
+    box.innerHTML = '<p class="muted small">Loading…</p>';
+    try {
+      const st = await api('2fa-status');
+      sec.enabled = !!st.enabled;
+      sec.enabledAt = st.enabledAt || null;
+      renderSecurity();
+    } catch (err) {
+      box.innerHTML = `<p class="ad-error">${esc(err.message)}</p>`;
+    }
+  }
+
+  function renderSecurity() {
+    const box = $('#sec-body');
+    if (sec.codes) {
+      const text = sec.codes.join('\n');
+      box.innerHTML = `<h2>Save your recovery codes now</h2>
+        <div class="ad-warn"><b>These codes are shown only once.</b> Each one lets you sign in one time if you lose your phone. Save them somewhere safe (print them, or keep the file in a private place), not on the same phone.</div>
+        <ol class="ad-codes" id="sec-codes">${sec.codes.map((c) => `<li><code>${esc(c)}</code></li>`).join('')}</ol>
+        <div class="ad-actions">
+          <button type="button" class="btn btn-soft" id="sec-copy">Copy codes</button>
+          <button type="button" class="btn btn-soft" id="sec-dl">Download codes</button>
+          <button type="button" class="btn btn-primary" id="sec-done">I have saved them</button>
+        </div>`;
+      $('#sec-copy').onclick = () => copyText(text);
+      $('#sec-dl').onclick = () => saveFile('sasta-dawa-admin-recovery-codes-' + today() + '.txt', 'Sasta Dawa admin: 2-step login recovery codes (' + today() + ')\nEach code works once.\n\n' + text + '\n', 'text/plain');
+      $('#sec-done').onclick = () => {
+        if (!confirm('Have you saved the recovery codes? They cannot be shown again.')) return;
+        sec.codes = null;
+        renderSecurity();
+      };
+      return;
+    }
+    if (sec.enabled) {
+      box.innerHTML = `<h2>2-step login is <span class="ad-on">ON</span></h2>
+        <p class="small">Signing in needs the password <b>and</b> a 6-digit code from Google Authenticator${sec.enabledAt ? ` (on since ${esc(fmtDate(sec.enabledAt))})` : ''}.</p>
+        <h3>Turn off 2-step login</h3>
+        <p class="muted small">Not recommended. Enter a current code (or a recovery code) to confirm it is you.</p>
+        <form id="sec-off-form" class="ad-grant" autocomplete="off">
+          <label class="ad-field"><span>Code</span><input type="text" id="sec-off-code" class="input ad-code" autocomplete="one-time-code" maxlength="20" spellcheck="false"></label>
+          <button type="submit" class="btn btn-ghost danger">Turn off</button>
+        </form>
+        <p class="small" id="sec-msg" role="status"></p>`;
+      $('#sec-off-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const code = cleanCode($('#sec-off-code').value);
+        if (!code) return secMsg('Enter the 6-digit code first.', true);
+        if (!confirm('Turn off 2-step login? Anyone with the password could then sign in.')) return;
+        try {
+          await api('2fa-disable', { code });
+          sec.enabled = false;
+          toast('2-step login is off');
+          renderSecurity();
+        } catch (err) {
+          secMsg(err.message, true);
+        }
+      };
+      return;
+    }
+    if (sec.setup) {
+      const s = sec.setup;
+      let qr = '';
+      try {
+        qr = window.SDQR ? window.SDQR.qrSvg(s.otpauth) : '';
+      } catch (e) {
+        qr = '';
+      }
+      const grouped = String(s.secret || '').replace(/(.{4})/g, '$1 ').trim();
+      box.innerHTML = `<h2>Turn on 2-step login</h2>
+        <ol class="ad-steps">
+          <li>Install <b>Google Authenticator</b> on your phone (free, Play Store / App Store).</li>
+          <li>In the app press <b>+</b> → <b>Scan a QR code</b> and scan this:</li>
+        </ol>
+        <div class="ad-qr" id="sec-qr">${qr || '<p class="muted small">The QR code could not be drawn. Use the key below instead.</p>'}</div>
+        <p class="small">Can't scan? Choose <b>Enter a setup key</b>, account name <b>Sasta Dawa Admin</b>, key:</p>
+        <p><code class="ad-secret" id="sec-secret">${esc(grouped)}</code> <button type="button" class="btn btn-ghost sm" id="sec-copy-secret">Copy key</button></p>
+        <form id="sec-on-form" class="ad-grant" autocomplete="off">
+          <label class="ad-field"><span>3. Type the 6-digit code the app shows</span><input type="text" id="sec-on-code" class="input ad-code" autocomplete="one-time-code" inputmode="numeric" maxlength="7" spellcheck="false" placeholder="123456"></label>
+          <button type="submit" class="btn btn-primary">Turn on</button>
+          <button type="button" class="btn btn-ghost" id="sec-cancel">Cancel</button>
+        </form>
+        <p class="small" id="sec-msg" role="status"></p>`;
+      $('#sec-copy-secret').onclick = () => copyText(String(s.secret || ''));
+      $('#sec-cancel').onclick = () => {
+        sec.setup = null;
+        renderSecurity();
+      };
+      $('#sec-on-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const code = cleanCode($('#sec-on-code').value);
+        if (!/^\d{6}$/.test(code)) return secMsg('Type the 6 digits shown in Google Authenticator.', true);
+        try {
+          const out = await api('2fa-enable', { code });
+          sec.setup = null;
+          sec.enabled = true;
+          sec.enabledAt = new Date().toISOString();
+          sec.codes = Array.isArray(out.recoveryCodes) ? out.recoveryCodes.map(String) : [];
+          toast('2-step login is on');
+          renderSecurity();
+        } catch (err) {
+          secMsg(err.message + ' Check that the time on your phone is set automatically, then try the newest code.', true);
+        }
+      };
+      setTimeout(() => $('#sec-on-code') && $('#sec-on-code').focus(), 30);
+      return;
+    }
+    box.innerHTML = `<h2>2-step login is <span class="ad-off">OFF</span></h2>
+      <p class="small">Right now only the password protects the admin panel. Turn on 2-step login so a stolen or guessed password is not enough. It is also needed to restore a backup.</p>
+      <div class="ad-actions"><button type="button" class="btn btn-primary" id="sec-start">Turn on 2-step login</button></div>
+      <p class="small" id="sec-msg" role="status"></p>`;
+    $('#sec-start').onclick = async () => {
+      $('#sec-start').disabled = true;
+      try {
+        const out = await api('2fa-setup', {});
+        if (!out.secret || !out.otpauth) throw new Error('The server did not send a setup key.');
+        sec.setup = { secret: String(out.secret), otpauth: String(out.otpauth) };
+        renderSecurity();
+      } catch (err) {
+        secMsg(err.message, true);
+        $('#sec-start').disabled = false;
+      }
+    };
+  }
+  function secMsg(text, bad) {
+    const m = $('#sec-msg');
+    if (!m) return;
+    m.textContent = text;
+    m.className = 'small ' + (bad ? 'ad-error' : 'ad-good');
+  }
+
+  // ------------------------------------------------------------------------
+  // Backup, restore and CSV imports
+  // ------------------------------------------------------------------------
+  const fmtBytes = (n) => (typeof n === 'number' && isFinite(n) ? (n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB') : '');
+
+  function loadBackupTab() {
+    loadBackups();
+    if (!$('#imp-overrides').dataset.ready) {
+      adminImport($('#imp-overrides'), 'overrides', 'Price fixes from a spreadsheet', 'One row per medicine: <b>medicine_id</b> (from the medicine page link), <b>price</b> (correct pack price in Rs), <b>hide</b> (yes to hide the product) and <b>note</b> (for yourself).', 'import-overrides', async () => {
+        const ov = await api('overview');
+        state.overview = ov;
+        state.cfg = ov.config;
+        renderFixes();
+        renderOverview();
+      });
+      adminImport($('#imp-pharmacies'), 'pharmacies', 'Pharmacies from a spreadsheet', 'One row per pharmacy. <b>owner_email</b> must belong to an existing pharmacy account. Imported listings are marked verified, so only import pharmacies you have checked.', 'import-pharmacies', () => loadBusiness('pharmacies', true));
+    }
+  }
+
+  async function loadBackups() {
+    const box = $('#bk-list');
+    box.innerHTML = '<p class="muted small">Loading…</p>';
+    try {
+      const out = await api('backups');
+      const list = (Array.isArray(out.backups) ? out.backups : []).filter((b) => b && typeof b === 'object');
+      const cronOn = out.cron === true || out.enabled === true || out.cronConfigured === true;
+      const cronOff = out.cron === false || out.enabled === false || out.cronConfigured === false;
+      box.innerHTML = (cronOff ? '<div class="ad-warn small">Daily backups are <b>not switched on</b>: CRON_SECRET is not set in Vercel. Follow the steps below.</div>' : cronOn ? '<p class="small"><span class="dot ok"></span> Daily backups are switched on.</p>' : '') +
+        (list.length
+          ? `<ul class="ad-bk-list">${list.map((b) => `<li><b>${esc(b.date || b.name || String(b.key || '').replace(/^backups\//, ''))}</b> <span class="muted small">${esc(fmtBytes(b.size))}${b.at || b.uploadedAt ? ' · ' + esc(fmtWhen(b.at || b.uploadedAt)) : ''}</span></li>`).join('')}</ul>`
+          : '<p class="muted small">No automatic backups yet.</p>');
+    } catch (err) {
+      box.innerHTML = `<p class="ad-error">${esc(err.message)}</p>`;
+    }
+  }
+
+  $('#bk-download').addEventListener('click', async () => {
+    const btn = $('#bk-download');
+    const m = $('#bk-msg');
+    btn.disabled = true;
+    m.textContent = 'Preparing the backup… (this can take a minute)';
+    m.className = 'muted small';
+    try {
+      const res = await fetch('/api/admin?a=backup', { credentials: 'same-origin', headers: { 'X-SD-Admin': '1' }, cache: 'no-store' });
+      if (res.status === 401) {
+        showLogin();
+        throw new Error('Please sign in');
+      }
+      if (!res.ok) {
+        let data = {};
+        try { data = await res.json(); } catch (e) { /* empty */ }
+        throw new Error(data.error || 'Backup failed (' + res.status + ')');
+      }
+      const blob = typeof res.blob === 'function' ? await res.blob() : new Blob([JSON.stringify(await res.json())], { type: 'application/json' });
+      saveFile('sasta-dawa-backup-' + today() + '.json', blob);
+      m.textContent = 'Backup downloaded (' + fmtBytes(blob.size) + '). Keep it somewhere private.';
+      m.className = 'small ad-good';
+    } catch (err) {
+      m.textContent = err.message;
+      m.className = 'small ad-error';
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  /** Store keys inside a backup file, whichever shape the server used. */
+  function backupKeys(b) {
+    if (!b || typeof b !== 'object' || Array.isArray(b)) return null;
+    const pick = (o) => (o && typeof o === 'object' && !Array.isArray(o) ? Object.keys(o) : null);
+    if (pick(b.keys)) return pick(b.keys);
+    if (pick(b.data)) return pick(b.data);
+    if (pick(b.records)) return pick(b.records);
+    if (Array.isArray(b.items)) return b.items.map((x) => x && x.key).filter((k) => typeof k === 'string');
+    if (Array.isArray(b.entries)) return b.entries.map((x) => (Array.isArray(x) ? x[0] : x && x.key)).filter((k) => typeof k === 'string');
+    const top = Object.keys(b).filter((k) => k.includes('/'));
+    return top.length ? top : null;
+  }
+
+  const restore = { backup: null };
+  $('#rs-file').addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    const sum = $('#rs-summary');
+    restore.backup = null;
+    $('#rs-confirm').hidden = true;
+    $('#rs-msg').textContent = '';
+    sum.innerHTML = '';
+    if (!file) return;
+    if (!/\.json$/i.test(file.name)) return (sum.innerHTML = '<p class="ad-error">Choose the .json backup file you downloaded.</p>');
+    if (file.size > 50 * 1024 * 1024) return (sum.innerHTML = '<p class="ad-error">The file is larger than 50 MB.</p>');
+    let data;
+    try {
+      data = JSON.parse(await file.text());
+    } catch (err) {
+      return (sum.innerHTML = '<p class="ad-error">This file is not a valid backup (it is not JSON).</p>');
+    }
+    const keys = backupKeys(data);
+    if (!keys || !keys.length) return (sum.innerHTML = '<p class="ad-error">This file does not look like a Sasta Dawa backup (no saved records found).</p>');
+    const counts = {};
+    keys.forEach((k) => {
+      const p = String(k).split('/')[0] || '(other)';
+      counts[p] = (counts[p] || 0) + 1;
+    });
+    const made = data.createdAt || data.at || data.date || '';
+    sum.innerHTML = `<p class="small">Backup${made ? ' made <b>' + esc(fmtDate(String(made))) + '</b>' : ''}: <b>${esc(keys.length.toLocaleString('en-PK'))}</b> records.</p>
+      <div class="ad-table-wrap"><table class="ad-table" id="rs-table"><thead><tr><th scope="col">Kind of record (key prefix)</th><th scope="col" class="num">Records</th></tr></thead><tbody>${Object.entries(counts)
+        .sort((a, b) => b[1] - a[1])
+        .map(([k, v]) => `<tr><td>${esc(k)}</td><td class="num">${esc(v.toLocaleString('en-PK'))}</td></tr>`)
+        .join('')}</tbody></table></div>`;
+    restore.backup = data;
+    $('#rs-confirm').hidden = false;
+  });
+
+  $('#rs-go').addEventListener('click', async () => {
+    const m = $('#rs-msg');
+    const say = (t, bad) => { m.textContent = t; m.className = 'small ' + (bad ? 'ad-error' : 'ad-good'); };
+    if (!restore.backup) return say('Choose a backup file first.', true);
+    if ($('#rs-word').value.trim() !== 'RESTORE') return say('Type RESTORE (in capital letters) to confirm.', true);
+    const code = cleanCode($('#rs-code').value);
+    if (!/^\d{6}$/.test(code)) return say('Enter the current 6-digit code from Google Authenticator.', true);
+    if (!confirm('Restore this backup now? Records in the file will replace the same records on the live site.')) return;
+    const btn = $('#rs-go');
+    btn.disabled = true;
+    say('Restoring… do not close this page.');
+    try {
+      const out = await api('restore', { backup: restore.backup, mode: 'merge', code });
+      const n = [out.restored, out.written, out.count].find((x) => typeof x === 'number');
+      say('Restore finished' + (n != null ? ': ' + n.toLocaleString('en-PK') + ' records written' : '') + (typeof out.skipped === 'number' && out.skipped ? ', ' + out.skipped + ' skipped' : '') + '.');
+      $('#rs-word').value = '';
+      $('#rs-code').value = '';
+      toast('Backup restored');
+    } catch (err) {
+      say(err.message, true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  async function adminTemplate(type) {
+    let text = '';
+    try {
+      const res = await fetch('/api/admin?a=csv-template&type=' + encodeURIComponent(type), { credentials: 'same-origin', headers: { 'X-SD-Admin': '1' }, cache: 'no-store' });
+      if (res && res.ok) {
+        const ct = (res.headers && res.headers.get && res.headers.get('content-type')) || '';
+        if (/csv|text\/plain/i.test(ct) && typeof res.text === 'function') text = await res.text();
+        else {
+          const j = await res.json();
+          text = (j && typeof j.csv === 'string' && j.csv) || '';
+        }
+      }
+    } catch (e) {
+      text = '';
+    }
+    saveFile('sasta-dawa-' + type + '-template.csv', text || window.SDCsv.templateCsv(type), 'text/csv;charset=utf-8');
+  }
+
+  function errList(errors, title) {
+    const list = (Array.isArray(errors) ? errors : []).filter((x) => x && typeof x === 'object');
+    if (!list.length) return '';
+    return `<div class="ad-rowerr"><b>${esc(title)} (${list.length})</b><ul>${list.slice(0, 200).map((x) => `<li>Row ${esc(x.row)}: ${esc(x.error)}</li>`).join('')}</ul>${list.length > 200 ? `<p class="muted small">First 200 of ${list.length}.</p>` : ''}</div>`;
+  }
+
+  /** Strict CSV import card for the admin (same checks as the account portal, js/csvkit.js). */
+  function adminImport(card, type, title, intro, action, after) {
+    const t = window.SDCsv && window.SDCsv.TEMPLATES[type];
+    card.dataset.ready = '1';
+    if (!t) {
+      card.innerHTML = `<h2>${esc(title)}</h2><p class="ad-error">js/csvkit.js did not load.</p>`;
+      return;
+    }
+    card.innerHTML = `<h2>${esc(title)}</h2>
+      <p class="muted small">${intro}</p>
+      <p class="small">First row must be exactly: <code>${esc(t.headers.join(','))}</code></p>
+      <div class="ad-actions"><button type="button" class="btn btn-ghost sm" data-tpl>Download template</button></div>
+      <label class="ad-field"><span>CSV file (up to 2 MB)</span><input type="file" class="input" accept=".csv,text/csv" data-file></label>
+      <p class="small" data-msg role="status"></p>
+      <div data-preview></div>`;
+    const m = $('[data-msg]', card);
+    const prev = $('[data-preview]', card);
+    const say = (txt, bad) => { m.textContent = txt; m.className = 'small ' + (txt ? (bad ? 'ad-error' : 'ad-good') : ''); };
+    $('[data-tpl]', card).onclick = () => adminTemplate(type);
+    const show = (text) => {
+      const c = window.SDCsv.check(type, text);
+      if (c.headerError) {
+        prev.innerHTML = `<p class="ad-error">${esc(c.headerError)}</p>`;
+        return;
+      }
+      const bad = c.errors.length;
+      const good = c.total - bad;
+      prev.innerHTML = `<p class="small"><b>${c.total}</b> rows · ${bad ? `<span class="ad-bad">${bad} with problems</span>` : '<span class="ad-good">all look fine</span>'}</p>
+        <div class="ad-table-wrap"><table class="ad-table"><thead><tr><th scope="col">Row</th>${t.headers.map((h) => `<th scope="col">${esc(h)}</th>`).join('')}<th scope="col">Check</th></tr></thead><tbody>${c.preview
+          .map((r) => `<tr${r.error ? ' class="ad-row-bad"' : ''}><td>${r.row}</td>${t.headers.map((h, i) => `<td>${esc(r.cells[i] == null ? '' : r.cells[i])}</td>`).join('')}<td>${r.error ? '<span class="tag warn">Problem</span>' : '<span class="tag save">OK</span>'}</td></tr>`)
+          .join('')}</tbody></table></div>
+        ${errList(c.errors, 'Rows with problems')}
+        ${bad ? `<label class="ad-switch"><input type="checkbox" data-partial><span>Import only the valid rows (skip ${bad})</span></label>` : ''}
+        <div class="ad-actions"><button type="button" class="btn btn-primary" data-go${bad ? ' disabled' : ''}>Import ${bad ? good : c.total} rows</button></div>
+        <p class="small" data-go-msg role="status"></p><div data-result></div>`;
+      const go = $('[data-go]', prev);
+      const partial = $('[data-partial]', prev);
+      if (partial) partial.onchange = () => (go.disabled = !partial.checked || good === 0);
+      go.onclick = async () => {
+        const gm = $('[data-go-msg]', prev);
+        const rb = $('[data-result]', prev);
+        go.disabled = true;
+        gm.textContent = 'Importing…';
+        gm.className = 'small';
+        rb.innerHTML = '';
+        try {
+          const out = await api(action, { csv: text, partial: !!(partial && partial.checked) });
+          const n = ['imported', 'count', 'created', 'updated', 'changed'].map((k) => out[k]).find((x) => typeof x === 'number');
+          gm.textContent = n != null ? `Imported ${n} rows.` : 'Import finished.';
+          gm.className = 'small ad-good';
+          rb.innerHTML = errList(out.errors, 'Rows skipped');
+          toast('Import finished');
+          try { await after(out); } catch (e) { /* the list refreshes next time */ }
+        } catch (err) {
+          go.disabled = false;
+          gm.textContent = err.message + (err.data && Array.isArray(err.data.errors) && err.data.errors.length ? ' Nothing was imported.' : '');
+          gm.className = 'small ad-error';
+          rb.innerHTML = errList(err.data && err.data.errors, 'Rows with problems');
+        }
+      };
+    };
+    card.sdLoad = show; // used by tests
+    $('[data-file]', card).onchange = async (e) => {
+      const file = e.target.files && e.target.files[0];
+      prev.innerHTML = '';
+      say('');
+      if (!file) return;
+      try {
+        show(await window.SDCsv.readCsvFile(file));
+      } catch (err) {
+        say(err.message, true);
+      }
+    };
   }
 
   // ------------------------------------------------------------------------

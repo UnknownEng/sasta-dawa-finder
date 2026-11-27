@@ -109,7 +109,7 @@ const bearer = (t) => ({ Authorization: 'Bearer ' + t });
 
 // ---------------------------------------------------------------------------
 async function signup(role, n, ip) {
-  const r = await call('/api/account?a=signup', { ip, body: { email: `sim${n}-${role}@example.com`, name: `${role} user ${n}`, phone: '0300' + String(1000000 + n), password: 'sim-pass-' + n, role } });
+  const r = await call('/api/account?a=signup', { ip, body: { email: `sim${n}-${role}@example.com`, name: `${role} user ${n}`, phone: '0300' + String(1000000 + n), password: 'sim-pass-' + n, role, acceptTerms: true } });
   check(`[${role}] sign up`, r.status === 200 && r.body && r.body.token && r.body.user.role === role, r.text);
   if (r.status !== 200) return null;
   const login = await call('/api/account?a=login', { ip, body: { email: `SIM${n}-${role}@example.com`, password: 'sim-pass-' + n } });
@@ -119,6 +119,12 @@ async function signup(role, n, ip) {
   const me = await call('/api/account?a=me', { headers: bearer(r.body.token) });
   check(`[${role}] profile loads`, me.status === 200 && me.body.user.email === `sim${n}-${role}@example.com`, me.text);
   check(`[${role}] correct starting plan`, role === 'patient' ? me.body.user.plan === 'free' : me.body.user.trial === true && me.body.user.plan !== 'free', JSON.stringify(me.body.user));
+  check('[last login] method + previous login remembered', me.body.user.lastLogin && me.body.user.lastLogin.method === 'password' && me.body.user.prevLogin && me.body.user.prevLogin.method === 'password', JSON.stringify(me.body.user.lastLogin));
+  check('[terms] terms version stored at sign-up', me.body.user.termsVersion === '2026-11-27', me.body.user.termsVersion);
+  if (n % 25 === 0) {
+    const noTerms = await call('/api/account?a=signup', { ip, body: { email: `noterms${n}-${role}@example.com`, name: 'No Terms', password: 'sim-pass-' + n, role } });
+    check('[terms] sign-up without accepting terms refused', noTerms.status === 400, noTerms.status);
+  }
   return { token: r.body.token, user: r.body.user, ip, n };
 }
 
@@ -126,10 +132,11 @@ async function patient(n) {
   const ip = '10.1.' + ((n >> 8) & 255) + '.' + (n & 255);
   let s;
   if (n % 5 === 2) {
-    const g = await call('/api/account?a=google', { ip, body: { credential: `fake|g-${n}|sim${n}-google@gmail.com|Google Person ${n}` } });
+    const g = await call('/api/account?a=google', { ip, body: { acceptTerms: true, credential: `fake|g-${n}|sim${n}-google@gmail.com|Google Person ${n}` } });
     check('[google] sign up with Google', g.status === 200 && g.body.created === true && g.body.user.google === true, g.text);
     const g2 = await call('/api/account?a=google', { ip, body: { credential: `fake|g-${n}|sim${n}-google@gmail.com|Google Person ${n}` } });
     check('[google] sign in again with Google', g2.status === 200 && g2.body.created === false && g2.body.user.id === g.body.user.id, g2.text);
+    check('[last login] Google sign-in remembered', g2.body && g2.body.user.lastLogin && g2.body.user.lastLogin.method === 'google' && g2.body.user.prevLogin.method === 'google', JSON.stringify(g2.body && g2.body.user.lastLogin));
     const bad = await call('/api/account?a=google', { ip, body: { credential: `fake|g-other-${n}|sim${n}-google@gmail.com|Imposter` } });
     check('[security] different Google account with same email refused', bad.status === 401, bad.status);
     s = g.status === 200 ? { token: g2.body.token, user: g2.body.user, ip, n } : null;
@@ -185,6 +192,21 @@ async function patient(n) {
   }
   const tampered = await call('/api/account?a=me', { headers: bearer(s.token.slice(0, -3) + 'abc') });
   check('[security] tampered login token refused', tampered.status === 401, tampered.status);
+  if (n % 6 === 1) {
+    const ex = await call('/api/account?a=export', { headers: bearer(s.token), ip });
+    check('[patient] download my data', ex.status === 200 && ex.body && ex.body.user.id === s.user.id && ex.body.user.cabinet.length === 2 && /attachment/.test(ex.headers['content-disposition'] || ''), ex.text.slice(0, 200));
+    check('[security] my-data download has no password hash', !/passHash|passSalt|tokenVersion/.test(ex.text), 'secret field in export');
+  }
+  if (n % 9 === 0) {
+    const ac = await call('/api/account?a=app-code', { headers: bearer(s.token), ip, body: { app: 'customer' } });
+    const ok = check('[app login] browser makes a one-time app code', ac.status === 200 && /^[a-f0-9]{32}$/.test(ac.body.code), ac.text);
+    if (ok) {
+      const x = await call('/api/account?a=app-exchange', { ip, headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 14; wv) SastaDawa/2.9' }, body: { code: ac.body.code } });
+      check('[app login] app swaps the code for a login', x.status === 200 && x.body.token && x.body.user.id === s.user.id && x.body.user.lastLogin.app === 'customer', x.text);
+      const again = await call('/api/account?a=app-exchange', { ip, body: { code: ac.body.code } });
+      check('[security] app code works only once', again.status === 401, again.status);
+    }
+  }
   if (n % 10 === 0) {
     const cp = await call('/api/account?a=change-password', { headers: bearer(s.token), body: { current: 'sim-pass-' + n, password: 'new-pass-' + n } });
     check('[patient] change password', cp.status === 200, cp.text);
@@ -217,6 +239,13 @@ async function pharmacy(n) {
   check('[pharmacy] stock & own prices', st.status === 200 && st.body.changed === 3, st.text);
   const bulk = await call('/api/account?a=set-stock', { headers: bearer(s.token), body: { id: pid, items: Array.from({ length: 60 }, (_, i) => ({ id: pick(MEDS, i).id, s: 'in' })) } });
   check('[pharmacy] bulk upload needs Premium (Pro refused)', bulk.status === 402, bulk.status);
+  if (n % 3 === 1) {
+    const rowsCsv = ['medicine,status,price', ...[pick(MEDS, n + 5), pick(MEDS, n + 6)].map((m, i) => `${i ? m.id : '"' + m.product + '"'},${i ? 'out' : 'in'},${i ? '' : Math.round(m.price * 0.9)}`)].join('\r\n');
+    const ci = await call('/api/account?a=import-stock', { headers: bearer(s.token), ip, body: { pid, csv: rowsCsv } });
+    check('[pharmacy] CSV stock import', ci.status === 200 && ci.body.imported === 2 && ci.body.errors.length === 0, ci.text.slice(0, 200));
+    const badCsv = await call('/api/account?a=import-stock', { headers: bearer(s.token), ip, body: { pid, csv: 'medicine,status,price\r\n' + pick(MEDS, n).id + ',maybe,\r\n' } });
+    check('[pharmacy] CSV with bad rows imports nothing', badCsv.status === 400 && badCsv.body.errors.length === 1 && badCsv.body.errors[0].row === 2, badCsv.text.slice(0, 200));
+  }
   const pub = await call(`/api/places?a=nearby&med=${items[0].id}&city=${city}`, { ip });
   const mine = (pub.body.pharmacies || []).find((p) => p.id === pid);
   check('[pharmacy] verified listing visible with stock + price', mine && mine.stock === 'in' && mine.price === items[0].price && mine.verified, JSON.stringify(mine));
@@ -346,7 +375,7 @@ async function companyFollowUp(s) {
   check('[company] staff count + savings report', r.status === 200 && r.body.company && typeof r.body.company.monthly_saving === 'number', r.text);
   const rows = MEDS.slice(0, 5).map((m, i) => ({ medicine: i % 2 ? m.id : m.name, qty: 30 * (i + 1), paid: Math.round(m.unitPrice * 30 * (i + 1)) }));
   rows.push({ medicine: 'not a real medicine xyz' });
-  const cr = await call('/api/account?a=claims-report', { headers: bearer(s.token), body: { rows } });
+  const cr = await call('/api/account?a=claims-report', { headers: bearer(s.token), ip: s.ip, body: { rows } });
   check('[company] claims analysis', cr.status === 200 && cr.body.rows.length === 5 && cr.body.unmatched.length === 1 && cr.body.total_cheapest <= cr.body.total_paid, cr.text);
   const pr = await call('/api/account?a=partners', { headers: bearer(s.token) });
   check('[company] partner pharmacies with staff discounts', pr.status === 200 && pr.body.partners.length > 0 && pr.body.partners.every((x) => x.offer && x.offer.percent > 0), pr.text.slice(0, 200));

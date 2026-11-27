@@ -11,6 +11,16 @@
  *  - handles the Android back button
  *  - colours the status bar to match light/dark mode
  *  - schedules daily "take your medicines" reminders (local notifications, no server)
+ *  - opens the pages bundled in the app (account.html, legal pages) instead of the website
+ *  - Google / password login through the system browser (auth.startBrowserLogin, deep link back)
+ *  - voice search with the phone's speech recogniser (voice.available / voice.listen)
+ *
+ * Two apps are built from the same pages (scripts/build_app.js writes <meta name="sd-app">):
+ *  - "customer" (pk.sastadawa.app): home = index.html, deep link sastadawa://auth?code=…
+ *  - "business" (pk.sastadawa.business): home = account.html, search = search.html,
+ *    deep link sastadawabiz://auth?code=…
+ *
+ * Exposed as window.SDNative (and the same object as window.SastaNative).
  */
 (function () {
   'use strict';
@@ -25,12 +35,37 @@
   const isNative = !!(Cap && typeof Cap.isNativePlatform === 'function' && Cap.isNativePlatform());
   if (!isNative) {
     window.SDNative = null;
+    window.SastaNative = null;
     return;
   }
 
   const P = Cap.Plugins || {};
   const platform = typeof Cap.getPlatform === 'function' ? Cap.getPlatform() : 'native';
-  document.documentElement.classList.add('native', 'native-' + platform);
+
+  // Which app this is, and which pages ship inside it (written by scripts/build_app.js).
+  function meta(name) {
+    const m = document.querySelector('meta[name="' + name + '"]');
+    return m ? String(m.getAttribute('content') || '') : '';
+  }
+  const APP = meta('sd-app') === 'business' ? 'business' : 'customer';
+  const SCHEME = APP === 'business' ? 'sastadawabiz' : 'sastadawa';
+  const DEFAULT_PAGES = ['index', 'account'];
+  const PAGES = new Set((meta('sd-pages') || DEFAULT_PAGES.join(',')).split(',').map((s) => s.trim()).filter(Boolean));
+  /** Local file of the app's home screen and of its medicine search. */
+  const HOME = APP === 'business' ? 'account.html' : 'index.html';
+  const SEARCH = APP === 'business' && PAGES.has('search') ? 'search.html' : 'index.html';
+
+  document.documentElement.classList.add('native', 'native-' + platform, 'app-' + APP);
+
+  // Business app: the account page opens with a business account type preselected
+  // (account.js reads ?type= when it starts, which is after this file runs).
+  if (APP === 'business' && /account\.html$/.test(location.pathname) && !/[?&]type=/.test(location.search)) {
+    try {
+      const q = new URLSearchParams(location.search);
+      q.set('type', 'pharmacy');
+      history.replaceState(history.state, '', location.pathname + '?' + q.toString() + location.hash);
+    } catch (e) { /* account.js falls back to Personal */ }
+  }
 
   // ------------------------------------------------------------------------
   // URLs
@@ -40,6 +75,21 @@
   }
   function webUrl(hash) {
     return SITE + (hash || '');
+  }
+  /**
+   * Where a website page opens inside the app: a bundled page ('account' → 'account.html'),
+   * or the live website for pages the app does not ship ('business' → SITE/business).
+   * `page` may carry a query/hash: 'account#/profile', 'account?type=pharmacy'.
+   */
+  function pageUrl(page) {
+    const s = String(page || '').replace(/^\/+/, '');
+    const m = s.match(/^([^?#]*)(.*)$/);
+    let name = m[1].replace(/\.html$/i, '');
+    const rest = m[2] || '';
+    if (name === '' || name === 'index') return SEARCH + rest;
+    if (name === 'search' && PAGES.has('search')) return SEARCH + rest;
+    if (PAGES.has(name)) return name + '.html' + rest;
+    return SITE + name + rest;
   }
 
   // ------------------------------------------------------------------------
@@ -70,7 +120,28 @@
     if (/^https?:/i.test(href) && !href.startsWith(location.origin)) {
       e.preventDefault();
       openExternal(href);
+      return;
     }
+    // Website-style links inside the app's own pages ("/account", "business", "/terms"):
+    // a bundled page opens locally, anything else opens on the live website.
+    if (!href || href.charAt(0) === '#' || /^[a-z][a-z0-9+.-]*:/i.test(href)) return;
+    let u;
+    try { u = new URL(href, location.href); } catch (err) { return; }
+    if (u.origin !== location.origin) return;
+    const file = u.pathname.replace(/^\/+/, '');
+    if (/\.[a-z0-9]+$/i.test(file) && !/\.html$/i.test(file)) return; // assets, downloads
+    if (/\.html$/i.test(file) && PAGES.has(file.replace(/\.html$/i, ''))) return; // already a bundled file
+    const target = pageUrl(file + u.search + u.hash);
+    e.preventDefault();
+    if (/^https?:/i.test(target)) return openExternal(target);
+    // Same page ("/" and "/index.html" are the same file): just change the hash, no reload.
+    const tu = new URL(target, location.href);
+    const norm = (p) => p.replace(/\/$/, '/index.html');
+    if (norm(tu.pathname) === norm(location.pathname) && tu.search === location.search) {
+      if (tu.hash !== location.hash) location.hash = tu.hash;
+      return;
+    }
+    location.href = target;
   }, true);
 
   // ------------------------------------------------------------------------
@@ -98,9 +169,20 @@
         return;
       }
       const h = location.hash.replace(/^#\/?/, '');
-      if (h) history.back();
-      else P.App.exitApp();
+      if (h) return history.back();
+      // On another bundled page (account, terms, the business app's search): go back, not out.
+      if (!isHomePage()) {
+        if (history.length > 1) history.back();
+        else location.replace(HOME);
+        return;
+      }
+      P.App.exitApp();
     });
+  }
+  function isHomePage() {
+    const file = location.pathname.replace(/^\/+/, '') || 'index.html';
+    if (file === 'index.html') return true; // the business index.html only redirects to its home
+    return file === HOME;
   }
 
   // ------------------------------------------------------------------------
@@ -184,7 +266,10 @@
   if (P.LocalNotifications) {
     P.LocalNotifications.addListener('localNotificationActionPerformed', (ev) => {
       const route = ev && ev.notification && ev.notification.extra && ev.notification.extra.route;
-      if (route) location.hash = route;
+      if (!route) return;
+      const onSearch = !!document.getElementById('search-input');
+      if (onSearch) location.hash = route;
+      else location.href = SEARCH + route;
     });
   }
 
@@ -252,15 +337,203 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(countUsage, 1500));
   else setTimeout(countUsage, 1500);
 
-  window.SDNative = {
+  // ------------------------------------------------------------------------
+  // Login through the system browser (Google blocks its sign-in inside app web views)
+  // ------------------------------------------------------------------------
+  // 1. startBrowserLogin() opens SITE/account?app=customer|business in the system browser.
+  // 2. After login there, the website asks the server for a one-time code and opens
+  //    sastadawa://auth?code=… (business: sastadawabiz://…), which Android hands back to this app.
+  // 3. We swap the code for a session (POST /api/account?a=app-exchange), save it where
+  //    account.js and app.js read it (sd_user_token, sd_user), close the browser and open the account.
+  const USED_CODE_KEY = 'sd_app_code_used';
+  let exchanging = null;
+
+  function parseAuthUrl(url) {
+    let u;
+    try { u = new URL(String(url || '')); } catch (e) { return null; }
+    if (u.protocol !== SCHEME + ':') return null;
+    // sastadawa://auth?code=… → host "auth" (some Android versions report it as the path)
+    const where = (u.hostname || u.pathname.replace(/^\/+/, '')).toLowerCase();
+    if (where !== 'auth') return null;
+    const code = u.searchParams.get('code') || '';
+    return /^[a-f0-9]{16,128}$/i.test(code) ? { code, error: '' } : { code: '', error: u.searchParams.get('error') || 'missing_code' };
+  }
+
+  function emit(name, detail) {
+    try { window.dispatchEvent(new CustomEvent(name, { detail })); } catch (e) { /* old webview */ }
+  }
+
+  /** Swap a one-time code for a session. Resolves { token, user }; rejects with a readable Error. */
+  async function exchangeCode(code) {
+    let used = '';
+    try { used = localStorage.getItem(USED_CODE_KEY) || ''; } catch (e) { /* ignore */ }
+    if (used === code) throw new Error('This sign-in link was already used. Please sign in again.');
+    let res;
+    try {
+      res = await fetch(apiUrl('api/account?a=app-exchange'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+        cache: 'no-store',
+      });
+    } catch (e) {
+      throw new Error('Could not reach the server. Check your internet connection and try again.');
+    }
+    let data = {};
+    try { data = (await res.json()) || {}; } catch (e) { data = {}; }
+    if (!res.ok || !data.token) throw new Error(data.error || 'Sign-in did not finish. Please try again.');
+    try {
+      localStorage.setItem(USED_CODE_KEY, code);
+      localStorage.setItem('sd_user_token', data.token);
+      if (data.user) localStorage.setItem('sd_user', JSON.stringify(data.user));
+    } catch (e) { /* storage blocked: nothing we can do */ }
+    return { token: data.token, user: data.user || null };
+  }
+
+  /** Handles a sastadawa(biz)://auth link. Returns true if the URL was ours. */
+  async function handleAuthUrl(url) {
+    const p = parseAuthUrl(url);
+    if (!p) return false;
+    if (P.Browser && P.Browser.close) P.Browser.close().catch(() => {});
+    if (!p.code) {
+      emit('sd-native-login', { ok: false, error: 'Sign-in was cancelled or did not finish. Please try again.' });
+      return true;
+    }
+    if (exchanging) return true;
+    // getLaunchUrl() keeps returning the link that started the app: ignore a code we already used.
+    try { if (localStorage.getItem(USED_CODE_KEY) === p.code) return true; } catch (e) { /* ignore */ }
+    exchanging = exchangeCode(p.code)
+      .then((r) => {
+        emit('sd-native-login', { ok: true, user: r.user });
+        // Open (or reload) the account dashboard so every page picks up the new session.
+        if (/account\.html$/.test(location.pathname)) {
+          if (location.hash !== '#/') location.hash = '#/';
+          location.reload();
+        } else location.href = 'account.html#/';
+      })
+      .catch((e) => emit('sd-native-login', { ok: false, error: e.message }))
+      .finally(() => { exchanging = null; });
+    await exchanging;
+    return true;
+  }
+
+  /** Open the website's login in the system browser. `app` defaults to this app ('customer'|'business'). */
+  function startBrowserLogin(app) {
+    const which = app === 'business' || app === 'customer' ? app : APP;
+    const url = SITE + 'account?app=' + which;
+    if (P.Browser && P.Browser.open) return P.Browser.open({ url }).then(() => true).catch(() => { location.href = url; return true; });
+    location.href = url;
+    return Promise.resolve(true);
+  }
+
+  if (P.App && P.App.addListener) {
+    P.App.addListener('appUrlOpen', (ev) => { handleAuthUrl(ev && ev.url); });
+    // The phone may have closed the app while the browser was open: the link then starts it fresh.
+    if (P.App.getLaunchUrl) {
+      Promise.resolve()
+        .then(() => P.App.getLaunchUrl())
+        .then((r) => { if (r && r.url) handleAuthUrl(r.url); })
+        .catch(() => {});
+    }
+  }
+
+  const auth = { app: APP, scheme: SCHEME, startBrowserLogin, handleAuthUrl, exchangeCode };
+
+  // ------------------------------------------------------------------------
+  // Voice search (@capacitor-community/speech-recognition, Android's own recogniser)
+  // ------------------------------------------------------------------------
+  function voiceError(code, message) {
+    return Object.assign(new Error(message), { code });
+  }
+  const voice = {
+    /** Resolves true when the phone has a speech recogniser and the plugin is installed. */
+    async available() {
+      const SR = P.SpeechRecognition;
+      if (!SR || !SR.available) return false;
+      try {
+        const r = await SR.available();
+        return !!(r && r.available);
+      } catch (e) {
+        return false;
+      }
+    },
+    /**
+     * Listen once and resolve with what was said ('' if nothing was heard).
+     * Rejects with err.code = 'unavailable' | 'denied' | 'failed'.
+     * @param {string} lang  BCP-47, e.g. 'ur-PK', 'en-PK', 'en-US'
+     */
+    async listen(lang) {
+      const SR = P.SpeechRecognition;
+      if (!SR || !SR.start) throw voiceError('unavailable', 'Voice search is not available on this phone.');
+      let perm = null;
+      try {
+        perm = await SR.checkPermissions();
+        if (!perm || perm.speechRecognition !== 'granted') perm = await SR.requestPermissions();
+      } catch (e) {
+        perm = null;
+      }
+      if (!perm || perm.speechRecognition !== 'granted') throw voiceError('denied', 'Please allow the microphone to search by voice.');
+      const run = async (language) => {
+        const r = await SR.start({ language, maxResults: 1, partialResults: false, popup: false });
+        return String((r && r.matches && r.matches[0]) || '').trim();
+      };
+      try {
+        return await run(lang || 'en-US');
+      } catch (e) {
+        const msg = String((e && e.message) || e || '');
+        if (/no match|didn'?t understand|nothing/i.test(msg)) return '';
+        // Some recognisers do not know en-PK: try plain US English once.
+        if (lang && /^en-/i.test(lang) && lang !== 'en-US') {
+          try { return await run('en-US'); } catch (e2) { /* fall through */ }
+        }
+        throw voiceError('failed', msg || 'Voice search failed. Please try again.');
+      }
+    },
+    stop() {
+      const SR = P.SpeechRecognition;
+      if (SR && SR.stop) return SR.stop().catch(() => {});
+      return Promise.resolve();
+    },
+  };
+
+  // ------------------------------------------------------------------------
+  // Business app: a "Search medicines" button on the account screens
+  // ------------------------------------------------------------------------
+  function addBusinessSearchButton() {
+    if (APP !== 'business' || !/account\.html$/.test(location.pathname) || document.getElementById('sd-app-search')) return;
+    const a = document.createElement('a');
+    a.id = 'sd-app-search';
+    a.href = SEARCH;
+    a.className = 'sd-app-search';
+    a.textContent = 'Search medicines';
+    a.setAttribute('aria-label', 'Search medicines');
+    a.style.cssText = 'position:fixed;inset-inline-end:16px;bottom:calc(16px + env(safe-area-inset-bottom, 0px));z-index:50;'
+      + 'display:inline-flex;align-items:center;gap:8px;min-height:48px;padding:0 18px;border-radius:999px;'
+      + 'background:#0A6B3C;color:#fff;font:600 15px/1 "IBM Plex Sans",system-ui,sans-serif;text-decoration:none;'
+      + 'box-shadow:0 4px 14px rgba(0,0,0,.25)';
+    document.body.appendChild(a);
+    document.body.style.paddingBottom = '80px';
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', addBusinessSearchButton);
+  else addBusinessSearchButton();
+
+  const api = {
     isNative: true,
     platform,
+    app: APP,
     site: SITE,
+    home: HOME,
+    search: SEARCH,
     apiUrl,
     webUrl,
+    pageUrl,
     openExternal,
     share,
     reminders,
     countUsage,
+    auth,
+    voice,
   };
+  window.SDNative = api;
+  window.SastaNative = api;
 })();

@@ -7,21 +7,14 @@
   <meta name="description" content="Sign in to your Sasta Dawa Finder account to manage your pharmacy listing, clinic widget, NGO medicine budget, company benefit or API keys.">
   <meta name="robots" content="noindex">
   <meta name="theme-color" content="#F6F5EF">
-  <script>
-    (function () {
-      var t = 'system';
-      try { var v = localStorage.getItem('sd_theme'); if (v) t = JSON.parse(v); } catch (e) {}
-      var dark = t === 'dark' || (t !== 'light' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
-      document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
-    })();
-  </script>
+  <script src="js/theme-init.js?v=1"></script>
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Nastaliq+Urdu:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css?v=2.8.0">
-  <link rel="stylesheet" href="css/account.css?v=1.4.0">
+  <link rel="stylesheet" href="css/account.css?v=1.5.0">
 </head>
 <body>
   <a class="skip-link" href="#app">Skip to content</a>
@@ -67,6 +60,14 @@
           <a class="footer-link" href="developers">Developer API</a>
           <a class="footer-link" href="privacy.html">Privacy policy</a>
         </div>
+        <div>
+          <p class="footer-h">Legal</p>
+          <a class="footer-link" href="terms.html">Terms of Service</a>
+          <a class="footer-link" href="refund.html">Refund &amp; cancellation</a>
+          <a class="footer-link" href="disclaimer.html">Medical disclaimer</a>
+          <a class="footer-link" href="pharmacy-terms.html">Pharmacy listing terms</a>
+          <a class="footer-link" href="delete-account.html">Delete your account</a>
+        </div>
       </div>
       <p class="footer-copy">&copy; <span id="copyright-year">2026</span> Maverick Technologies</p>
     </div>
@@ -76,6 +77,8 @@
 
   <script src="js/data.js?v=2.6.0"></script>
   <script src="js/search.js?v=2.6.0"></script>
-  <script src="js/account.js?v=1.2.0"></script>
+  <script src="js/qr.js?v=1.0.0"></script>
+  <script src="js/csvkit.js?v=1.0.0"></script>
+  <script src="js/account.js?v=1.3.0"></script>
 </body>
 </html>

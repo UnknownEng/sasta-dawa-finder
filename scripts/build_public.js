@@ -12,7 +12,9 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 const OUT = path.join(ROOT, 'public');
 
-const FILES = ['index.html', '404.html', 'privacy.html', 'download.html', 'favicon.ico', 'manifest.json', 'robots.txt', 'sw.js', 'account.html', 'business.html', 'widget.html', 'developers.html'];
+const FILES = ['index.html', '404.html', 'privacy.html', 'download.html', 'favicon.ico', 'manifest.json', 'robots.txt', 'sw.js', 'account.html', 'business.html', 'widget.html', 'developers.html',
+  // legal pages (round 4; privacy.html is listed above)
+  'terms.html', 'refund.html', 'disclaimer.html', 'pharmacy-terms.html', 'delete-account.html'];
 const DIRS_APP = 'app'; // tiny pages the mobile app loads to count installs / daily users
 const DIRS = ['css', 'js', 'icons', 'data', 'unonenginerrunon', DIRS_APP];
 
