@@ -118,7 +118,10 @@ test('build_app: business www-business/ starts at the account portal and has a s
   assert.ok(fs.existsSync(path.join(out, 'data/medicines.json')));
 });
 
-test('Android project: two flavors, own ids, names, deep-link schemes and asset folders', () => {
+// The two-app Android project lands together with its CI workflow (needs the GitHub `workflow` scope);
+// until then main still has the single-app project.
+const HAS_FLAVORS = /productFlavors/.test(require('fs').readFileSync(require('path').join(__dirname, '..', 'android', 'app', 'build.gradle'), 'utf8'));
+test('Android project: two flavors, own ids, names, deep-link schemes and asset folders', { skip: !HAS_FLAVORS && 'two-app Android project not merged yet' }, () => {
   const g = fs.readFileSync(path.join(root, 'android/app/build.gradle'), 'utf8');
   assert.match(g, /flavorDimensions "app"/);
   assert.match(g, /customer \{[\s\S]*?applicationId "pk\.sastadawa\.app"[\s\S]*?"Sasta Dawa Finder"[\s\S]*?authScheme: "sastadawa"\]/);
