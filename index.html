@@ -7,7 +7,7 @@
   <meta name="description" content="Search DRAP-registered medicines in Pakistan, see the official maximum retail price, and find cheaper brands with the exact same formula. Free, bilingual (English / اردو).">
   <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
   <link rel="canonical" href="https://sasta-dawa-finder.vercel.app/">
-  <meta name="theme-color" content="#0f5c54" id="meta-theme">
+  <meta name="theme-color" content="#F6F5EF" id="meta-theme">
   <script>
     /* Apply the saved light/dark choice before the page paints (no white flash) */
     (function () {
@@ -25,9 +25,9 @@
   <link rel="manifest" href="manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Nastaliq+Urdu:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Nastaliq+Urdu:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="preload" href="data/medicines.json" as="fetch" type="application/json" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=2.5.0">
+  <link rel="stylesheet" href="css/style.css?v=2.6.0">
 
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Sasta Dawa Finder">
@@ -146,7 +146,7 @@
     <div class="wrap topbar-inner">
       <a href="#/" class="brand" aria-label="Sasta Dawa Finder home">
         <span class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 32 32"><rect x="2" y="2" width="28" height="28" rx="9" fill="currentColor"/><path d="M11 21.5 21 10.5" stroke="var(--brand-contrast)" stroke-width="2.6" stroke-linecap="round"/><rect x="7.5" y="12.2" width="17" height="7.6" rx="3.8" transform="rotate(-45 16 16)" fill="none" stroke="var(--brand-contrast)" stroke-width="2.2"/></svg>
+          <svg viewBox="0 0 32 32" width="32" height="32"><rect x="1" y="1" width="30" height="30" rx="4" fill="currentColor"/><path d="M13 7h6v6h6v6h-6v6h-6v-6H7v-6h6z" fill="var(--brand-contrast)"/></svg>
         </span>
         <span class="brand-text">
           <span class="brand-name">Sasta Dawa</span>
@@ -181,49 +181,37 @@
 
     <!-- HOME -->
     <section id="view-home" class="view" aria-labelledby="hero-title">
-      <div class="hero-band">
-      <div class="hero">
-        <p class="eyebrow" data-i18n="hero_eyebrow">Official DRAP prices · Same formula, lower price</p>
-        <h1 id="hero-title" class="hero-title" data-i18n="hero_title">Paying too much for your medicine?</h1>
-        <p class="hero-sub" data-i18n="hero_sub">Type a brand or salt name. We show the government-notified price and every cheaper brand with the exact same formula.</p>
+      <div class="home-head">
+        <div class="hero">
+          <p class="eyebrow" data-i18n="hero_eyebrow">Official DRAP maximum retail prices · Pakistan</p>
+          <h1 id="hero-title" class="hero-title" data-i18n="hero_title">Same medicine. Lower price.</h1>
+          <p class="hero-sub" data-i18n="hero_sub">Type a brand or salt name. We show the government-notified price and every cheaper brand with the exact same formula.</p>
 
-        <div class="search" id="search">
-          <form class="search-box" id="search-form" role="search" autocomplete="off">
-            <svg class="ic search-ic" aria-hidden="true"><use href="#i-search"/></svg>
-            <input id="search-input" class="search-input" type="search" inputmode="search" enterkeyhint="search"
-                   placeholder="Try Panadol, Risek, metformin…" aria-label="Search medicines"
-                   role="combobox" aria-expanded="false" aria-controls="suggest" aria-autocomplete="list" spellcheck="false">
-            <button type="button" class="icon-btn ghost" id="search-clear" aria-label="Clear" hidden><svg class="ic"><use href="#i-x"/></svg></button>
-            <button type="button" class="icon-btn ghost" id="search-mic" aria-label="Search by voice" hidden><svg class="ic"><use href="#i-mic"/></svg></button>
-            <button type="submit" class="btn btn-primary search-submit" data-i18n="search_btn">Search</button>
-          </form>
-          <ul id="suggest" class="suggest" role="listbox" hidden></ul>
+          <div class="search" id="search">
+            <form class="search-box" id="search-form" role="search" autocomplete="off">
+              <svg class="ic search-ic" aria-hidden="true"><use href="#i-search"/></svg>
+              <input id="search-input" class="search-input" type="search" inputmode="search" enterkeyhint="search"
+                     placeholder="Try Panadol, Risek, metformin…" aria-label="Search medicines"
+                     role="combobox" aria-expanded="false" aria-controls="suggest" aria-autocomplete="list" spellcheck="false">
+              <button type="button" class="icon-btn ghost" id="search-clear" aria-label="Clear" hidden><svg class="ic"><use href="#i-x"/></svg></button>
+              <button type="button" class="icon-btn ghost" id="search-mic" aria-label="Search by voice" hidden><svg class="ic"><use href="#i-mic"/></svg></button>
+              <button type="submit" class="btn btn-primary search-submit" data-i18n="search_btn">Search</button>
+            </form>
+            <ul id="suggest" class="suggest" role="listbox" hidden></ul>
+          </div>
+
+          <div class="rx" id="rx-block" hidden>
+            <button type="button" class="btn btn-ghost sm rx-btn" id="rx-btn"><svg class="ic" aria-hidden="true"><use href="#i-camera"/></svg><span data-i18n="rx_btn">Scan prescription</span></button>
+            <input type="file" id="rx-file" accept="image/*" capture="environment" class="sr-only" tabindex="-1" aria-label="Prescription photo">
+            <div id="rx-result" class="rx-result" role="region" aria-live="polite" hidden></div>
+          </div>
+
+          <div class="quick">
+            <span class="quick-label" data-i18n="quick_label">Popular</span>
+            <div class="chips quick-links" id="quick-chips" aria-label="Popular searches"></div>
+          </div>
+          <p class="data-stamp" id="data-stamp"></p>
         </div>
-
-        <div class="rx" id="rx-block" hidden>
-          <button type="button" class="btn btn-ghost sm rx-btn" id="rx-btn"><svg class="ic" aria-hidden="true"><use href="#i-camera"/></svg><span data-i18n="rx_btn">Scan prescription</span></button>
-          <input type="file" id="rx-file" accept="image/*" capture="environment" class="sr-only" tabindex="-1" aria-label="Prescription photo">
-          <div id="rx-result" class="rx-result" role="region" aria-live="polite" hidden></div>
-        </div>
-
-        <div class="chips" id="quick-chips" aria-label="Popular searches"></div>
-        <p class="data-stamp" id="data-stamp"></p>
-      </div>
-
-      <aside class="hero-side" aria-labelledby="steps-title">
-        <h2 class="hs-title" id="steps-title" data-i18n="steps_title">How it works</h2>
-        <ol class="hs-steps">
-          <li><span class="hs-num">1</span><span data-i18n="step1">Type the medicine name</span></li>
-          <li><span class="hs-num">2</span><span data-i18n="step2">See the cheapest same-formula brand</span></li>
-          <li><span class="hs-num">3</span><span data-i18n="step3">Show it to your pharmacist</span></li>
-        </ol>
-        <div class="hs-stats" id="hero-stats"></div>
-        <div class="hs-app app-get">
-          <a class="btn btn-primary hs-app-btn" id="app-download" href="/download" rel="noopener"><svg class="ic"><use href="#i-download"/></svg><span data-i18n="app_android">Download Android app</span></a>
-          <p class="hs-app-note" data-i18n="app_android_note">Free · works offline · daily medicine reminders. Android may ask you to allow the install — that's normal.</p>
-          <p class="hs-app-note" data-i18n="app_ios_note">iPhone: open this site in Safari → Share → Add to Home Screen.</p>
-        </div>
-      </aside>
       </div>
 
       <div class="app-banner app-get">
@@ -232,8 +220,17 @@
           <span class="app-banner-sub app-android" data-i18n="app_banner_d">Works offline · daily medicine reminders</span>
           <span class="app-banner-sub app-ios-tip" data-i18n="app_ios_note">iPhone: open this site in Safari → Share → Add to Home Screen.</span>
         </div>
-        <a class="btn btn-primary app-banner-btn app-android" href="/download" rel="noopener"><svg class="ic"><use href="#i-download"/></svg><span data-i18n="app_banner_btn">Download</span></a>
+        <a class="btn btn-ghost app-banner-btn app-android" href="/download" rel="noopener"><svg class="ic"><use href="#i-download"/></svg><span data-i18n="app_banner_btn">Download</span></a>
       </div>
+
+      <section class="block how-block" aria-labelledby="steps-title">
+        <h2 class="kicker" id="steps-title" data-i18n="steps_title">How it works</h2>
+        <ol class="how">
+          <li class="how-step"><span class="how-num num" aria-hidden="true">01</span><div><h3 data-i18n="how1_t">Check the formula</h3><p data-i18n="how1_d">Every medicine is matched on active ingredient, strength and form — not just the name.</p></div></li>
+          <li class="how-step"><span class="how-num num" aria-hidden="true">02</span><div><h3 data-i18n="how2_t">Compare price per tablet</h3><p data-i18n="how2_d">Packs come in 10, 14, 20 or 30. We divide by pack size so the comparison is fair.</p></div></li>
+          <li class="how-step"><span class="how-num num" aria-hidden="true">03</span><div><h3 data-i18n="how3_t">Ask your pharmacist</h3><p data-i18n="how3_d">Show the cheaper brand to your pharmacist or doctor before switching.</p></div></li>
+        </ol>
+      </section>
 
       <div id="recent-block" class="block" hidden>
         <div class="block-head">
@@ -260,10 +257,13 @@
         <div class="deal-grid" id="deal-grid"></div>
       </div>
 
-      <div class="block how">
-        <div class="how-step"><span class="how-num"><svg class="ic"><use href="#i-check"/></svg></span><div><h3 data-i18n="how1_t">Check the formula</h3><p data-i18n="how1_d">Every medicine is matched on active ingredient, strength and form — not just the name.</p></div></div>
-        <div class="how-step"><span class="how-num"><svg class="ic"><use href="#i-bolt"/></svg></span><div><h3 data-i18n="how2_t">Compare price per tablet</h3><p data-i18n="how2_d">Packs come in 10, 14, 20 or 30. We divide by pack size so the comparison is fair.</p></div></div>
-        <div class="how-step"><span class="how-num"><svg class="ic"><use href="#i-info"/></svg></span><div><h3 data-i18n="how3_t">Ask your pharmacist</h3><p data-i18n="how3_d">Show the cheaper brand to your pharmacist or doctor before switching.</p></div></div>
+      <div class="app-strip app-get">
+        <div class="app-strip-text">
+          <b data-i18n="app_banner_t">Get the Sasta Dawa app</b>
+          <span class="app-android" data-i18n="app_android_note">Free · works offline · daily medicine reminders. Android may ask you to allow the install — that's normal.</span>
+          <span class="app-ios-tip" data-i18n="app_ios_note">iPhone: open this site in Safari → Share → Add to Home Screen.</span>
+        </div>
+        <a class="btn btn-ghost app-android" id="app-download" href="/download" rel="noopener"><svg class="ic"><use href="#i-download"/></svg><span data-i18n="app_android">Download Android app</span></a>
       </div>
     </section>
 
@@ -459,7 +459,7 @@
 
   <!-- ASSISTANT -->
   <button type="button" class="fab" id="assistant-fab" aria-controls="assistant" aria-expanded="false">
-    <svg class="ic"><use href="#i-chat"/></svg><span data-i18n="fab_label">Ask Dawa Assistant</span>
+    <svg class="ic" aria-hidden="true"><use href="#i-chat"/></svg><span data-i18n="fab_label">Ask</span><span class="sr-only"> </span><span class="sr-only" data-i18n="assistant_title">Dawa Assistant</span>
   </button>
 
   <aside id="assistant" class="assistant" role="dialog" aria-modal="false" aria-labelledby="assistant-title" hidden>
@@ -485,11 +485,11 @@
     </form>
   </aside>
 
-  <script src="js/native.js?v=2.5.0"></script>
-  <script src="js/i18n.js?v=2.5.0"></script>
-  <script src="js/data.js?v=2.5.0"></script>
-  <script src="js/search.js?v=2.5.0"></script>
-  <script src="js/assistant.js?v=2.5.0"></script>
-  <script src="js/app.js?v=2.5.0"></script>
+  <script src="js/native.js?v=2.6.0"></script>
+  <script src="js/i18n.js?v=2.6.0"></script>
+  <script src="js/data.js?v=2.6.0"></script>
+  <script src="js/search.js?v=2.6.0"></script>
+  <script src="js/assistant.js?v=2.6.0"></script>
+  <script src="js/app.js?v=2.6.0"></script>
 </body>
 </html>

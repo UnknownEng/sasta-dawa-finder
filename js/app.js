@@ -453,36 +453,31 @@
     document.title = 'Sasta Dawa Finder — Compare medicine prices & find cheaper generics in Pakistan';
     const { engine, ds } = state;
 
-    // quick chips: the admin's list if set, otherwise the most popular brands
+    // quick searches (plain links): the admin's list if set, otherwise the most popular brands
     const picked = state.site && Array.isArray(state.site.popular) ? state.site.popular.slice(0, 10) : [];
     $('#quick-chips').innerHTML = picked.length
-      ? picked.map((name) => `<a class="chip" href="#/search/${encodeURIComponent(name)}">${esc(name)}</a>`).join('')
-      : engine.popular(9).map((m) => `<a class="chip" href="#/medicine/${encodeURIComponent(m.id)}">${esc(m.name)}</a>`).join('');
+      ? picked.map((name) => `<a class="chip quick-link" href="#/search/${encodeURIComponent(name)}">${esc(name)}</a>`).join('')
+      : engine.popular(9).map((m) => `<a class="chip quick-link" href="#/medicine/${encodeURIComponent(m.id)}">${esc(m.name)}</a>`).join('');
 
+    // the mono "price stamp" under the search box: real counts and the DRAP list date
     $('#data-stamp').textContent = t('data_stamp', {
       products: ds.items.length.toLocaleString('en-PK'),
+      formulas: ds.groups.size.toLocaleString('en-PK'),
       date: fmtDate(ds.meta.latest_price_date),
     });
-    $('#hero-stats').innerHTML = [
-      [ds.items.length.toLocaleString('en-PK'), t('stat_medicines')],
-      [ds.groups.size.toLocaleString('en-PK'), t('stat_formulas')],
-      [fmtDate(ds.meta.latest_price_date), t('stat_updated')],
-    ]
-      .map(([v, k]) => `<div><b class="num">${esc(v)}</b><span>${esc(k)}</span></div>`)
-      .join('');
 
     // recent
     const recent = store('sd_recent', []).map((id) => engine.byId(id)).filter(Boolean);
     $('#recent-block').hidden = recent.length === 0;
     $('#recent-list').innerHTML = recent
-      .map((m) => `<a class="recent-card" href="#/medicine/${encodeURIComponent(m.id)}"><b>${esc(medTitle(m))}</b><span>${esc(m.generic)} · ${rs(m.unitPrice)}/${esc(unitWord(m))}</span></a>`)
+      .map((m) => `<a class="recent-card" href="#/medicine/${encodeURIComponent(m.id)}"><b>${esc(medTitle(m))}</b><span>${esc(m.generic)} · <span class="num">${rs(m.unitPrice)}/${esc(unitWord(m))}</span></span></a>`)
       .join('');
 
     // categories
     const counts = engine.categoryCounts();
     $('#cat-grid').innerHTML = ds.categories
       .filter((c) => (counts.get(c.id) || 0) > 0 && c.id !== 'other')
-      .map((c) => `<a class="cat-card" href="#/category/${c.id}"><span class="cat-ic">${catIcon(c.icon)}</span><span><span class="cat-name">${esc(catName(c))}</span><br><span class="cat-n">${(counts.get(c.id) || 0).toLocaleString('en-PK')}</span></span></a>`)
+      .map((c) => `<a class="cat-card" href="#/category/${c.id}"><span class="cat-ic">${catIcon(c.icon)}</span><span class="cat-text"><span class="cat-name">${esc(catName(c))}</span><span class="cat-n num">${(counts.get(c.id) || 0).toLocaleString('en-PK')}</span></span></a>`)
       .join('');
 
     // deals
@@ -493,10 +488,10 @@
           const u = unitWord(med);
           return `<a class="deal" href="#/medicine/${encodeURIComponent(med.id)}">
             <div class="deal-top"><div><div class="deal-name">${esc(medTitle(med))}</div><div class="deal-gen">${esc(med.generic)} · ${esc(med.form)}</div></div>
-            <span class="save-pill">−${s.percent}%</span></div>
+            <span class="save-pill num">−${s.percent}%</span></div>
             <div class="deal-compare">
-              <span class="lbl">${esc(med.name)}</span><span class="val num">${rs(med.unitPrice)}/${esc(u)}</span>
-              <span class="lbl cheap">${esc(s.cheapest.name)}</span><span class="val num cheap">${rs(s.cheapest.unitPrice)}/${esc(u)}</span>
+              <span class="lbl">${esc(med.name)}</span><span class="dots" aria-hidden="true"></span><span class="val num">${rs(med.unitPrice)}/${esc(u)}</span>
+              <span class="lbl cheap">${esc(s.cheapest.name)}</span><span class="dots" aria-hidden="true"></span><span class="val num cheap">${rs(s.cheapest.unitPrice)}/${esc(u)}</span>
             </div></a>`;
         })
         .join('')
@@ -737,9 +732,10 @@
         ${cat && cat.id !== 'other' ? `<a class="cat-ic" href="#/category/${cat.id}" title="${esc(catName(cat))}" aria-label="${esc(catName(cat))}">${catIcon(cat.icon)}</a>` : ''}
       </div>
       <div class="mh-formula"><small>${esc(t('formula'))}</small><b>${esc(med.generic)}${med.strength ? ' — ' + esc(med.strength) : ''}</b></div>
-      <div class="mh-prices">
-        <div class="mh-price"><small>${esc(t('pack_price'))}</small><b class="num">${rs(med.price)}</b></div>
-        <div class="mh-price"><small>${esc(t('unit_price', { unit: u }))}</small><b class="num">${med.unit === 'pack' ? '—' : rs(med.unitPrice)}</b></div>
+      <div class="price-label mh-prices">
+        <div class="pl-cap"><span class="pl-mrp">${esc(t('pl_mrp'))}</span><span class="pl-date num">${esc(fmtDate(med.effective))}</span></div>
+        <div class="pl-price mh-price"><b class="num">${rs(med.price).replace(/^Rs /, '<span class="pl-rs">Rs</span>')}</b><span class="pl-pack">${esc(t('pl_pack', { pack: med.pack || '—' }))}</span></div>
+        ${med.unit === 'pack' ? '' : `<div class="pl-unit mh-price"><span>${esc(t('unit_price', { unit: u }))}</span><b class="num">${rs(med.unitPrice)}</b></div>`}
       </div>
       ${'{{SAVINGS}}'}
       <dl class="mh-facts">
@@ -775,18 +771,26 @@
     const alts = engine.alternatives(med, state.altSort);
     let savingsHtml = '';
     if (s && s.percent >= 1) {
-      savingsHtml = `<div class="savings"><span class="big">−${s.percent}%</span><div>
-        <p class="s-title">${esc(t('save_banner', { pct: s.percent, name: s.cheapest.name, price: rs(s.cheapest.unitPrice), unit: u })).replace(esc(s.cheapest.name), `<a href="#/medicine/${encodeURIComponent(s.cheapest.id)}">${esc(s.cheapest.name)}</a>`)}</p>
-        ${med.unit !== 'pack' ? `<p class="s-sub">${esc(t('save_detail', { pack: rs(s.perPack), units: med.units + ' ' + u }))}</p>` : ''}
-      </div></div>`;
+      // receipt: this brand …… price / cheapest brand …… price / saving on the pack
+      const per = (v) => `${rs(v)}<small>/${esc(u)}</small>`;
+      savingsHtml = `<div class="savings">
+        <p class="s-title"><span class="save-tag num">−${s.percent}%</span><span>${esc(t('rc_title'))}</span></p>
+        <dl class="receipt">
+          <div class="rc-row"><dt><span class="rc-name">${esc(med.name)}</span> <small>${esc(t('rc_this'))}</small></dt><dd class="num">${per(med.unitPrice)}</dd></div>
+          <div class="rc-row best"><dt><a class="rc-name" href="#/medicine/${encodeURIComponent(s.cheapest.id)}">${esc(s.cheapest.name)}</a> <small>${esc(t('cheapest_tag'))}</small></dt><dd class="num">${per(s.cheapest.unitPrice)}</dd></div>
+          ${med.unit !== 'pack' ? `<div class="rc-row total"><dt>${esc(t('rc_save_pack', { units: med.units + ' ' + u }))}</dt><dd class="num">${rs(s.perPack)}</dd></div>` : ''}
+        </dl>
+      </div>`;
     } else if (alts.length > 1) {
-      savingsHtml = `<div class="savings neutral"><svg class="ic"><use href="#i-check"/></svg><p class="s-title">${esc(t('cheapest_already'))}</p></div>`;
+      savingsHtml = `<div class="savings neutral"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg><p class="s-title">${esc(t('cheapest_already'))}</p></div>`;
     }
-    // Every medicine page carries the doctor/pharmacist warning; narrow-therapeutic ones get the stronger one too.
-    let noticeHtml = `<div class="notice consult"><svg class="ic"><use href="#i-alert"/></svg><span>${esc(t('consult_doctor'))}</span></div>`;
+    // Every medicine page carries the doctor/pharmacist warning (NHS-style callout);
+    // narrow-therapeutic ones get the stronger line too.
+    let noticeHtml = `<div class="notice consult callout" role="note"><p class="callout-t">${esc(t('callout_t'))}</p><p>${esc(t('consult_doctor'))}</p>`;
     if (NARROW_THERAPEUTIC.test(med.generic) && alts.length > 1) {
-      noticeHtml += `<div class="notice"><svg class="ic"><use href="#i-alert"/></svg><span>${esc(t('switch_warning'))}</span></div>`;
+      noticeHtml += `<p class="callout-strong">${esc(t('switch_warning'))}</p>`;
     }
+    noticeHtml += '</div>';
     $('#med-hero').innerHTML = $('#med-hero').innerHTML.replace('{{SAVINGS}}', savingsHtml);
     $('#btn-cabinet').onclick = onCabinet;
     $('#btn-share').onclick = () => shareMedicine(med);
@@ -814,10 +818,11 @@
       $('#alt-list').innerHTML = `<div class="alt-empty"><p>${esc(t('no_alts'))}</p>${state.engine.strengths(med).length ? `<p class="small">${esc(t('no_alts_hint'))}</p>` : ''}</div>`;
       return;
     }
-    const max = Math.max(...alts.map((a) => a.unitPrice));
     const minPrice = Math.min(...alts.map((a) => a.unitPrice));
-    $('#alt-list').innerHTML = consultNote() + alts
-      .map((a) => {
+    // ranked price table: rank · brand + maker …… dotted leader …… unit price
+    $('#alt-list').innerHTML = consultNote() +
+      `<div class="alt-thead" aria-hidden="true"><span>${esc(t('alt_col_brand'))}</span><span>${esc(med.unit === 'pack' ? t('unit_pack') : t('per_unit', { unit: u }))}</span></div>` +
+      alts.map((a, i) => {
         const isCur = a.id === med.id;
         const pct = med.unitPrice > 0 ? Math.round(((a.unitPrice - med.unitPrice) / med.unitPrice) * 100) : 0;
         const delta = isCur
@@ -829,10 +834,10 @@
               : `<span class="alt-delta">${esc(t('same_price'))}</span>`;
         const cheapest = a.unitPrice === minPrice;
         return `<a class="alt${isCur ? ' current' : ''}${cheapest ? ' cheapest' : ''}" href="#/medicine/${encodeURIComponent(a.id)}">
-          <div class="alt-name">${esc(a.name)} ${cheapest ? `<span class="tag save">${esc(t('cheapest_tag'))}</span>` : ''} ${delta}</div>
-          <div class="alt-meta">${esc(a.manufacturer)} · ${esc(a.pack)} · ${rs(a.price)}</div>
-          <div class="alt-price"><b class="num">${a.unit === 'pack' ? rs(a.price) : rs(a.unitPrice)}</b><span>${esc(t('per_unit', { unit: u }))}</span></div>
-          <div class="alt-bar" aria-hidden="true"><i style="width:${Math.max(4, Math.round((a.unitPrice / max) * 100))}%"></i></div>
+          <span class="alt-rank num" aria-hidden="true">${String(i + 1).padStart(2, '0')}</span>
+          <div class="alt-line"><span class="alt-name">${esc(a.name)}</span><span class="alt-leader" aria-hidden="true"></span><span class="alt-price"><b class="num">${a.unit === 'pack' ? rs(a.price) : rs(a.unitPrice)}</b><span class="sr-only"> ${esc(t('per_unit', { unit: u }))}</span></span></div>
+          <div class="alt-foot"><span class="alt-meta">${esc(a.manufacturer)} · ${esc(a.pack)} · <span class="num">${rs(a.price)}</span></span>
+          <span class="alt-tags">${cheapest ? `<span class="tag save">${esc(t('cheapest_tag'))}</span>` : ''}${delta}</span></div>
         </a>`;
       })
       .join('');
@@ -1637,7 +1642,7 @@
     const seg = $('#theme-seg');
     if (seg) seg.setAttribute('aria-label', t('theme_label'));
     const meta = $('#meta-theme');
-    if (meta) meta.setAttribute('content', resolved === 'dark' ? '#0b1412' : '#0f5c54');
+    if (meta) meta.setAttribute('content', resolved === 'dark' ? '#0F1210' : '#F6F5EF');
   }
 
   // ------------------------------------------------------------------------
