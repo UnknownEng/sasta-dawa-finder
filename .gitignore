@@ -30,3 +30,7 @@ public/
 
 # Mobile app build output
 www/
+
+# Simulation output (scripts/simulate_users.js)
+sim-output.txt
+sim-report.json
