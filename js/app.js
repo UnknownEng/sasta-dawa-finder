@@ -259,6 +259,7 @@
     }
     renderAccountNav();
     if (state.route && state.route.name === 'cabinet' && state.engine) renderCabinet();
+    rerenderNearbyCards(); // a staff discount may now apply to this user
     return user;
   }
 
@@ -1101,29 +1102,55 @@
         ${med ? `<span class="ph-stock ${stock[0]}">${esc(stock[1])}</span>` : ''}
         ${typeof p.price === 'number' ? `<span class="tag save">${esc(t('pharmacy_price', { price: rs(p.price) }))}</span>` : ''}
         ${typeof p.km === 'number' ? `<span class="tag">${esc(t('km_away', { km: p.km }))}</span>` : ''}
-        ${p.delivery ? `<span class="tag brand">${esc(t('home_delivery'))}</span>` : ''}
+        ${p.delivery ? `<span class="tag brand ph-delivers">${esc(t('delivers'))}</span>` : ''}
+        ${offerChip(p, false)}
       </div>
+      ${offerChip(p, true)}
       ${p.hours ? `<p class="ph-hours"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg><span>${esc(p.hours)}</span></p>` : ''}
       <div class="ph-actions">
         ${wa ? `<a class="btn btn-save sm" href="${esc(wa)}" target="_blank" rel="noopener" data-ev="wa"><svg class="ic" aria-hidden="true"><use href="#i-whatsapp"/></svg><span>${esc(t('btn_whatsapp'))}</span></a>` : ''}
         ${phone ? `<a class="btn btn-ghost sm" href="${esc(telHref(phone))}" data-ev="call"><svg class="ic" aria-hidden="true"><use href="#i-phone"/></svg><span>${esc(t('btn_call'))}</span></a>` : ''}
         <a class="btn btn-ghost sm" href="${esc(directionsUrl(p))}" target="_blank" rel="noopener" data-ev="dir"><svg class="ic" aria-hidden="true"><use href="#i-route"/></svg><span>${esc(t('btn_directions'))}</span></a>
         ${p.reserve && med ? `<button type="button" class="btn btn-soft sm" data-reserve aria-expanded="false"><span>${esc(t('btn_reserve'))}</span></button>` : ''}
+        ${p.delivery && med ? `<button type="button" class="btn btn-soft sm" data-delivery aria-expanded="false"><svg class="ic" aria-hidden="true"><use href="#i-route"/></svg><span>${esc(t('btn_delivery'))}</span></button>` : ''}
       </div>
       <div class="ph-reserve" hidden></div>
     </article>`;
   }
 
-  function reserveForm(pid) {
+  /**
+   * Staff discount a pharmacy gives to employees of partner companies ({percent, note}).
+   * `block` = the prominent line shown only to a signed-in user who joined a company;
+   * otherwise a small chip inside the card's tags.
+   */
+  function offerChip(p, block) {
+    const o = p && p.offer;
+    const pct = o ? Math.round(Number(o.percent)) : 0;
+    if (!(pct > 0 && pct <= 100)) return '';
+    const note = typeof o.note === 'string' ? o.note.trim().slice(0, 120) : '';
+    const u = userToken() ? state.user || storedUser() : null;
+    const jc = u && u.joinedCompany && typeof u.joinedCompany === 'object' ? u.joinedCompany : null;
+    const company = jc ? String(jc.name || jc.code || '').trim() : '';
+    if (block !== !!company) return '';
+    if (company) {
+      return `<p class="ph-offer mine"${note ? ` title="${esc(note)}"` : ''}><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg><span><b>${esc(t('offer_mine', { pct, company }))}</b>${note ? `<small>${esc(note)}</small>` : ''}</span></p>`;
+    }
+    return `<span class="tag offer ph-offer"${note ? ` title="${esc(note)}"` : ''}>${esc(t('offer_staff', { pct }))}${note ? ` <small>· ${esc(note)}</small>` : ''}</span>`;
+  }
+
+  /** Inline reserve (pickup) or delivery-order form; mode 'delivery' adds the required address. */
+  function reserveForm(pid, mode) {
     const f = 'rv-' + pid;
-    return `<form class="rv-form" data-rv="${esc(pid)}" autocomplete="on" novalidate>
+    const delivery = mode === 'delivery';
+    return `<form class="rv-form" data-rv="${esc(pid)}" data-mode="${delivery ? 'delivery' : 'pickup'}" autocomplete="on" novalidate>
       <label class="field"><span>${esc(t('reserve_name'))}</span><input class="input" name="name" id="${esc(f)}-name" maxlength="80" autocomplete="name" required></label>
       <label class="field"><span>${esc(t('reserve_phone'))}</span><input class="input" name="phone" id="${esc(f)}-phone" type="tel" inputmode="tel" maxlength="30" autocomplete="tel" required></label>
       <label class="field"><span>${esc(t('reserve_qty'))}</span><input class="input" name="qty" id="${esc(f)}-qty" maxlength="30" value="1"></label>
+      ${delivery ? `<label class="field rv-address"><span>${esc(t('delivery_address'))}</span><textarea class="input" name="address" id="${esc(f)}-address" rows="3" maxlength="240" autocomplete="street-address" required></textarea></label>` : ''}
       <label class="field"><span>${esc(t('reserve_note'))}</span><input class="input" name="note" id="${esc(f)}-note" maxlength="300"></label>
       <input type="text" name="website" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
       <p class="fb-status" role="status" hidden></p>
-      <div class="modal-actions"><button type="submit" class="btn btn-primary sm">${esc(t('reserve_send'))}</button></div>
+      <div class="modal-actions"><button type="submit" class="btn btn-primary sm">${esc(t(delivery ? 'delivery_send' : 'reserve_send'))}</button></div>
     </form>`;
   }
 
@@ -1205,6 +1232,15 @@
     });
   }
 
+  /** Redraw the pharmacy cards in place (e.g. after sign-in), unless someone is filling a form. */
+  function rerenderNearbyCards() {
+    const list = $('#nearby-list');
+    if (!list || !nearby.list.length || !state.engine || $('form[data-rv]', list)) return;
+    const med = state.engine.byId(nearby.med);
+    if (!med) return;
+    list.innerHTML = nearby.list.map((p) => pharmacyCard(p, med)).join('');
+  }
+
   function refreshCityOptions() {
     const sel = $('#nearby-city');
     if (!sel) return;
@@ -1251,13 +1287,17 @@
       beacon('api/places?a=event', { pid, type: ev.dataset.ev });
       return;
     }
-    const rbtn = e.target.closest('[data-reserve]');
+    const rbtn = e.target.closest('[data-reserve],[data-delivery]');
     if (rbtn) {
+      // Reserve and Order delivery share one inline box; switching mode swaps the form.
+      const mode = rbtn.hasAttribute('data-delivery') ? 'delivery' : 'pickup';
       const box = $('.ph-reserve', card);
-      const open = box.hidden;
+      const form = $('form[data-rv]', box);
+      const current = form ? form.dataset.mode : '';
+      const open = box.hidden || current !== mode;
+      if (open && current !== mode) box.innerHTML = reserveForm(pid, mode);
       box.hidden = !open;
-      rbtn.setAttribute('aria-expanded', open ? 'true' : 'false');
-      if (open && !box.firstChild) box.innerHTML = reserveForm(pid);
+      card.querySelectorAll('[data-reserve],[data-delivery]').forEach((b) => b.setAttribute('aria-expanded', open && b === rbtn ? 'true' : 'false'));
       if (open) { const first = $('input', box); if (first) first.focus(); }
     }
   }
@@ -1268,28 +1308,31 @@
     e.preventDefault();
     const status = $('.fb-status', form);
     const val = (n) => (form.elements[n] ? String(form.elements[n].value || '').trim() : '');
-    if (!val('name') || val('phone').replace(/\D/g, '').length < 7) {
-      status.textContent = t('reserve_missing');
+    const delivery = form.dataset.mode === 'delivery';
+    const bad = (key) => {
+      status.textContent = t(key);
       status.className = 'fb-status bad';
       status.hidden = false;
-      return;
-    }
+    };
+    if (!val('name') || val('phone').replace(/\D/g, '').length < 7) return bad('reserve_missing');
+    if (delivery && val('address').length < 8) return bad('delivery_missing');
     const btn = $('button[type="submit"]', form);
     btn.disabled = true;
+    const payload = { pid: form.dataset.rv, med: med.id, medName: medTitle(med), name: val('name'), phone: val('phone'), qty: val('qty'), note: val('note'), website: val('website') };
+    if (delivery) { payload.delivery = true; payload.address = val('address'); }
     const r = await apiCall('api/places?a=reserve', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pid: form.dataset.rv, med: med.id, medName: medTitle(med), name: val('name'), phone: val('phone'), qty: val('qty'), note: val('note'), website: val('website') }),
+      body: JSON.stringify(payload),
     });
     btn.disabled = false;
     if (r.ok) {
-      toast(t('reserve_ok'));
+      toast(t(delivery ? 'delivery_ok' : 'reserve_ok'));
       const box = form.parentElement;
       box.hidden = true;
       box.innerHTML = '';
       const card = box.closest('[data-pid]');
-      const rb = card && $('[data-reserve]', card);
-      if (rb) rb.setAttribute('aria-expanded', 'false');
+      if (card) card.querySelectorAll('[data-reserve],[data-delivery]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
       return;
     }
     status.textContent = (r.data && typeof r.data.error === 'string' && r.status && r.status < 500 ? r.data.error : t('reserve_error'));

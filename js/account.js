@@ -470,7 +470,7 @@
       pharmacy: [['branches', 'My pharmacy']],
       clinic: [['clinic', 'Clinic widget']],
       ngo: [['optimiser', 'Budget optimiser'], ['patients', 'Patients']],
-      company: [['company', 'Company benefit']],
+      company: [['company', 'Company benefit'], ['claims', 'Claims analysis'], ['partners', 'Partner pharmacies']],
       developer: [['keys', 'API keys']],
     }[role] || [];
     return t.concat([['plan', 'Plan & billing'], ['profile', 'Profile']]);
@@ -605,6 +605,8 @@
       optimiser: viewOptimiser,
       patients: viewPatients,
       company: viewCompany,
+      claims: viewClaims,
+      partners: viewPartners,
       keys: viewKeys,
       plan: viewPlan,
       profile: viewProfile,
@@ -890,8 +892,10 @@
         ['bulk', 'Bulk upload'],
         ['alerts', 'Request alerts'],
         ['reservations', 'Reservations'],
+        ['refills', 'Refill customers'],
         ['report', 'Monthly report'],
         ['competitors', 'Competitor prices'],
+        ['offer', 'Staff discount'],
         ['qr', 'QR sticker'],
         ['edit', 'Edit details'],
       ];
@@ -904,8 +908,8 @@
         <nav class="tabs sub no-print" aria-label="Branch sections">${subs.map((s) => `<a href="#/branch/${esc(p.id)}/${s[0]}"${s[0] === sub ? ' aria-current="page"' : ''}>${esc(s[1])}</a>`).join('')}</nav>
         <div id="branch-view"></div>`;
       const bv = $('#branch-view', el);
-      const fns = { dashboard: branchStats, stock: branchStock, bulk: branchBulk, alerts: branchAlerts, reservations: branchReservations, report: branchReport, competitors: branchCompetitors, qr: branchQr, edit: (v, x) => pharmacyForm(v, x) };
-      (fns[sub] || branchStats)(bv, p);
+      const fns = { dashboard: branchStats, stock: branchStock, bulk: branchBulk, alerts: branchAlerts, reservations: branchReservations, refills: branchRefills, report: branchReport, competitors: branchCompetitors, offer: branchOffer, qr: branchQr, edit: (v, x) => pharmacyForm(v, x) };
+      (fns[sub] || branchStats)(bv, p, rest.slice(2));
     });
   }
 
@@ -1024,7 +1028,7 @@
       const card = (label, n) => `<div class="stat"><small>${esc(label)}</small><b class="num">${esc(n || 0)}</b></div>`;
       el.innerHTML = `
         <h3 style="margin:0 0 10px">Last 30 days</h3>
-        <div class="stat-grid">${card('Profile views', t.view)}${card('WhatsApp taps', t.wa)}${card('Calls', t.call)}${card('Directions', t.dir)}${card('Reservations', t.reserve)}</div>
+        <div class="stat-grid stat-auto">${card('Profile views', t.view)}${card('WhatsApp taps', t.wa)}${card('Calls', t.call)}${card('Directions', t.dir)}${card('Reservations', t.reserve)}${card('Delivery orders', t.delivery)}</div>
         <div class="card"><h3>Daily views</h3>${barChart(s.days || [], 'view')}</div>`;
     });
   }
@@ -1273,24 +1277,44 @@ Risek 20mg,in,480</pre>
   function branchReservations(el, p) {
     into(el, async () => {
       const r = await api('reservations', { params: { id: p.id } });
-      const labels = { new: 'New', ready: 'Ready for pickup', collected: 'Collected', cancelled: 'Cancelled' };
+      const pickupLabels = { new: 'New', ready: 'Ready for pickup', collected: 'Collected', cancelled: 'Cancelled' };
+      const deliveryLabels = { new: 'New', out_for_delivery: 'Out for delivery', delivered: 'Delivered', cancelled: 'Cancelled' };
+      const allLabels = Object.assign({}, pickupLabels, deliveryLabels);
+      const waText = (x) => x.type === 'delivery'
+        ? `Assalam o Alaikum ${x.name}, this is ${p.name}. We received your delivery order for ${x.medName}${x.qty ? ' × ' + x.qty : ''}. We will bring it to: ${x.address || 'your address'}.`
+        : `Assalam o Alaikum ${x.name}, this is ${p.name}. Your ${x.medName} is ready for pickup.`;
+      const list = r.reservations;
       el.innerHTML = `
         <div class="card">
-          <h3>Reservations</h3>
-          ${r.reservations.length ? `<div class="items">${r.reservations
-            .map((x, i) => `
+          <h3>Reservations and delivery orders</h3>
+          ${list.length ? `<div class="items">${list
+            .map((x, i) => {
+              const labels = x.type === 'delivery' ? deliveryLabels : pickupLabels;
+              return `
             <div class="item">
-              <div class="item-top"><div><div class="item-title">${esc(x.medName)}${x.qty ? ' × ' + esc(x.qty) : ''}</div><div class="item-meta">${esc(x.name)} · ${esc(x.phone)} · ${esc(fmtTime(x.at))}</div></div><span class="badge ${x.status === 'new' ? 'warn' : x.status === 'cancelled' ? 'bad' : 'good'}">${esc(labels[x.status] || x.status)}</span></div>
+              <div class="item-top"><div><div class="item-title">${esc(x.medName)}${x.qty ? ' × ' + esc(x.qty) : ''}</div><div class="item-meta">${esc(x.name)} · ${esc(x.phone)} · ${esc(fmtTime(x.at))}</div></div>
+                <div class="badges" style="margin:0">${x.type === 'delivery' ? '<span class="badge brand">Delivery</span>' : '<span class="badge">Pickup</span>'}<span class="badge ${x.status === 'new' ? 'warn' : x.status === 'cancelled' ? 'bad' : 'good'}">${esc(allLabels[x.status] || x.status)}</span></div></div>
+              ${x.type === 'delivery' ? `<div class="item-meta"><b>Deliver to:</b> ${esc(x.address || '(no address given)')}</div>` : ''}
               ${x.note ? `<div class="item-meta">Note: ${esc(x.note)}</div>` : ''}
               <div class="actions">
                 <label class="sr-only" for="rs${i}">Status</label>
-                <select class="input select" id="rs${i}" data-key="${esc(x.key)}" style="inline-size:auto">${Object.keys(labels).map((k) => `<option value="${k}"${k === x.status ? ' selected' : ''}>${labels[k]}</option>`).join('')}</select>
-                <a class="btn btn-soft" href="${esc(waLink(x.phone, `Assalam o Alaikum ${x.name}, this is ${p.name}. Your ${x.medName} is ready for pickup.`))}" target="_blank" rel="noopener">WhatsApp customer</a>
+                <select class="input select" id="rs${i}" data-key="${esc(x.key)}" style="inline-size:auto">${Object.keys(labels).map((k) => `<option value="${k}"${k === x.status ? ' selected' : ''}>${labels[k]}</option>`).join('')}${labels[x.status] ? '' : `<option value="${esc(x.status)}" selected>${esc(allLabels[x.status] || x.status)}</option>`}</select>
+                <a class="btn btn-soft" href="${esc(waLink(x.phone, waText(x)))}" target="_blank" rel="noopener">WhatsApp customer</a>
                 <a class="btn btn-ghost" href="tel:${esc(String(x.phone || '').replace(/[^\d+]/g, ''))}">Call</a>
+                <button type="button" class="btn btn-ghost" data-refill="${i}">Add to refill list</button>
               </div>
-            </div>`)
-            .join('')}</div>` : '<p class="empty-note">No reservations yet. With Pharmacy Pro, customers can reserve a medicine from your listing.</p>'}
+            </div>`;
+            })
+            .join('')}</div>` : '<p class="empty-note">No reservations yet. With Pharmacy Pro, customers can reserve a medicine from your listing. With Pharmacy Premium and home delivery switched on, they can also order for delivery.</p>'}
         </div>`;
+      el.onclick = (ev) => {
+        const b = ev.target.closest('button[data-refill]');
+        if (!b) return;
+        const x = list[Number(b.dataset.refill)];
+        if (!x) return;
+        refillPrefill = { pid: p.id, name: x.name || '', phone: x.phone || '', med: x.med || '', medName: x.medName || '', qty: x.qty || '' };
+        go('#/branch/' + p.id + '/refills/new');
+      };
       el.onchange = async (ev) => {
         const s = ev.target.closest('select[data-key]');
         if (!s) return;
@@ -1309,22 +1333,237 @@ Risek 20mg,in,480</pre>
     into(el, async () => {
       const r = await api('report', { params: { id: p.id } });
       const t = r.totals || {};
+      const own = String(r.pharmacy.whatsapp || r.pharmacy.phone || p.whatsapp || p.phone || '').replace(/[^\d]/g, '');
+      const text = reportText(r);
       el.innerHTML = `
         <div class="card report">
-          <div class="item-top"><h2>Monthly report: ${esc(r.pharmacy.name)}</h2><button type="button" class="btn btn-primary no-print" id="print-btn">Print / save as PDF</button></div>
+          <div class="item-top"><h2>Monthly report: ${esc(r.pharmacy.name)}</h2>
+            <div class="actions no-print">
+              <button type="button" class="btn btn-primary" id="print-btn">Print / save as PDF</button>
+              ${own ? `<a class="btn btn-soft" id="report-wa" href="${esc(waLink(own, text))}" target="_blank" rel="noopener">Send to my WhatsApp</a>` : ''}
+              <button type="button" class="btn btn-ghost" id="report-copy">Copy report</button>
+            </div></div>
           <p class="muted">${esc([r.pharmacy.address, r.pharmacy.city].filter(Boolean).join(', '))} · last ${esc(r.period)} · generated ${esc(fmtDate(new Date()))}</p>
           <div class="table-wrap"><table class="tbl"><tbody>
             <tr><td>Profile views</td><td class="n">${esc(t.view || 0)}</td></tr>
             <tr><td>WhatsApp taps</td><td class="n">${esc(t.wa || 0)}</td></tr>
             <tr><td>Calls</td><td class="n">${esc(t.call || 0)}</td></tr>
             <tr><td>Directions</td><td class="n">${esc(t.dir || 0)}</td></tr>
-            <tr><td>Reservations</td><td class="n">${esc(r.reservations || 0)}</td></tr>
+            <tr><td>Pickup reservations</td><td class="n">${esc(t.reserve || 0)}</td></tr>
+            <tr><td>Delivery orders</td><td class="n">${esc(t.delivery || 0)}</td></tr>
           </tbody></table></div>
+          ${own ? '' : '<p class="small muted no-print">Add a WhatsApp or phone number in Edit details to send this report to yourself on WhatsApp.</p>'}
           <h3 style="margin-block-start:16px">Most searched medicines in ${esc(r.pharmacy.city)}</h3>
           ${r.topDemand.length ? `<ol>${r.topDemand.map((d) => `<li>${esc(d.name)} <span class="muted">(${esc(d.searches)} searches)</span></li>`).join('')}</ol>` : '<p class="muted">No searches recorded yet.</p>'}
           <p class="small muted print-only">Sasta Dawa Finder · sasta-dawa-finder.vercel.app</p>
         </div>`;
       $('#print-btn', el).addEventListener('click', () => window.print());
+      $('#report-copy', el).addEventListener('click', () => copyText(text));
+    });
+  }
+
+  /** Plain-text 30-day summary for WhatsApp / clipboard. */
+  function reportText(r) {
+    const t = r.totals || {};
+    const top = (r.topDemand || []).slice(0, 5);
+    return [
+      `Sasta Dawa report: ${r.pharmacy.name}`,
+      `Last ${r.period} (to ${fmtDate(new Date())})`,
+      '',
+      `Profile views: ${t.view || 0}`,
+      `WhatsApp taps: ${t.wa || 0}`,
+      `Calls: ${t.call || 0}`,
+      `Directions: ${t.dir || 0}`,
+      `Pickup reservations: ${t.reserve || 0}`,
+      `Delivery orders: ${t.delivery || 0}`,
+      '',
+      top.length ? `Most requested medicines in ${r.pharmacy.city}:` : `No medicine searches recorded in ${r.pharmacy.city} yet.`,
+      ...top.map((d, i) => `${i + 1}. ${d.name} (${d.searches} searches)`),
+    ].join('\n');
+  }
+
+  // -- Refill customers (regular customers and when their medicine runs out)
+  let refillPrefill = null; // set by "Add to refill list" on a reservation
+
+  function refillReminder(c, p) {
+    const meds = (c.meds || []).map((m) => m.name + (m.qty ? ' (' + m.qty + ')' : '')).join(', ') || 'your regular medicines';
+    return `Assalam o Alaikum ${c.name}, this is ${p.name}. Aap ki dawai (${meds}) khatam hone wali hai. Kya hum aap ke liye tayyar rakh dein?\n\nYour medicines (${meds}) are due for a refill. Reply here and we will keep them ready for you. Shukriya!`;
+  }
+
+  function branchRefills(el, p, rest) {
+    const sub = (rest && rest[0]) || '';
+    if (sub) return refillForm(el, p, sub);
+    into(el, async () => {
+      const r = await api('refills', { params: { id: p.id } });
+      const cs = r.customers || [];
+      const due = cs.filter((c) => c.due || c.overdue);
+      const later = cs.filter((c) => !c.due && !c.overdue);
+      const row = (c) => `
+        <div class="item">
+          <div class="item-top"><div><div class="item-title">${esc(c.name)}</div><div class="item-meta">${esc(c.phone)} · every ${esc(c.every)} days</div></div>
+            <div class="badges" style="margin:0">${c.overdue ? '<span class="badge bad">Overdue</span>' : c.due ? '<span class="badge warn">Due soon</span>' : ''}<span class="badge">Next: ${esc(fmtDate(c.nextDue))}</span></div></div>
+          <div class="item-meta">${(c.meds || []).map((m) => esc(m.name) + (m.qty ? ' × ' + esc(m.qty) : '')).join(', ') || 'No medicines added'}</div>
+          ${c.note ? `<div class="item-meta">Note: ${esc(c.note)}</div>` : ''}
+          <div class="item-meta">Last refilled ${esc(fmtDate(c.lastAt || c.at))}</div>
+          <div class="actions">
+            <a class="btn btn-soft" href="${esc(waLink(c.phone, refillReminder(c, p)))}" target="_blank" rel="noopener">Remind on WhatsApp</a>
+            <button type="button" class="btn btn-primary" data-refilled="${esc(c.id)}">Mark refilled</button>
+            <a class="btn btn-ghost" href="#/branch/${esc(p.id)}/refills/${esc(c.id)}">Edit</a>
+          </div>
+        </div>`;
+      el.innerHTML = `
+        <div class="card">
+          <div class="item-top"><h3>Refill customers (${esc(cs.length)})</h3><a class="btn btn-primary" href="#/branch/${esc(p.id)}/refills/new">Add customer</a></div>
+          <p class="small muted">Keep a list of regular customers and how often they need their medicines. Customers due in the next 3 days are shown first. Only your account can see this list. Pharmacy Pro: up to 200 customers; Premium: more.</p>
+          <p class="form-msg" id="refill-msg" role="status"></p>
+          ${cs.length ? `
+            ${due.length ? `<h3 style="margin-block-start:8px">Due now (${esc(due.length)})</h3><div class="items">${due.map(row).join('')}</div>` : '<p class="small muted">Nobody is due in the next 3 days.</p>'}
+            ${later.length ? `<h3 style="margin-block-start:16px">Later</h3><div class="items">${later.map(row).join('')}</div>` : ''}`
+            : '<p class="empty-note">No refill customers yet. Add regular customers (for example blood-pressure or diabetes patients) to remind them on WhatsApp before their medicine runs out.</p>'}
+        </div>`;
+      el.onclick = async (ev) => {
+        const b = ev.target.closest('button[data-refilled]');
+        if (!b) return;
+        b.disabled = true;
+        try {
+          await api('mark-refilled', { body: { pid: p.id, id: b.dataset.refilled } });
+          toast('Marked as refilled.');
+          branchRefills(el, p, []);
+        } catch (e) {
+          if (e.handled) return;
+          b.disabled = false;
+          const m = $('#refill-msg', el);
+          if (e.status === 402) {
+            m.innerHTML = errorHtml(e);
+            m.className = 'form-msg';
+          } else msg(m, e.message);
+        }
+      };
+    });
+  }
+
+  function refillForm(el, p, cid) {
+    el.onclick = null;
+    into(el, async () => {
+      let c = null;
+      if (cid !== 'new') {
+        const r = await api('refills', { params: { id: p.id } });
+        c = (r.customers || []).find((x) => x.id === cid) || null;
+        if (!c) throw new Error('Customer not found.');
+      }
+      const pre = !c && refillPrefill && refillPrefill.pid === p.id ? refillPrefill : null;
+      refillPrefill = null;
+      const meds = c ? c.meds.map((m) => ({ id: m.id, name: m.name, qty: m.qty || '' })) : [];
+      let engine = null;
+      try {
+        engine = await loadEngine();
+      } catch (e) {
+        engine = null;
+      }
+      if (pre && pre.med && engine && engine.byId(pre.med)) meds.push({ id: pre.med, name: medLabel(engine.byId(pre.med)), qty: pre.qty || '' });
+      const x = c || { name: pre ? pre.name : '', phone: pre ? pre.phone : '', every: 30, note: pre && !pre.med && pre.medName ? 'Reserved: ' + pre.medName : '' };
+      el.innerHTML = `
+        <div class="card">
+          <a class="back-link" href="#/branch/${esc(p.id)}/refills">← All refill customers</a>
+          <h3>${c ? 'Edit refill customer' : 'Add refill customer'}</h3>
+          <form class="form" id="refill-form">
+            <div class="form-row">
+              <label class="field">Customer name<input class="input" name="name" maxlength="80" value="${esc(x.name)}" required></label>
+              <label class="field">Phone / WhatsApp<input class="input" type="tel" name="phone" maxlength="30" value="${esc(x.phone)}" placeholder="03xx xxxxxxx" required></label>
+            </div>
+            <div id="refill-picker"></div>
+            <div id="refill-meds"></div>
+            <div class="form-row">
+              <label class="field">Refill every (days)<input class="input" type="number" name="every" min="1" max="365" value="${esc(x.every || 30)}" required></label>
+              <label class="field">Note <small class="muted">(optional)</small><input class="input" name="note" maxlength="200" value="${esc(x.note || '')}"></label>
+            </div>
+            <div class="actions"><button type="submit" class="btn btn-primary">${c ? 'Save changes' : 'Add customer'}</button>${c ? '<button type="button" class="btn btn-ghost" id="refill-del">Remove customer</button>' : ''}</div>
+            <p class="form-msg" role="status"></p>
+          </form>
+        </div>`;
+      const medsEl = $('#refill-meds', el);
+      const draw = () => {
+        medsEl.innerHTML = meds.length
+          ? `<div class="table-wrap"><table class="tbl"><thead><tr><th>Medicine</th><th>Quantity</th><th><span class="sr-only">Remove</span></th></tr></thead><tbody>${meds
+              .map((m, i) => `<tr><td>${esc(m.name)}</td><td><input class="input" maxlength="30" value="${esc(m.qty)}" data-qty="${i}" aria-label="Quantity for ${esc(m.name)}" placeholder="e.g. 2 strips"></td><td><button type="button" class="icon-btn" data-rm="${i}" aria-label="Remove ${esc(m.name)}">✕</button></td></tr>`)
+              .join('')}</tbody></table></div>`
+          : '<p class="small muted">No medicines added yet. Search above to add them.</p>';
+      };
+      medsEl.addEventListener('input', (ev) => {
+        const i = ev.target.dataset.qty;
+        if (i != null) meds[Number(i)].qty = ev.target.value;
+      });
+      medsEl.addEventListener('click', (ev) => {
+        const b = ev.target.closest('button[data-rm]');
+        if (b) {
+          meds.splice(Number(b.dataset.rm), 1);
+          draw();
+        }
+      });
+      if (engine) {
+        medPicker($('#refill-picker', el), (m) => {
+          if (meds.length >= 20) return toast('Up to 20 medicines per customer.');
+          if (!meds.some((y) => y.id === m.id)) meds.push({ id: m.id, name: medLabel(m), qty: '' });
+          draw();
+        }, { label: 'Add a medicine this customer buys' });
+      } else $('#refill-picker', el).innerHTML = '<p class="small muted">Could not load the medicine list. Check your connection and reload to add medicines.</p>';
+      draw();
+      const f = $('#refill-form', el);
+      onSubmit(f, async (fd, out) => {
+        const body = { pid: p.id, name: val(fd, 'name'), phone: val(fd, 'phone'), meds: meds.map((m) => ({ id: m.id, qty: String(m.qty || '').trim() })), every: Number(val(fd, 'every')) || 30, note: val(fd, 'note') };
+        if (c) {
+          body.id = c.id;
+          body.lastAt = c.lastAt;
+        }
+        if (!body.name) return msg(out, 'Enter the customer name.');
+        if (String(body.phone).replace(/[^\d]/g, '').length < 7) return msg(out, 'Enter a phone number we can send WhatsApp reminders to.');
+        if (!(body.every >= 1 && body.every <= 365)) return msg(out, 'Refill every must be between 1 and 365 days.');
+        await api('save-refill', { body });
+        toast(c ? 'Customer saved.' : 'Customer added to the refill list.');
+        go('#/branch/' + p.id + '/refills');
+      });
+      const del = $('#refill-del', el);
+      if (del) {
+        del.addEventListener('click', async () => {
+          if (!window.confirm('Remove ' + c.name + ' from your refill list?')) return;
+          try {
+            await api('save-refill', { body: { pid: p.id, id: c.id, remove: true } });
+            toast('Customer removed.');
+            go('#/branch/' + p.id + '/refills');
+          } catch (e) {
+            if (!e.handled) msg($('.form-msg', f), e.message);
+          }
+        });
+      }
+    });
+  }
+
+  // -- Staff discount offer (shown to staff of companies using Sasta Dawa)
+  function branchOffer(el, p) {
+    const o = p.offer || null;
+    el.innerHTML = `
+      <div class="card">
+        <h3>Staff discount</h3>
+        <p class="muted">Offer a discount to staff of companies that use Sasta Dawa for their employees. Your pharmacy then appears in their <b>Partner pharmacies</b> list with your discount, and staff show their company staff card at your counter. Needs Pharmacy Pro and a verified listing.</p>
+        ${o && o.percent ? `<p><span class="badge good">Current offer: ${esc(o.percent)}% off</span>${o.note ? ' <span class="muted">' + esc(o.note) + '</span>' : ''}</p>` : '<p class="small muted">No discount offered right now.</p>'}
+        <form class="form" id="offer-form">
+          <div class="form-row">
+            <label class="field">Discount (%) <small class="muted">0 to 50; 0 removes the offer</small><input class="input" type="number" name="percent" min="0" max="50" step="1" value="${esc(o && o.percent ? o.percent : 0)}" required></label>
+            <label class="field">Conditions <small class="muted">(optional)</small><input class="input" name="note" maxlength="120" value="${esc((o && o.note) || '')}" placeholder="e.g. On medicines, not on baby milk"></label>
+          </div>
+          <p class="small muted" style="margin:0">Customers are told: “Show your company staff card”. You decide at the counter whether the card is valid.</p>
+          <div class="actions"><button type="submit" class="btn btn-primary">Save discount</button></div>
+          <p class="form-msg" role="status"></p>
+        </form>
+      </div>`;
+    onSubmit($('#offer-form', el), async (fd, out) => {
+      const percent = Number(val(fd, 'percent'));
+      if (!(percent >= 0 && percent <= 50)) return msg(out, 'The discount must be between 0 and 50%.');
+      const r = await api('save-offer', { body: { id: p.id, percent: Math.round(percent), note: val(fd, 'note') } });
+      p.offer = r.offer;
+      S.pharmacies = null;
+      toast(r.offer ? 'Discount saved.' : 'Discount removed.');
+      branchOffer(el, p);
     });
   }
 
@@ -1378,7 +1617,12 @@ Risek 20mg,in,480</pre>
             <label class="field">Name shown on the widget<input class="input" name="name" value="${esc(c.name || '')}" maxlength="80"></label>
             <label class="field">Brand colour<input class="input" type="color" name="color" value="${esc(/^#[0-9a-f]{6}$/i.test(c.color || '') ? c.color : '#0f5c54')}"></label>
             <label class="field">Note for patients <small class="muted">(optional)</small><textarea class="input" name="note" maxlength="200" rows="3">${esc(c.note || '')}</textarea></label>
-            <label class="field">Clinic phone<input class="input" type="tel" name="phone" value="${esc(c.phone || '')}" maxlength="30"></label>
+            <div class="form-row">
+              <label class="field">Clinic phone<input class="input" type="tel" name="phone" value="${esc(c.phone || '')}" maxlength="30"></label>
+              <label class="field">City<input class="input" name="city" value="${esc(c.city || '')}" maxlength="40" placeholder="e.g. Rawalpindi"></label>
+            </div>
+            <label class="check"><input type="checkbox" name="partners" value="1"${c.partners === false ? '' : ' checked'}> Show partner pharmacies in my widget</label>
+            <p class="small muted" style="margin:0">Shows up to 6 verified Sasta Dawa pharmacies in your city under the price checker, so patients know where to buy. Needs the city above.</p>
             <div class="actions"><button type="submit" class="btn btn-primary">Save</button><a class="btn btn-ghost" href="${esc(API ? widgetUrl : 'widget?c=' + encodeURIComponent(u.id))}" target="_blank" rel="noopener">Preview widget</a></div>
             <p class="form-msg" role="status"></p>
           </form>
@@ -1392,15 +1636,23 @@ Risek 20mg,in,480</pre>
           ${u.plan === 'free' ? '<div class="upgrade" style="margin-block-start:12px"><p>The widget shows “not active” until the Clinic plan is paid.</p><div class="actions"><a class="btn btn-primary" href="#/plan">Pay for the Clinic plan</a></div></div>' : ''}
         </div>
       </div>
-      <div class="card"><h2>Widget searches (last 30 days)</h2><div id="clinic-stats"></div></div>`;
+      <div class="card"><h2>Widget use (last 30 days)</h2><div id="clinic-stats"></div></div>`;
     $('#copy-embed', el).addEventListener('click', () => copyText($('#embed-code', el).value));
     onSubmit($('#clinic-form', el), async (fd, out) => {
-      await api('save-clinic', { body: { name: val(fd, 'name'), color: val(fd, 'color'), note: val(fd, 'note'), phone: val(fd, 'phone') } });
+      await api('save-clinic', { body: { name: val(fd, 'name'), color: val(fd, 'color'), note: val(fd, 'note'), phone: val(fd, 'phone'), city: val(fd, 'city'), partners: !!fd.get('partners') } });
       msg(out, 'Saved. The widget updates within a minute.', true);
     });
     into($('#clinic-stats', el), async (box) => {
       const s = await api('stats');
-      box.innerHTML = `<div class="stat-grid" style="grid-template-columns:minmax(0,1fr)"><div class="stat"><small>Searches from your website</small><b class="num">${esc((s.totals && s.totals.widget) || 0)}</b></div></div>${barChart(s.days || [], 'widget')}`;
+      const t = s.totals || {};
+      box.innerHTML = `
+        <div class="stat-grid stat-auto">
+          <div class="stat"><small>Searches</small><b class="num">${esc(t.widget || 0)}</b></div>
+          <div class="stat"><small>Cheaper options shown</small><b class="num">${esc(t.savedCount || 0)}</b></div>
+          <div class="stat good"><small>Possible savings shown to patients (Rs)</small><b class="num">${esc(Math.round(t.saved || 0).toLocaleString('en-PK'))}</b></div>
+        </div>
+        <p class="small muted">“Cheaper options shown” counts the times a patient searching on your website was shown a cheaper brand with the same formula. “Possible savings” adds up the price difference at DRAP maximum retail prices. These are possible savings, not confirmed purchases: we cannot see what patients actually buy.</p>
+        <h3>Daily searches</h3>${barChart(s.days || [], 'widget')}`;
     });
   }
 
@@ -1418,6 +1670,42 @@ Risek 20mg,in,480</pre>
   // ===========================================================================
   const ngoDraft = { id: null, name: '', items: [] }; // items: [{id, qty}]
   let ngoResult = null;
+  let ngoQuoteResult = null; // { listId, data } from compare-quotes
+
+  /** Printable supplier comparison (part of the donor report when shown). */
+  function quoteResultHtml(r, l, engine) {
+    const diff = (n) => (n > 0 ? `<span class="save-txt">${esc(rs(n))} less</span>` : n < 0 ? `<span class="bad-txt">${esc(rs(-n))} more</span>` : 'Same');
+    const quotes = r.quotes || [];
+    const nameOf = (id) => {
+      const row = (r.rows || []).find((x) => x.medicine.id === id);
+      return row ? `${row.medicine.brand} ${row.medicine.strength || ''}`.trim() : (engine && engine.byId(id) ? medLabel(engine.byId(id)) : id);
+    };
+    return `
+      <div class="card report" id="quote-result">
+        <div class="item-top"><h2>Supplier quote comparison: ${esc(l.name)}</h2><button type="button" class="btn btn-primary no-print" id="quote-print">Print donor report</button></div>
+        <p class="print-only">${esc(S.user.name)} · ${esc(fmtDate(new Date()))}</p>
+        <div class="stat-grid stat-auto">
+          <div class="stat"><small>At DRAP prices (these brands)</small><b class="num">${esc(rs(r.total_now))}</b></div>
+          <div class="stat"><small>Cheapest same formula at DRAP prices</small><b class="num">${esc(rs(r.total_best))}</b></div>
+          <div class="stat good"><small>Best complete quote</small><b class="num">${r.best_supplier ? esc(r.best_supplier) : 'None yet'}</b></div>
+        </div>
+        <div class="table-wrap"><table class="tbl"><thead><tr><th>Supplier</th><th class="n">Total</th><th class="n">Missing items</th><th class="n">vs DRAP price</th><th class="n">vs cheapest same formula (DRAP price)</th></tr></thead><tbody>${quotes
+          .slice()
+          .sort((a, b) => a.missing - b.missing || a.total - b.total)
+          .map((q) => `<tr${q.supplier === r.best_supplier ? ' class="best"' : ''}><td><b>${esc(q.supplier)}</b>${q.supplier === r.best_supplier ? ' <span class="badge good">Best</span>' : ''}</td><td class="n">${esc(rs(q.total))}${q.missing ? '<span class="sub">partial</span>' : ''}</td><td class="n">${q.missing ? `<span class="badge warn">${esc(q.missing)}</span>` : '0'}</td><td class="n">${q.missing ? '<span class="muted">–</span>' : diff(q.vs_mrp)}</td><td class="n">${q.missing ? '<span class="muted">–</span>' : diff(q.vs_cheapest_mrp)}</td></tr>`)
+          .join('')}</tbody></table></div>
+        <h3 style="margin-block-start:16px">Unit prices by medicine</h3>
+        <div class="table-wrap"><table class="tbl"><thead><tr><th>Medicine</th><th class="n">Qty</th><th class="n">DRAP cost</th><th class="n">Cheapest same formula</th>${quotes.map((q) => `<th class="n">${esc(q.supplier)}</th>`).join('')}</tr></thead><tbody>${(r.rows || [])
+          .map((row, i) => `<tr><td><b>${esc(nameOf(row.medicine.id))}</b><span class="sub">${esc(row.medicine.formula || '')}</span></td><td class="n">${esc(row.qty)}</td><td class="n">${esc(rs(row.cost_now))}</td><td class="n">${esc(rs(row.cost_best))}${row.cheapest.id !== row.medicine.id ? `<span class="sub">${esc(row.cheapest.brand)}</span>` : ''}</td>${quotes
+            .map((q) => {
+              const ln = (q.lines || [])[i];
+              return `<td class="n">${ln && ln.price != null ? esc(rs(ln.total)) + `<span class="sub">${esc(rs2(ln.price))}/unit</span>` : '<span class="muted">not quoted</span>'}</td>`;
+            })
+            .join('')}</tr>`)
+          .join('')}</tbody></table></div>
+        <p class="small muted" style="margin-block-start:10px">“Less” means the supplier's total is lower than the DRAP maximum retail price total; “more” means higher. Suppliers with missing items are not ranked because their total is partial. DRAP prices are maximum retail prices; doctors should confirm any brand switch.</p>
+      </div>`;
+  }
 
   function viewOptimiser(el) {
     const u = S.user;
@@ -1434,6 +1722,7 @@ Risek 20mg,in,480</pre>
         <p class="form-msg" id="ngo-msg" role="status"></p>
       </div>
       <div id="ngo-result"></div>
+      <div id="ngo-quotes"></div>
       <div class="card no-print">
         <h3>Saved lists</h3>
         ${(u.lists || []).length ? `<div class="items">${u.lists
@@ -1545,6 +1834,104 @@ Risek 20mg,in,480</pre>
         }
       }
     };
+    const quotesEl = $('#ngo-quotes', el);
+    let quoteEdit = null; // supplier name being edited
+    const savedList = () => (S.user.lists || []).find((l) => l.id === ngoDraft.id) || null;
+    const drawQuotes = () => {
+      const l = savedList();
+      if (!l) {
+        quotesEl.innerHTML = '';
+        return;
+      }
+      const quotes = l.quotes || [];
+      const editing = quoteEdit ? quotes.find((q) => q.supplier === quoteEdit) : null;
+      const prices = (editing && editing.prices) || {};
+      const cmp = ngoQuoteResult && ngoQuoteResult.listId === l.id ? ngoQuoteResult.data : null;
+      quotesEl.innerHTML = `
+        <div class="card no-print">
+          <h3>Supplier quotes: ${esc(l.name)}</h3>
+          <p class="small muted">Enter the unit price (per tablet, capsule or ml) each supplier quoted for the medicines on this saved list, then compare them with DRAP prices. Uses the quantities saved with the list. Up to 10 suppliers.</p>
+          ${quotes.length ? `<div class="items" style="margin-block-end:12px">${quotes
+            .map((q) => `<div class="item"><div class="item-top"><div><div class="item-title">${esc(q.supplier)}</div><div class="item-meta">${esc(Object.keys(q.prices || {}).length)} of ${esc(l.items.length)} medicines priced · ${esc(fmtDate(q.at))}</div></div>
+              <div class="actions"><button type="button" class="btn btn-ghost sm" style="min-height:44px" data-qedit="${esc(q.supplier)}">Edit</button><button type="button" class="btn btn-ghost sm" style="min-height:44px" data-qdel="${esc(q.supplier)}">Remove</button></div></div></div>`)
+            .join('')}</div>` : '<p class="empty-note">No supplier quotes yet.</p>'}
+          <form class="form" id="quote-form">
+            <h3 style="margin:0">${editing ? 'Edit quote' : 'Add a supplier quote'}</h3>
+            <label class="field">Supplier name<input class="input" name="supplier" maxlength="80" value="${esc(editing ? editing.supplier : '')}" required></label>
+            <div class="table-wrap"><table class="tbl"><thead><tr><th>Medicine</th><th class="n">Qty</th><th class="n">DRAP unit price</th><th class="n">Quoted unit price (Rs)</th></tr></thead><tbody>${l.items
+              .map((it) => {
+                const m = engine && engine.byId(it.id);
+                return `<tr><td><b>${esc(m ? medLabel(m) : it.id)}</b><span class="sub">${esc(m ? m.generic || '' : '')}</span></td><td class="n">${esc(it.qty)}</td><td class="n">${m ? esc(rs2(m.unitPrice)) : ''}</td><td class="n"><input class="input" type="number" min="0" step="0.01" inputmode="decimal" name="p:${esc(it.id)}" value="${esc(prices[it.id] || '')}" aria-label="Quoted unit price for ${esc(m ? medLabel(m) : it.id)}"></td></tr>`;
+              })
+              .join('')}</tbody></table></div>
+            <p class="small muted" style="margin:0">Leave a price empty if the supplier did not quote that medicine.</p>
+            <div class="actions"><button type="submit" class="btn btn-ghost">${editing ? 'Save quote' : 'Add quote'}</button>${editing ? '<button type="button" class="btn btn-ghost" id="quote-cancel">Cancel</button>' : ''}<button type="button" class="btn btn-primary" id="quote-compare"${quotes.length ? '' : ' disabled'}>Compare quotes</button></div>
+            <p class="form-msg" role="status"></p>
+          </form>
+        </div>
+        ${cmp ? quoteResultHtml(cmp, l, engine) : ''}`;
+      onSubmit($('#quote-form', quotesEl), async (fd, out) => {
+        const supplier = val(fd, 'supplier');
+        if (!supplier) return msg(out, 'Enter the supplier name.');
+        const pr = {};
+        l.items.forEach((it) => {
+          const v = Number(val(fd, 'p:' + it.id));
+          if (v > 0) pr[it.id] = v;
+        });
+        if (!Object.keys(pr).length) return msg(out, 'Enter at least one quoted price.');
+        if (!editing && quotes.length >= 10 && !quotes.some((q) => q.supplier === supplier)) return msg(out, 'Up to 10 suppliers per list. Remove one first.');
+        if (editing && editing.supplier !== supplier) await api('save-quote', { body: { listId: l.id, supplier: editing.supplier, remove: true } });
+        await api('save-quote', { body: { listId: l.id, supplier, prices: pr } });
+        quoteEdit = null;
+        ngoQuoteResult = null;
+        toast('Quote saved.');
+        drawQuotes();
+      });
+      const cancel = $('#quote-cancel', quotesEl);
+      if (cancel) cancel.addEventListener('click', () => {
+        quoteEdit = null;
+        drawQuotes();
+      });
+      $('#quote-compare', quotesEl).addEventListener('click', async (ev) => {
+        const out = $('#quote-form .form-msg', quotesEl);
+        ev.target.disabled = true;
+        msg(out, '');
+        try {
+          const lst = savedList();
+          const data = await api('compare-quotes', { body: { items: lst.items, quotes: lst.quotes || [] } });
+          ngoQuoteResult = { listId: lst.id, data };
+          drawQuotes();
+          const res = $('#quote-result', quotesEl);
+          if (res && res.scrollIntoView) res.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (e) {
+          if (!e.handled) msg(out, e.message);
+          ev.target.disabled = false;
+        }
+      });
+      const qp = $('#quote-print', quotesEl);
+      if (qp) qp.addEventListener('click', () => window.print());
+    };
+    quotesEl.addEventListener('click', async (ev) => {
+      const ed = ev.target.closest('button[data-qedit]');
+      const dq = ev.target.closest('button[data-qdel]');
+      if (ed) {
+        quoteEdit = ed.dataset.qedit;
+        drawQuotes();
+        const f = $('#quote-form', quotesEl);
+        if (f && f.scrollIntoView) f.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else if (dq) {
+        if (!window.confirm('Remove the quote from ' + dq.dataset.qdel + '?')) return;
+        try {
+          await api('save-quote', { body: { listId: ngoDraft.id, supplier: dq.dataset.qdel, remove: true } });
+          if (quoteEdit === dq.dataset.qdel) quoteEdit = null;
+          ngoQuoteResult = null;
+          toast('Quote removed.');
+          drawQuotes();
+        } catch (e) {
+          if (!e.handled) toast(e.message);
+        }
+      }
+    });
     loadEngine()
       .then((e) => {
         engine = e;
@@ -1556,6 +1943,7 @@ Risek 20mg,in,480</pre>
         });
         drawItems();
         drawResult();
+        drawQuotes();
       })
       .catch(() => {
         itemsEl.innerHTML = errorHtml(new Error('Could not load the medicine list. Check your connection and reload.'));
@@ -1712,6 +2100,162 @@ Risek 20mg,in,480</pre>
         </div>`;
       $('#co-copy', el).addEventListener('click', () => copyText(c.code));
       $('#co-copy-msg', el).addEventListener('click', () => copyText($('#co-msg', el).value));
+    });
+  }
+
+  // -- Claims analysis: what staff paid vs the cheapest same-formula brand
+  /** CSV rows -> [{medicine, qty, paid}] (header row optional). */
+  function claimRows(rows) {
+    const numOf = (s) => {
+      const t = String(s == null ? '' : s).replace(/[^\d.]/g, '');
+      return t ? Number(t) : NaN;
+    };
+    if (rows.length && rows[0].length > 1 && isNaN(numOf(rows[0][1])) && isNaN(numOf(rows[0][2]))) rows = rows.slice(1);
+    return rows
+      .filter((r) => r[0])
+      .slice(0, 5000)
+      .map((r) => {
+        const q = numOf(r[1]);
+        const pd = numOf(r[2]);
+        const o = { medicine: r[0], qty: q > 0 ? q : 1 };
+        if (!isNaN(pd) && String(r[2] || '').trim() !== '') o.paid = pd;
+        return o;
+      });
+  }
+  let claimsResult = null;
+
+  function csvCell(v) {
+    const s = String(v == null ? '' : v);
+    return /[",\n\r]/.test(s) || /^[=+\-@]/.test(s) ? '"' + (/^[=+\-@]/.test(s) ? "'" : '') + s.replace(/"/g, '""') + '"' : s;
+  }
+  function downloadFile(name, text, type) {
+    const blob = new Blob([text], { type: type || 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
+  function viewClaims(el) {
+    el.innerHTML = `
+      <div class="card no-print">
+        <h2>Claims analysis</h2>
+        <p class="muted">Upload the medicine claims or purchases your staff made. For each line we find the cheapest DRAP-registered brand with the same formula, strength and form, and show the possible saving.</p>
+        <p class="muted">CSV with three columns: <b>medicine name or id</b>, <b>quantity (tablets, capsules or ml)</b>, <b>amount paid (Rs)</b>. A header row is optional. If the amount is empty, the DRAP price is used.</p>
+        <pre class="code">Medicine,Quantity,Paid
+Augmentin 625mg,14,1150
+Risek 20mg,28,980
+Glucophage 500mg,60,</pre>
+        <form class="form" id="claims-form">
+          <label class="field">CSV file<input class="input" type="file" name="file" accept=".csv,text/csv,text/plain"></label>
+          <label class="field">…or paste rows here<textarea class="input" name="text" rows="6" placeholder="Augmentin 625mg,14,1150"></textarea></label>
+          <div class="actions"><button type="submit" class="btn btn-primary">Analyse claims</button></div>
+          <p class="form-msg" role="status"></p>
+        </form>
+        <p class="small muted" style="margin:0">The file is sent to Sasta Dawa only to match medicines and is not stored. Remove staff names before uploading: only medicine, quantity and amount are needed.</p>
+      </div>
+      <div id="claims-result"></div>`;
+    const resEl = $('#claims-result', el);
+    const draw = () => {
+      const r = claimsResult;
+      if (!r) {
+        resEl.innerHTML = '';
+        return;
+      }
+      resEl.innerHTML = `
+        <div class="card report">
+          <div class="item-top"><h2>Claims analysis</h2><div class="actions no-print"><button type="button" class="btn btn-primary" id="claims-print">Print / save as PDF</button><button type="button" class="btn btn-ghost" id="claims-csv">Download CSV</button></div></div>
+          <p class="print-only">${esc(S.user.name)} · ${esc(fmtDate(new Date()))}</p>
+          <div class="stat-grid stat-auto">
+            <div class="stat"><small>Total paid</small><b class="num">${esc(rs(r.total_paid))}</b></div>
+            <div class="stat"><small>With cheapest same-formula brand</small><b class="num">${esc(rs(r.total_cheapest))}</b></div>
+            <div class="stat good"><small>Possible saving</small><b class="num">${esc(rs(r.possible_saving))}</b><div class="sub">${esc(r.percent)}% of the amount paid</div></div>
+            <div class="stat"><small>Lines matched</small><b class="num">${esc(r.rows.length)}</b>${r.unmatched.length ? `<div class="sub">${esc(r.unmatched.length)} not matched</div>` : ''}</div>
+          </div>
+          ${r.rows.length ? `<div class="table-wrap"><table class="tbl"><thead><tr><th>Your line</th><th>Matched medicine</th><th class="n">Qty</th><th class="n">Paid</th><th>Cheapest option</th><th class="n">Cheapest cost</th><th class="n">Possible saving</th></tr></thead><tbody>${r.rows
+            .slice(0, 300)
+            .map((x) => `<tr><td>${esc(x.input)}</td><td><b>${esc(x.medicine)}</b></td><td class="n">${esc(x.qty)}</td><td class="n">${esc(rs(x.paid))}</td><td>${x.cheapest === x.medicine ? '<span class="muted">Already cheapest</span>' : esc(x.cheapest)}</td><td class="n">${esc(rs(x.cheapest_cost))}</td><td class="n save-txt">${x.possible_saving ? esc(rs(x.possible_saving)) : ''}</td></tr>`)
+            .join('')}</tbody></table></div>${r.rows.length > 300 ? `<p class="small muted">Showing the 300 lines with the biggest possible saving out of ${esc(r.rows.length)}. Download the CSV for all lines.</p>` : ''}` : '<p class="empty-note">No lines could be matched to a medicine.</p>'}
+          ${r.unmatched.length ? `<h3 style="margin-block-start:14px">Not matched (${esc(r.unmatched.length)})</h3><p class="small">${r.unmatched.map((x) => esc(x)).join('<br>')}</p><p class="small muted">Use the exact brand and strength, or the medicine id from the site.</p>` : ''}
+          <p class="small muted" style="margin-block-start:10px">These are possible savings if the cheapest brand with the same formula, strength and form had been bought at its DRAP maximum retail price. Medicine names are matched automatically, so check the matches. Doctors should confirm any brand switch.</p>
+        </div>`;
+      $('#claims-print', resEl).addEventListener('click', () => window.print());
+      $('#claims-csv', resEl).addEventListener('click', () => {
+        const head = ['Your line', 'Matched medicine', 'Quantity', 'Paid (Rs)', 'DRAP price (Rs)', 'Cheapest option', 'Cheapest cost (Rs)', 'Possible saving (Rs)'];
+        const lines = [head.join(',')].concat(r.rows.map((x) => [x.input, x.medicine, x.qty, x.paid, x.mrp, x.cheapest, x.cheapest_cost, x.possible_saving].map(csvCell).join(',')));
+        r.unmatched.forEach((x) => lines.push([x, 'NOT MATCHED', '', '', '', '', '', ''].map(csvCell).join(',')));
+        lines.push(['TOTAL', '', '', r.total_paid, r.total_mrp, '', r.total_cheapest, r.possible_saving].map(csvCell).join(','));
+        downloadFile('sasta-dawa-claims-analysis.csv', '﻿' + lines.join('\r\n'));
+      });
+    };
+    onSubmit($('#claims-form', el), async (fd, out) => {
+      const file = fd.get('file');
+      let text = val(fd, 'text');
+      if (file && file.size) {
+        if (file.size > 900 * 1024) return msg(out, 'The file is too large (900 KB max). Split it into smaller files.');
+        text = await file.text();
+      }
+      if (!text) return msg(out, 'Choose a CSV file or paste some rows.');
+      const rows = claimRows(parseCsv(text));
+      if (!rows.length) return msg(out, 'No rows found. Put the medicine name in the first column.');
+      msg(out, `Analysing ${rows.length} line${rows.length === 1 ? '' : 's'}…`, true);
+      claimsResult = await api('claims-report', { body: { rows } });
+      msg(out, '');
+      draw();
+      if (resEl.scrollIntoView) resEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    draw();
+  }
+
+  // -- Partner pharmacies: verified pharmacies offering a staff discount
+  function viewPartners(el, rest) {
+    const city = (rest && rest[0]) || '';
+    into(el, async () => {
+      const r = await api('partners', { params: city ? { city } : undefined });
+      const list = r.partners || [];
+      const code = S.user.companyCode;
+      const share = `Staff discount at pharmacies: show your company staff card at these Sasta Dawa partner pharmacies${city ? ' in ' + city : ''}:\n` +
+        list.slice(0, 15).map((p) => `- ${p.name} (${[p.area, p.city].filter(Boolean).join(', ')}): ${p.offer.percent}% off${p.offer.note ? ' (' + p.offer.note + ')' : ''}${p.whatsapp || p.phone ? ', ' + (p.whatsapp || p.phone) : ''}`).join('\n') +
+        `\n\nFull list and cheaper medicine brands: ${SITE}/account${code ? ' (company code ' + code + ')' : ''}`;
+      el.innerHTML = `
+        <div class="card">
+          <h2>Partner pharmacies</h2>
+          <p class="muted">Verified pharmacies on Sasta Dawa that give a discount to staff of companies using Sasta Dawa. Staff show their company staff card at the counter. Each pharmacy sets its own discount and conditions; the pharmacy decides at the counter.</p>
+          <form class="form" id="partners-form">
+            <div class="form-row"><label class="field">City<input class="input" name="city" maxlength="40" value="${esc(city)}" placeholder="All cities"></label></div>
+            <div class="actions"><button type="submit" class="btn btn-ghost">Filter</button>${city ? '<a class="btn btn-ghost" href="#/partners">Show all cities</a>' : ''}</div>
+          </form>
+        </div>
+        <div class="card">
+          <h3>${esc(list.length)} partner pharmac${list.length === 1 ? 'y' : 'ies'}${city ? ' in ' + esc(city) : ''}</h3>
+          ${list.length ? `<div class="items">${list
+            .map((p) => `<div class="item">
+              <div class="item-top"><div><div class="item-title">${esc(p.name)}</div><div class="item-meta">${esc([p.address, p.area, p.city].filter(Boolean).join(', '))}</div></div><div class="badges" style="margin:0"><span class="badge good">${esc(p.offer.percent)}% staff discount</span>${p.delivery ? '<span class="badge brand">Delivery</span>' : ''}</div></div>
+              ${p.offer.note ? `<div class="item-meta">Conditions: ${esc(p.offer.note)}</div>` : ''}
+              ${p.hours ? `<div class="item-meta">${esc(p.hours)}</div>` : ''}
+              <div class="actions">
+                ${p.whatsapp ? `<a class="btn btn-soft" href="${esc(waLink(p.whatsapp))}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
+                ${p.phone ? `<a class="btn btn-ghost" href="tel:${esc(String(p.phone).replace(/[^\d+]/g, ''))}">Call</a>` : ''}
+                ${p.lat != null && p.lng != null ? `<a class="btn btn-ghost" href="https://www.google.com/maps/dir/?api=1&destination=${esc(p.lat + ',' + p.lng)}" target="_blank" rel="noopener">Directions</a>` : ''}
+              </div>
+            </div>`)
+            .join('')}</div>` : `<p class="empty-note">No partner pharmacies${city ? ' in ' + esc(city) : ''} yet. The list grows as pharmacies add a staff discount.</p>`}
+        </div>
+        ${list.length ? `<div class="card">
+          <h3>Share with your staff</h3>
+          <textarea class="input keybox" id="partners-msg" rows="6" readonly aria-label="Message for staff">${esc(share)}</textarea>
+          <div class="actions" style="margin-block-start:8px"><button type="button" class="btn btn-ghost" id="partners-copy">Copy message</button><a class="btn btn-soft" href="${esc('https://wa.me/?text=' + encodeURIComponent(share))}" target="_blank" rel="noopener">Share on WhatsApp</a></div>
+        </div>` : ''}`;
+      onSubmit($('#partners-form', el), async (fd) => {
+        const c = val(fd, 'city');
+        go(c ? '#/partners/' + encodeURIComponent(c) : '#/partners');
+      });
+      const cp = $('#partners-copy', el);
+      if (cp) cp.addEventListener('click', () => copyText($('#partners-msg', el).value));
     });
   }
 

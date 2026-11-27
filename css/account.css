@@ -84,7 +84,9 @@ html, body { overflow-x: hidden; }
 .stat-grid { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-block-end: 14px; }
 @media (min-width: 720px) { .stat-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 .stat-grid .stat { padding: 12px 14px; }
-.stat-grid .stat b { font-size: 22px; }
+.stat-grid .stat b { font-size: 22px; overflow-wrap: anywhere; }
+.stat-grid.stat-auto { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+@media (max-width: 359px) { .stat-grid.stat-auto { grid-template-columns: minmax(0, 1fr); } }
 
 .chart { display: flex; align-items: flex-end; gap: 2px; block-size: 140px; padding: 10px 4px 0; border-block-end: 1px solid var(--line-strong); }
 .chart .bar { flex: 1 1 0; min-inline-size: 2px; background: var(--brand); opacity: .75; border-radius: 3px 3px 0 0; }
@@ -102,6 +104,8 @@ table.tbl { inline-size: 100%; border-collapse: collapse; font-size: 14px; }
 .tbl .input { min-block-size: 44px; inline-size: 110px; }
 .tbl .sub { display: block; font-size: 12.5px; color: var(--muted); }
 .save-txt { color: var(--save); font-weight: 800; }
+.bad-txt { color: var(--danger); font-weight: 800; }
+.tbl tr.best td { background: var(--save-soft); }
 
 .items { display: grid; gap: 10px; }
 .item { display: grid; gap: 8px; padding: 14px 16px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); min-width: 0; }

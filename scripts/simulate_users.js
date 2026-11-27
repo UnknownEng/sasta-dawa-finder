@@ -115,6 +115,18 @@ async function patient(n) {
       const rv = await call('/api/places?a=reserve', { ip, body: { pid: p.id, med: med.id, name: 'Patient ' + n, phone: '0311' + String(1000000 + n), qty: '1 pack' } });
       check('[patient] reserve medicine at pharmacy', rv.status === 200, rv.text);
     }
+    const withOffer = list.find((x) => x.offer);
+    if (withOffer) check('[patient] staff discount shown on pharmacy card', withOffer.offer.percent > 0 && withOffer.offer.percent <= 50, JSON.stringify(withOffer.offer));
+    const deliverer = list.find((x) => x.delivery);
+    if (deliverer && n % 3 === 1) {
+      const dv = await call('/api/places?a=reserve', { ip, body: { pid: deliverer.id, med: med.id, name: 'Patient ' + n, phone: '0312' + String(1000000 + n), qty: '2 packs', delivery: true, address: `House ${n}, Street ${n % 30}, ${city}` } });
+      check('[patient] order medicine delivery', dv.status === 200, dv.text);
+    }
+    const notDeliverer = list.find((x) => !x.delivery && x.reserve);
+    if (notDeliverer && n % 7 === 0) {
+      const nd = await call('/api/places?a=reserve', { ip, body: { pid: notDeliverer.id, med: med.id, name: 'P', phone: '03121234567', delivery: true, address: 'House 1, Street 1' } });
+      check('[security] delivery refused when pharmacy does not deliver', nd.status === 400, nd.status);
+    }
   }
   const cab = [{ id: med.id, perDay: 2, days: 30 }, { id: pick(MEDS, n + 3).id, perDay: 1, days: 30 }];
   const sc = await call('/api/account?a=save-cabinet', { headers: bearer(s.token), body: { cabinet: cab } });
@@ -168,7 +180,24 @@ async function pharmacy(n) {
   const mine = (pub.body.pharmacies || []).find((p) => p.id === pid);
   check('[pharmacy] verified listing visible with stock + price', mine && mine.stock === 'in' && mine.price === items[0].price && mine.verified, JSON.stringify(mine));
   if (n % 5 === 0) check('[pharmacy] featured shows as Sponsored', mine && mine.sponsored === true, JSON.stringify(mine));
-  pharmacies.push({ id: pid, token: s.token, city, n, ip });
+  if (n % 3 === 0) {
+    const of = await call('/api/account?a=save-offer', { headers: bearer(s.token), body: { id: pid, percent: 5 + (n % 15), note: 'Show company card' } });
+    check('[pharmacy] staff discount offer', of.status === 200 && of.body.offer && of.body.offer.percent === 5 + (n % 15), of.text);
+  }
+  let premium = false;
+  if (n % 4 === 0) {
+    const tk = bearer(s.token);
+    const pay = await call('/api/account?a=pay', { headers: tk, ip, body: { plan: 'pharmacy_premium', method: pick(['jazzcash', 'easypaisa', 'bank'], n), txnId: 'TX' + n + 'SIM', payerPhone: '03001234567' } });
+    if (check('[payments] submit payment with transaction ID', pay.status === 200 && pay.body.payment.status === 'pending', pay.text)) {
+      const ap = await call('/api/admin?a=payment-update', { ...admin, body: { key: pay.body.payment.key, status: 'approved' } });
+      check('[admin] approve payment', ap.status === 200, ap.text);
+      const me = await call('/api/account?a=me', { headers: tk });
+      premium = check('[payments] approval upgrades plan', me.body.user.plan === 'pharmacy_premium' && me.body.user.trial === false, JSON.stringify(me.body.user));
+      const dl = await call('/api/account?a=save-pharmacy', { headers: tk, body: { id: pid, name: `Sim Pharmacy ${n}`, address: `Shop ${n}, Main Market`, city, phone: '0300' + String(2000000 + n), whatsapp: '+92300' + String(2000000 + n), lat, lng, delivery: true } });
+      check('[premium] switch on home delivery', dl.status === 200 && dl.body.pharmacy.delivery === true, dl.text);
+    }
+  }
+  pharmacies.push({ id: pid, token: s.token, city, n, ip, premium });
   return { pid, s, city, ip };
 }
 
@@ -184,17 +213,27 @@ async function pharmacyFollowUp(p) {
     const u = await call('/api/account?a=reservation-update', { headers: tk, body: { key: rs.body.reservations[0].key, status: 'ready' } });
     check('[pharmacy] mark reservation ready', u.status === 200, u.text);
   }
+  const orders = (rs.body && rs.body.reservations) || [];
+  const delivery = orders.find((o) => o.type === 'delivery');
+  if (delivery) {
+    check('[pharmacy] delivery order has address', !!delivery.address, JSON.stringify(delivery));
+    const du = await call('/api/account?a=reservation-update', { headers: tk, body: { key: delivery.key, status: 'out_for_delivery' } });
+    check('[pharmacy] mark order out for delivery', du.status === 200, du.text);
+  }
+  const first = orders[0];
+  const sr = await call('/api/account?a=save-refill', { headers: tk, body: { pid: p.id, name: first ? first.name : 'Walk-in ' + p.n, phone: first ? first.phone : '0300' + String(3000000 + p.n), meds: [{ id: pick(MEDS, p.n).id, qty: '1 pack' }], every: 30, lastAt: new Date(Date.now() - 28 * 864e5).toISOString() } });
+  check('[pharmacy] add refill customer', sr.status === 200, sr.text);
+  const rf = await call('/api/account?a=refills&id=' + p.id, { headers: tk });
+  check('[pharmacy] refill list shows who is due', rf.status === 200 && rf.body.customers.length === 1 && rf.body.customers[0].due === true, rf.text);
+  const mr = await call('/api/account?a=mark-refilled', { headers: tk, body: { pid: p.id, id: rf.body.customers[0].id } });
+  const rf2 = await call('/api/account?a=refills&id=' + p.id, { headers: tk });
+  check('[pharmacy] mark customer refilled', mr.status === 200 && rf2.body.customers[0].due === false, rf2.text);
   const rep = await call('/api/account?a=report&id=' + p.id, { headers: tk });
   check('[pharmacy] monthly report', rep.status === 200 && rep.body.totals, rep.text);
   const comp = await call('/api/account?a=competitors&id=' + p.id, { headers: tk });
-  check('[pharmacy] competitor prices need Premium (Pro refused)', comp.status === 402, comp.status);
-  if (p.n % 4 === 0) {
-    const pay = await call('/api/account?a=pay', { headers: tk, ip: p.ip, body: { plan: 'pharmacy_premium', method: pick(['jazzcash', 'easypaisa', 'bank'], p.n), txnId: 'TX' + p.n + 'SIM', payerPhone: '03001234567' } });
-    if (check('[payments] submit payment with transaction ID', pay.status === 200 && pay.body.payment.status === 'pending', pay.text)) {
-      const ap = await call('/api/admin?a=payment-update', { ...admin, body: { key: pay.body.payment.key, status: 'approved' } });
-      check('[admin] approve payment', ap.status === 200, ap.text);
-      const me = await call('/api/account?a=me', { headers: tk });
-      check('[payments] approval upgrades plan', me.body.user.plan === 'pharmacy_premium' && me.body.user.trial === false, JSON.stringify(me.body.user));
+  if (!p.premium) check('[pharmacy] competitor prices need Premium (Pro refused)', comp.status === 402, comp.status);
+  if (p.premium) {
+    {
       const b2 = await call('/api/account?a=save-pharmacy', { headers: tk, body: { name: 'Branch 2', address: 'Blue Area', city: p.city, phone: '03001112233', delivery: true } });
       check('[premium] multiple branches', b2.status === 200, b2.text);
       const bulk = await call('/api/account?a=set-stock', { headers: tk, body: { id: p.id, items: Array.from({ length: 60 }, (_, i) => ({ id: pick(MEDS, i).id, s: 'in', price: 10 + i })) } });
@@ -209,7 +248,7 @@ async function clinic(n) {
   const ip = '10.3.' + ((n >> 8) & 255) + '.' + (n & 255);
   const s = await signup('clinic', n, ip);
   if (!s) return;
-  const c = await call('/api/account?a=save-clinic', { headers: bearer(s.token), body: { name: 'Sim Clinic ' + n, color: '#12507a', note: 'Ask reception', phone: '0511234567' } });
+  const c = await call('/api/account?a=save-clinic', { headers: bearer(s.token), body: { name: 'Sim Clinic ' + n, color: '#12507a', note: 'Ask reception', phone: '0511234567', city: pick(CITIES, n) } });
   check('[clinic] save widget branding', c.status === 200 && c.body.user.clinic.name === 'Sim Clinic ' + n, c.text);
   const w = await call('/api/places?a=widget&c=' + s.user.id, { ip });
   check('[clinic] widget info is public + active', w.status === 200 && w.body.active === true && w.body.color === '#12507a', w.text);
@@ -217,8 +256,12 @@ async function clinic(n) {
   check('[clinic] widget page can be embedded (no X-Frame-Options)', page.status === 200 && !page.headers['x-frame-options'], JSON.stringify(page.headers['x-frame-options']));
   const ev = await call('/api/places?a=event', { ip, body: { type: 'widget', clinic: s.user.id } });
   check('[clinic] widget searches counted', ev.status === 200, ev.text);
+  check('[clinic] partner pharmacies in widget', Array.isArray(w.body.partners) && w.body.partners.length > 0 && w.body.partners.every((x) => x.verified), JSON.stringify(w.body.partners && w.body.partners[0]));
+  const sv = await call('/api/places?a=event', { ip, body: { type: 'saved', clinic: s.user.id, amount: 100 + n } });
+  check('[clinic] cheaper option shown is counted', sv.status === 200, sv.text);
   const st = await call('/api/account?a=stats', { headers: bearer(s.token) });
   check('[clinic] widget stats', st.status === 200 && st.body.totals.widget >= 1, st.text);
+  check('[clinic] possible savings stats', st.body.totals.saved === 100 + n && st.body.totals.savedCount === 1, JSON.stringify(st.body.totals));
 }
 
 async function ngo(n) {
@@ -232,6 +275,12 @@ async function ngo(n) {
   check('[ngo] save medicine list', l.status === 200 && l.body.user.lists.length === 1, l.text);
   const pt = await call('/api/account?a=save-patient', { headers: bearer(s.token), body: { name: 'Patient ' + n, ref: 'R-' + n, meds: items.slice(0, 2) } });
   check('[ngo] patient tracking', pt.status === 200 && pt.body.user.patients.length === 1, pt.text);
+  const list = l.body.user.lists[0];
+  const qa = await call('/api/account?a=save-quote', { headers: bearer(s.token), body: { listId: list.id, supplier: 'Supplier A', prices: Object.fromEntries(items.map((x) => [x.id, 1 + (n % 5)])) } });
+  check('[ngo] save supplier quote', qa.status === 200 && qa.body.user.lists[0].quotes.length === 1, qa.text);
+  await call('/api/account?a=save-quote', { headers: bearer(s.token), body: { listId: list.id, supplier: 'Supplier B', prices: Object.fromEntries(items.map((x) => [x.id, 2 + (n % 5)])) } });
+  const cq = await call('/api/account?a=compare-quotes', { headers: bearer(s.token), body: { items, quotes: [{ supplier: 'Supplier A', prices: Object.fromEntries(items.map((x) => [x.id, 1 + (n % 5)])) }, { supplier: 'Supplier B', prices: Object.fromEntries(items.map((x) => [x.id, 2 + (n % 5)])) }] } });
+  check('[ngo] compare supplier quotes', cq.status === 200 && cq.body.best_supplier === 'Supplier A' && cq.body.quotes.length === 2, cq.text);
 }
 
 async function company(n) {
@@ -245,6 +294,12 @@ async function company(n) {
 async function companyFollowUp(s) {
   const r = await call('/api/account?a=company', { headers: bearer(s.token) });
   check('[company] staff count + savings report', r.status === 200 && r.body.company && typeof r.body.company.monthly_saving === 'number', r.text);
+  const rows = MEDS.slice(0, 5).map((m, i) => ({ medicine: i % 2 ? m.id : m.name, qty: 30 * (i + 1), paid: Math.round(m.unitPrice * 30 * (i + 1)) }));
+  rows.push({ medicine: 'not a real medicine xyz' });
+  const cr = await call('/api/account?a=claims-report', { headers: bearer(s.token), body: { rows } });
+  check('[company] claims analysis', cr.status === 200 && cr.body.rows.length === 5 && cr.body.unmatched.length === 1 && cr.body.total_cheapest <= cr.body.total_paid, cr.text);
+  const pr = await call('/api/account?a=partners', { headers: bearer(s.token) });
+  check('[company] partner pharmacies with staff discounts', pr.status === 200 && pr.body.partners.length > 0 && pr.body.partners.every((x) => x.offer && x.offer.percent > 0), pr.text.slice(0, 200));
 }
 
 async function developer(n) {
@@ -323,6 +378,8 @@ async function pool(n, fn) {
   await pool(companyUsers.filter(Boolean).length, (i) => companyFollowUp(companyUsers.filter(Boolean)[i]));
 
   // admin views
+  const an = await call('/api/admin?a=analytics', admin);
+  check('[admin] analytics dashboard', an.status === 200 && an.body.users.total > 0 && an.body.revenue.approved > 0 && an.body.pharmacies.verified > 0 && an.body.events30.view > 0, an.text.slice(0, 200));
   for (const a of ['users', 'pharmacies', 'payments']) {
     const r = await call('/api/admin?a=' + a, admin);
     check('[admin] list ' + a, r.status === 200, r.text);

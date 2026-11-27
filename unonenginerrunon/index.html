@@ -18,8 +18,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Nastaliq+Urdu:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/style.css?v=2.4.0">
-  <link rel="stylesheet" href="/unonenginerrunon/admin.css?v=2.4.0">
+  <link rel="stylesheet" href="/css/style.css?v=2.5.0">
+  <link rel="stylesheet" href="/unonenginerrunon/admin.css?v=2.5.0">
 </head>
 <body class="admin">
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -47,6 +47,7 @@
         <div class="ad-brand"><span class="ad-logo" aria-hidden="true">SD</span><div><b>Sasta Dawa</b><span>Admin panel</span></div></div>
         <nav class="ad-tabs" role="tablist" aria-label="Admin sections">
           <button role="tab" data-tab="overview" aria-selected="true">Overview</button>
+          <button role="tab" data-tab="analytics">Analytics</button>
           <button role="tab" data-tab="inbox">Inbox <span class="count-badge" id="inbox-badge" hidden>0</span></button>
           <button role="tab" data-tab="prices">Price fixes</button>
           <button role="tab" data-tab="users">Users</button>
@@ -87,6 +88,15 @@
             </ol>
           </div>
         </div>
+      </section>
+
+      <!-- ANALYTICS -->
+      <section data-pane="analytics" hidden>
+        <div class="ad-head row">
+          <div><h1>Analytics</h1><p class="muted">Accounts, money in, pharmacy activity over the last 30 days, and which plans need a renewal reminder.</p></div>
+          <button type="button" class="btn btn-ghost sm" id="ana-reload">Refresh</button>
+        </div>
+        <div id="ana-body"></div>
       </section>
 
       <!-- INBOX -->
@@ -199,8 +209,8 @@
 
   <div id="booting" class="loading"><div class="spinner" aria-hidden="true"></div><span>Loading…</span></div>
 
-  <script src="/js/data.js?v=2.4.0"></script>
-  <script src="/js/search.js?v=2.4.0"></script>
-  <script src="/unonenginerrunon/admin.js?v=2.4.0"></script>
+  <script src="/js/data.js?v=2.5.0"></script>
+  <script src="/js/search.js?v=2.5.0"></script>
+  <script src="/unonenginerrunon/admin.js?v=2.5.0"></script>
 </body>
 </html>

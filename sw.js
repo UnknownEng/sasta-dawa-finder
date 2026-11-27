@@ -6,18 +6,18 @@
  * The account / business / developer / widget pages are not precached: they always need the
  * network, and are only kept as an offline copy after a successful visit.
  */
-const CACHE_NAME = 'sasta-dawa-v2.4.0';
+const CACHE_NAME = 'sasta-dawa-v2.5.0';
 
 const PRECACHE_URLS = [
   './',
   './index.html',
   './manifest.json',
-  './css/style.css?v=2.4.0',
-  './js/i18n.js?v=2.4.0',
-  './js/data.js?v=2.4.0',
-  './js/search.js?v=2.4.0',
-  './js/assistant.js?v=2.4.0',
-  './js/app.js?v=2.4.0',
+  './css/style.css?v=2.5.0',
+  './js/i18n.js?v=2.5.0',
+  './js/data.js?v=2.5.0',
+  './js/search.js?v=2.5.0',
+  './js/assistant.js?v=2.5.0',
+  './js/app.js?v=2.5.0',
   './data/medicines.json',
   './icons/icon.svg',
   './icons/icon-192.png',

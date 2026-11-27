@@ -104,6 +104,7 @@
     $$('[data-pane]').forEach((p) => (p.hidden = p.dataset.pane !== name));
     try { sessionStorage.setItem('sd_admin_tab', name); } catch (e) { /* ignore */ }
     if (name === 'prices') ensureData();
+    if (name === 'analytics') loadAnalytics();
     if (name === 'users' || name === 'pharmacies' || name === 'payments') loadBusiness(name);
     window.scrollTo(0, 0);
   }
@@ -504,6 +505,147 @@
       btn.disabled = false;
     }
   });
+
+  // ------------------------------------------------------------------------
+  // Analytics (/api/admin?a=analytics): accounts, revenue, activity, renewals
+  // ------------------------------------------------------------------------
+  const ana = { data: null };
+  const METHOD_NAMES = { jazzcash: 'JazzCash', easypaisa: 'Easypaisa', bank: 'Bank transfer' };
+  const EVENT_NAMES = { view: 'Profile views', wa: 'WhatsApp taps', call: 'Call taps', dir: 'Directions taps', reserve: 'Reservations', delivery: 'Delivery orders', widget: 'Clinic widget searches', saved: 'Possible savings shown (Rs)', savedCount: 'Cheaper options shown' };
+  const num = (v) => (typeof v === 'number' && isFinite(v) ? v : 0);
+  const count = (v) => num(v).toLocaleString('en-PK');
+
+  async function loadAnalytics(force) {
+    if (ana.data && !force) return renderAnalytics();
+    $('#ana-body').innerHTML = '<p class="muted small">Loading…</p>';
+    try {
+      ana.data = await api('analytics');
+      renderAnalytics();
+    } catch (err) {
+      $('#ana-body').innerHTML = `<p class="ad-error">${esc(err.message)}</p>`;
+    }
+  }
+  $('#ana-reload').addEventListener('click', () => loadAnalytics(true));
+
+  function waDigits(v) {
+    let d = String(v || '').replace(/\D/g, '');
+    if (d.startsWith('00')) d = d.slice(2);
+    else if (d.startsWith('0')) d = '92' + d.slice(1);
+    return d.length >= 10 ? d : '';
+  }
+
+  /** Polite renewal reminder the admin sends from their own WhatsApp. */
+  function renewalText(u) {
+    const first = String(u.name || '').trim().split(/\s+/)[0] || '';
+    const what = u.trial ? `free trial of ${planName(u.plan)}` : `${planName(u.plan)} plan`;
+    return `Assalam o Alaikum${first ? ' ' + first : ''}, this is Sasta Dawa Finder. Your ${what} ends on ${fmtDate(u.planUntil)}. ` +
+      'To keep it active, please renew from your account (Account → Plan) and send the transaction ID there. ' +
+      'If you have any question, just reply here. Thank you!';
+  }
+
+  function kvTable(title, obj, opts) {
+    const o = opts || {};
+    const rows = Object.entries(obj && typeof obj === 'object' ? obj : {}).filter(([, v]) => typeof v === 'number').sort((a, b) => b[1] - a[1]);
+    return `<div class="ad-card"><h2>${esc(title)}</h2>${rows.length
+      ? `<div class="ad-table-wrap"><table class="ad-table"><thead><tr><th scope="col">${esc(o.key || 'Name')}</th><th scope="col" class="num">${esc(o.val || 'Count')}</th></tr></thead><tbody>${rows
+        .map(([k, v]) => `<tr><td>${esc(o.label ? o.label(k) : k)}</td><td class="num">${esc(o.money ? rs(v) : count(v))}</td></tr>`)
+        .join('')}</tbody></table></div>`
+      : '<p class="muted small">Nothing yet.</p>'}</div>`;
+  }
+
+  /** 30 bars, one per day, of pharmacy profile views (plain SVG, no library). */
+  function viewsChart(days) {
+    const list = (Array.isArray(days) ? days : []).filter((d) => d && typeof d.day === 'string').slice(-30);
+    if (!list.length) return '<p class="muted small">No views recorded yet.</p>';
+    const top = Math.max(0, ...list.map((d) => num(d.views)));
+    const max = Math.max(1, top); // bar scale
+    const W = 600;
+    const H = 160;
+    const pad = 18;
+    const bw = W / list.length;
+    const total = list.reduce((s, d) => s + num(d.views), 0);
+    const bars = list.map((d, i) => {
+      const v = num(d.views);
+      const h = Math.round(((H - pad) * v) / max);
+      return `<rect class="ad-bar" x="${(i * bw + 1).toFixed(1)}" y="${H - pad - h}" width="${Math.max(1, bw - 2).toFixed(1)}" height="${Math.max(h, v ? 1 : 0)}"><title>${esc(fmtDate(d.day))}: ${esc(count(v))} views</title></rect>`;
+    }).join('');
+    const first = list[0].day;
+    const last = list[list.length - 1].day;
+    return `<svg class="ad-chart" viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img" aria-label="${esc(`Pharmacy profile views per day: ${count(total)} in ${list.length} days, highest ${count(top)}`)}" preserveAspectRatio="none">
+        <line class="ad-axis" x1="0" y1="${H - pad}" x2="${W}" y2="${H - pad}"></line>${bars}
+      </svg>
+      <div class="ad-chart-foot"><span>${esc(fmtDate(first))}</span><span>${esc(count(total))} ${total === 1 ? 'view' : 'views'} · busiest day ${esc(count(top))}</span><span>${esc(fmtDate(last))}</span></div>`;
+  }
+
+  function renderAnalytics() {
+    const d = ana.data || {};
+    const users = d.users || {};
+    const rev = d.revenue || {};
+    const ph = d.pharmacies || {};
+    const byPlan = users.byPlan || {};
+    const active = Object.entries(byPlan).filter(([p]) => p !== 'free').reduce((s, [, v]) => s + num(v), 0);
+    const paying = Math.max(0, active - num(users.trials));
+    const stats = [
+      ['Accounts', count(users.total), `${count(users.newLast30)} new in the last 30 days`],
+      ['Paying accounts', count(paying), 'paid plan, not on trial'],
+      ['On free trial', count(users.trials), 'remind them before it ends'],
+      ['Revenue approved', rs(num(rev.approved)), 'all time'],
+      ['Revenue, last 30 days', rs(num(rev.last30)), 'approved payments'],
+      ['Waiting for approval', rs(num(rev.pending)), 'check in Payments', num(rev.pending) ? 'attn' : ''],
+      ['Pharmacies verified', count(ph.verified), `of ${count(ph.total)} listings`],
+      ['Pharmacies waiting', count(ph.pending), 'verify in Pharmacies', num(ph.pending) ? 'attn' : ''],
+    ];
+    const ev = d.events30 || {};
+    const exp = (Array.isArray(d.expiringSoon) ? d.expiringSoon : []).filter((u) => u && typeof u === 'object');
+    const top = (Array.isArray(d.topSearched) ? d.topSearched : []).filter((m) => m && typeof m === 'object');
+    const cities = Array.isArray(ph.cities) ? ph.cities.filter((c) => typeof c === 'string') : [];
+
+    const expHtml = exp.length
+      ? `<ul class="ad-renew">${exp.map((u) => {
+        const wa = waDigits(u.phone);
+        const left = Math.ceil((Date.parse(u.planUntil) - Date.now()) / 86400000);
+        const when = isNaN(left) ? '' : left <= 0 ? 'ends today' : left === 1 ? 'ends tomorrow' : `ends in ${left} days`;
+        return `<li class="ad-renew-item">
+            <div class="ad-renew-main"><b>${esc(u.name || '—')}</b> <span class="tag ${u.trial ? 'warn' : 'save'}">${esc(planName(u.plan))}${u.trial ? ' (trial)' : ''}</span>
+              <span class="muted small">${esc(fmtDate(u.planUntil))}${when ? ' · ' + esc(when) : ''}</span>
+              <span class="muted small">${esc(u.email || '')}${u.phone ? ' · ' + esc(u.phone) : ''}</span></div>
+            <div class="ad-item-actions">
+              ${wa ? `<a class="btn btn-save sm" href="${esc('https://wa.me/' + wa + '?text=' + encodeURIComponent(renewalText(u)))}" target="_blank" rel="noopener" data-renew="wa">WhatsApp reminder</a>` : ''}
+              ${u.email ? `<a class="btn btn-ghost sm" href="${esc('mailto:' + u.email + '?subject=' + encodeURIComponent('Your Sasta Dawa Finder plan') + '&body=' + encodeURIComponent(renewalText(u)))}" data-renew="email">Email</a>` : ''}
+            </div></li>`;
+      }).join('')}</ul>`
+      : '<p class="muted small">No plan ends in the next 7 days.</p>';
+
+    const topHtml = top.length
+      ? `<div class="ad-table-wrap"><table class="ad-table"><thead><tr><th scope="col">Medicine</th><th scope="col">Formula</th><th scope="col" class="num">Searches</th></tr></thead><tbody>${top
+        .map((m) => `<tr><td>${typeof m.id === 'string' && m.id ? `<a href="/#/medicine/${encodeURIComponent(m.id)}" target="_blank" rel="noopener">${esc(m.name || m.id)}</a>` : esc(m.name || '—')}</td><td>${esc(m.generic || '')}</td><td class="num">${esc(count(m.searches))}</td></tr>`)
+        .join('')}</tbody></table></div>`
+      : '<p class="muted small">No searches near listed pharmacies yet.</p>';
+
+    $('#ana-body').innerHTML = `
+      <div class="ad-stats ana-stats">${stats.map(([k, v, sub, cls]) => `<div class="ad-stat ${cls || ''}"><small>${esc(k)}</small><b>${esc(v)}</b><span>${esc(sub)}</span></div>`).join('')}</div>
+      <div class="ad-card ana-renew-card">
+        <h2>Plans ending in the next 7 days <span class="pill-count">${esc(String(exp.length))}</span></h2>
+        <p class="muted small">Send a polite reminder so they can pay before the plan stops. Approve their payment in Payments when it arrives.</p>
+        ${expHtml}
+      </div>
+      <div class="ad-card">
+        <h2>Pharmacy profile views per day (30 days)</h2>
+        ${viewsChart(d.viewsByDay)}
+      </div>
+      <div class="ad-grid3">
+        ${kvTable('Accounts by type', users.byRole, { key: 'Type' })}
+        ${kvTable('Accounts by plan', byPlan, { key: 'Plan', label: planName })}
+        ${kvTable('Revenue by method', rev.byMethod, { key: 'Method', val: 'Amount', money: true, label: (k) => METHOD_NAMES[k] || k })}
+        ${kvTable('Revenue by plan', rev.byPlan, { key: 'Plan', val: 'Amount', money: true, label: planName })}
+        ${kvTable('Pharmacy activity (30 days)', ev, { key: 'What', label: (k) => EVENT_NAMES[k] || k })}
+        <div class="ad-card"><h2>Cities with pharmacies</h2>${cities.length ? `<p>${cities.map((c) => `<span class="tag">${esc(c)}</span>`).join(' ')}</p>` : '<p class="muted small">None yet.</p>'}</div>
+      </div>
+      <div class="ad-card">
+        <h2>Most searched medicines near listed pharmacies</h2>
+        ${topHtml}
+      </div>`;
+  }
 
   // ------------------------------------------------------------------------
   // Settings

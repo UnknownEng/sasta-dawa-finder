@@ -271,3 +271,210 @@ test('QR landing /?pharmacy=<id> shows that pharmacy', async () => {
   assert.equal(box.querySelectorAll('img').length, 0);
   assert.equal(JSON.parse(w.localStorage.getItem('sd_city')), 'Islamabad');
 });
+
+// ---------------------------------------------------------------------------
+// v2.5: delivery orders, staff discounts on pharmacy cards, admin analytics
+// ---------------------------------------------------------------------------
+const DELIVERY_LIST = [
+  { ...PHARMACIES[0], delivery: true, offer: { percent: 10, note: 'Show staff card <b>now</b>' } },
+  { ...PHARMACIES[1], reserve: true, delivery: false, offer: null },
+];
+
+test('delivery: button and "Delivers" chip only when delivery is true; order posts delivery + address', async () => {
+  const extra = { reserves: [] };
+  const w = await boot('#/medicine/' + PANADOL, { api: placesApi(DELIVERY_LIST, extra) });
+  const d = w.document;
+  const [a, b] = [...d.querySelectorAll('#med-nearby .ph-card')];
+  assert.ok(a.querySelector('[data-delivery]'), 'delivery button on a delivering pharmacy');
+  assert.match(a.querySelector('[data-delivery]').textContent, /Order delivery/);
+  assert.ok(a.querySelector('[data-reserve]'), 'reserve stays next to it');
+  assert.match(a.querySelector('.ph-delivers').textContent, /Delivers/);
+  assert.ok(!b.querySelector('[data-delivery]'), 'no delivery button when delivery is false');
+  assert.ok(!b.querySelector('.ph-delivers'));
+
+  // reserve form has no address; delivery form adds a required, labelled address
+  a.querySelector('[data-reserve]').click();
+  assert.equal(a.querySelector('form[data-rv]').dataset.mode, 'pickup');
+  assert.ok(!a.querySelector('textarea[name="address"]'));
+  a.querySelector('[data-delivery]').click();
+  const form = a.querySelector('form[data-rv]');
+  assert.equal(form.dataset.mode, 'delivery');
+  assert.ok(!a.querySelector('.ph-reserve').hidden);
+  assert.equal(a.querySelector('[data-delivery]').getAttribute('aria-expanded'), 'true');
+  assert.equal(a.querySelector('[data-reserve]').getAttribute('aria-expanded'), 'false');
+  const addr = form.querySelector('textarea[name="address"]');
+  assert.ok(addr && addr.required);
+  assert.match(addr.closest('label').textContent, /Delivery address/);
+
+  form.elements.name.value = 'Ali';
+  form.elements.phone.value = '03001112222';
+  form.dispatchEvent(new w.Event('submit', { bubbles: true, cancelable: true }));
+  await tick(10);
+  assert.equal(extra.reserves.length, 0, 'address is required');
+  assert.match(form.querySelector('.fb-status').textContent, /delivery address/);
+
+  form.elements.address.value = 'House 12, Street 4, G-9/3, Islamabad';
+  form.elements.qty.value = '2';
+  form.dispatchEvent(new w.Event('submit', { bubbles: true, cancelable: true }));
+  await tick(10);
+  assert.equal(extra.reserves.length, 1);
+  const r = extra.reserves[0];
+  assert.equal(r.pid, 'p_aaaaaaaaaaaa');
+  assert.equal(r.med, PANADOL);
+  assert.match(r.medName, /Panadol/);
+  assert.equal(r.delivery, true);
+  assert.equal(r.address, 'House 12, Street 4, G-9/3, Islamabad');
+  assert.equal(r.name, 'Ali');
+  assert.equal(r.phone, '03001112222');
+  assert.equal(r.qty, '2');
+  assert.ok('note' in r);
+  assert.match(d.getElementById('toast').textContent, /Order sent\. The pharmacy will call you to confirm the price and delivery\./);
+  assert.ok(a.querySelector('.ph-reserve').hidden);
+
+  // a plain reservation still carries no delivery flag
+  a.querySelector('[data-reserve]').click();
+  const f2 = a.querySelector('form[data-rv]');
+  f2.elements.name.value = 'Sara';
+  f2.elements.phone.value = '03004445555';
+  f2.dispatchEvent(new w.Event('submit', { bubbles: true, cancelable: true }));
+  await tick(10);
+  assert.equal(extra.reserves.length, 2);
+  assert.ok(!('delivery' in extra.reserves[1]) && !('address' in extra.reserves[1]));
+  assert.match(d.getElementById('toast').textContent, /Request sent/);
+
+  // Urdu strings exist
+  const i18n = require('../js/i18n.js');
+  for (const k of ['delivers', 'btn_delivery', 'delivery_address', 'delivery_send', 'delivery_ok', 'delivery_missing', 'offer_staff', 'offer_mine']) {
+    assert.ok(i18n.STRINGS.en[k] && i18n.STRINGS.ur[k], k);
+  }
+});
+
+test('staff discount: chip for everyone, prominent line for signed-in company staff', async () => {
+  let w = await boot('#/medicine/' + PANADOL, { api: placesApi(DELIVERY_LIST) });
+  let [a, b] = [...w.document.querySelectorAll('#med-nearby .ph-card')];
+  const chip = a.querySelector('.tag.offer');
+  assert.ok(chip, 'offer chip');
+  assert.match(chip.textContent, /10% off for company staff/);
+  assert.match(chip.textContent, /Show staff card <b>now<\/b>/, 'note shown as text');
+  assert.equal(chip.querySelectorAll('b').length, 0, 'note is escaped');
+  assert.equal(chip.getAttribute('title'), 'Show staff card <b>now</b>');
+  assert.ok(!a.querySelector('.ph-offer.mine'));
+  assert.ok(!b.querySelector('.ph-offer'), 'no chip without an offer');
+
+  const user = { id: 'u_000000000001', name: 'Ahmed Khan', role: 'patient', cabinet: [], joinedCompany: { code: 'ACME12', name: 'Acme <Textiles>' } };
+  w = await boot('#/medicine/' + PANADOL, { api: placesApi(DELIVERY_LIST), localStorage: { sd_user_token: 'tok.abc', sd_user: user } });
+  [a, b] = [...w.document.querySelectorAll('#med-nearby .ph-card')];
+  const mine = a.querySelector('.ph-offer.mine');
+  assert.ok(mine, 'prominent staff line');
+  assert.match(mine.textContent, /Your staff discount: 10% — show your company name \(Acme <Textiles>\)/);
+  assert.match(mine.textContent, /Show staff card/);
+  assert.ok(!a.querySelector('.tag.offer'), 'small chip replaced');
+  assert.ok(!b.querySelector('.ph-offer'));
+
+  // signed out (no token): stored user is ignored
+  w = await boot('#/medicine/' + PANADOL, { api: placesApi(DELIVERY_LIST), localStorage: { sd_user: user } });
+  a = w.document.querySelector('#med-nearby .ph-card');
+  assert.ok(a.querySelector('.tag.offer') && !a.querySelector('.ph-offer.mine'));
+});
+
+// --- admin panel analytics (jsdom boot of unonenginerrunon/index.html + admin.js) ---
+const DAY_MS = 86400000;
+const ANALYTICS = {
+  users: { total: 42, byRole: { patient: 30, pharmacy: 8, clinic: 4 }, byPlan: { free: 33, pharmacy_pro: 3, pharmacy_premium: 2, clinic: 4 }, trials: 4, newLast30: 9 },
+  revenue: { approved: 25000, pending: 3000, last30: 12000, byPlan: { pharmacy_premium: 15000, pharmacy_pro: 10000 }, byMethod: { jazzcash: 20000, bank: 5000 } },
+  expiringSoon: [
+    { id: 'u_aaaaaaaaaaaa', name: 'Shifa <script>x</script> Owner', email: 'shifa@example.pk', phone: '0300-1234567', plan: 'pharmacy_premium', planUntil: new Date(Date.now() + 3 * DAY_MS).toISOString(), trial: true },
+    { id: 'u_bbbbbbbbbbbb', name: 'No Phone Clinic', email: 'clinic@example.pk', phone: '', plan: 'clinic', planUntil: new Date(Date.now() + 6 * DAY_MS).toISOString(), trial: false },
+  ],
+  pharmacies: { total: 10, verified: 7, pending: 3, cities: ['Islamabad', 'Lahore'] },
+  events30: { view: 120, wa: 14, call: 9, dir: 5, reserve: 3, delivery: 2 },
+  viewsByDay: Array.from({ length: 30 }, (_, i) => ({ day: new Date(Date.now() - (29 - i) * DAY_MS).toISOString().slice(0, 10), views: i % 7 })),
+  topSearched: [{ id: 'panadol-500mg-tablet-000101', name: 'Panadol <i>500</i>', generic: 'Paracetamol', searches: 17 }],
+};
+
+async function bootAdmin(analytics) {
+  const html = fs.readFileSync(path.join(root, 'unonenginerrunon', 'index.html'), 'utf8');
+  const dom = new JSDOM(html, { runScripts: 'outside-only', url: 'http://localhost/unonenginerrunon' });
+  const w = dom.window;
+  w.scrollTo = () => {};
+  w.matchMedia = () => ({ matches: false, addEventListener() {} });
+  w.HTMLElement.prototype.scrollIntoView = function () {};
+  w.__calls = [];
+  const overview = {
+    data: { products: 100, formulas: 20, latest_price_date: '2026-11-10', synced_at: '2026-11-10T00:00:00Z' },
+    feedback: { open: 0, total: 0, max: 500 },
+    ai: { keySet: false, enabled: false },
+    storage: 'local',
+    storageOk: true,
+    config: { announcement: { on: false, tone: 'info', en: '', ur: '' }, ai: { enabled: false }, popular: [], contact: { phone: '', email: '', whatsapp: '' }, overrides: {}, payments: {} },
+  };
+  w.fetch = async (url, init) => {
+    const u = String(url);
+    w.__calls.push({ url: u, init: init || {} });
+    const a = new URL(u, 'http://localhost').searchParams.get('a');
+    const body = { me: { configured: true, authed: true }, overview, feedback: { items: [] }, analytics, pharmacies: { pharmacies: [] }, payments: { payments: [] } }[a];
+    return body ? { ok: true, status: 200, json: async () => body } : { ok: false, status: 404, json: async () => ({}) };
+  };
+  w.eval(fs.readFileSync(path.join(root, 'js/data.js'), 'utf8'));
+  w.eval(fs.readFileSync(path.join(root, 'js/search.js'), 'utf8'));
+  w.eval(fs.readFileSync(path.join(root, 'unonenginerrunon/admin.js'), 'utf8'));
+  await tick(20);
+  return w;
+}
+
+test('admin analytics tab: stats, tables, chart, top searched and renewal reminders (escaped)', async () => {
+  const w = await bootAdmin(ANALYTICS);
+  const d = w.document;
+  const tabs = [...d.querySelectorAll('.ad-tabs [role="tab"]')].map((b) => b.dataset.tab);
+  assert.deepEqual(tabs.slice(0, 2), ['overview', 'analytics'], 'Analytics sits next to Overview');
+  d.querySelector('[data-tab="analytics"]').click();
+  await tick(10);
+  const call = w.__calls.find((c) => c.url.includes('a=analytics'));
+  assert.ok(call, 'analytics requested');
+  assert.equal(call.init.headers['X-SD-Admin'], '1');
+  assert.ok(!d.querySelector('[data-pane="analytics"]').hidden);
+  const body = d.getElementById('ana-body');
+  const stats = [...body.querySelectorAll('.ad-stat')].map((s) => [...s.children].map((c) => c.textContent).join(' | '));
+  const stat = (k) => stats.find((s) => s.startsWith(k)) || '';
+  assert.match(stat('Accounts'), /42/);
+  assert.match(stat('Accounts'), /9 new/);
+  assert.match(stat('Paying accounts'), /\| 5 \|/, '9 on paid plans minus 4 trials');
+  assert.match(stat('On free trial'), /\| 4 \|/);
+  assert.match(stat('Revenue approved'), /Rs 25,000/);
+  assert.match(stat('Revenue, last 30 days'), /Rs 12,000/);
+  assert.match(stat('Waiting for approval'), /Rs 3,000/);
+  assert.match(stat('Pharmacies verified'), /\| 7 \| of 10/);
+  assert.match(stat('Pharmacies waiting'), /\| 3 \|/);
+  const text = body.textContent;
+  for (const k of ['Accounts by type', 'Accounts by plan', 'Revenue by method', 'Pharmacy Premium', 'JazzCash', 'Bank transfer', 'Profile views', 'Delivery orders', 'Islamabad']) assert.ok(text.includes(k), k);
+  // bar chart: one bar per day
+  assert.equal(body.querySelectorAll('svg.ad-chart rect.ad-bar').length, 30);
+  assert.match(body.querySelector('svg.ad-chart').getAttribute('aria-label'), /views per day/);
+  // top searched: escaped and linked
+  const topLink = [...body.querySelectorAll('a')].find((x) => x.getAttribute('href') === '/#/medicine/panadol-500mg-tablet-000101');
+  assert.ok(topLink);
+  assert.equal(topLink.textContent, 'Panadol <i>500</i>');
+  assert.equal(body.querySelectorAll('i, script').length, 0, 'all text escaped');
+  // renewals: WhatsApp link with a polite reminder; no phone -> no WhatsApp, email instead
+  const items = [...body.querySelectorAll('.ad-renew-item')];
+  assert.equal(items.length, 2);
+  assert.match(items[0].textContent, /Shifa <script>x<\/script> Owner/);
+  assert.match(items[0].textContent, /\(trial\)/);
+  const wa = items[0].querySelector('a[data-renew="wa"]').getAttribute('href');
+  assert.ok(wa.startsWith('https://wa.me/923001234567?text='), wa);
+  const msg = decodeURIComponent(wa.split('?text=')[1]);
+  assert.match(msg, /Assalam o Alaikum Shifa/);
+  assert.match(msg, /free trial of Pharmacy Premium ends on/);
+  assert.match(msg, /renew/);
+  assert.ok(!items[1].querySelector('a[data-renew="wa"]'));
+  assert.ok(items[1].querySelector('a[data-renew="email"]').getAttribute('href').startsWith('mailto:clinic@example.pk'));
+});
+
+test('admin analytics tab copes with an empty site', async () => {
+  const w = await bootAdmin({ users: { total: 0, byRole: {}, byPlan: {}, trials: 0, newLast30: 0 }, revenue: { approved: 0, pending: 0, last30: 0, byPlan: {}, byMethod: {} }, expiringSoon: [], pharmacies: { total: 0, verified: 0, pending: 0, cities: [] }, events30: {}, viewsByDay: [], topSearched: [] });
+  w.document.querySelector('[data-tab="analytics"]').click();
+  await tick(10);
+  const t = w.document.getElementById('ana-body').textContent;
+  assert.match(t, /No plan ends in the next 7 days/);
+  assert.match(t, /No views recorded yet/);
+});

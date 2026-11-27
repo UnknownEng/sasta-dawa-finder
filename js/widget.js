@@ -18,6 +18,7 @@
   let engine = null;
   let found = [];
   let counted = false;
+  const savedSent = new Set(); // 'saved' events: once per distinct medicine per page session
 
   function status(text) {
     const s = $('#w-status');
@@ -38,7 +39,72 @@
     } catch (e) {
       /* storage blocked in some iframes: count once per page load */
     }
-    fetch(API + '/api/places?a=event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'widget', clinic: clinicId }) }).catch(() => {});
+    postEvent({ type: 'widget', clinic: clinicId });
+  }
+
+  function postEvent(body) {
+    try {
+      const p = fetch(API + '/api/places?a=event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (p && p.catch) p.catch(() => {});
+    } catch (e) {
+      /* counting must never break the widget */
+    }
+  }
+
+  /**
+   * A patient was shown a cheaper same-formula brand: tell the clinic's dashboard how much
+   * one pack could save (cheapest alternative vs the searched medicine, Rs, rounded).
+   */
+  function countSaved(m, cheapest) {
+    if (!cheapest || savedSent.has(m.id)) return;
+    savedSent.add(m.id);
+    const units = Number(m.units) > 0 ? Number(m.units) : 1;
+    const amount = Math.max(0, Math.round((m.unitPrice - cheapest.unitPrice) * units));
+    postEvent({ type: 'saved', clinic: clinicId, amount });
+  }
+
+  function waDigits(v) {
+    let d = String(v || '').replace(/\D/g, '');
+    if (d.startsWith('00')) d = d.slice(2);
+    else if (d.startsWith('0')) d = '92' + d.slice(1); // 0300... -> 92300...
+    return d;
+  }
+
+  /** "Partner pharmacies in <city>": the clinic's nearby verified pharmacies, WhatsApp prefilled with the medicine. */
+  function renderPartners(m) {
+    const box = $('#w-partners');
+    if (!box) return;
+    const list = clinic && Array.isArray(clinic.partners) ? clinic.partners.filter((p) => p && typeof p.id === 'string' && p.name) : [];
+    if (!list.length) {
+      box.hidden = true;
+      box.innerHTML = '';
+      return;
+    }
+    const city = String(clinic.city || '').trim();
+    const text = m
+      ? `Assalam o Alaikum, do you have ${label(m)}? (Found via ${clinic.name || 'our clinic'} on Sasta Dawa Finder)`
+      : `Assalam o Alaikum, I found your pharmacy via ${clinic.name || 'our clinic'} on Sasta Dawa Finder.`;
+    box.innerHTML = `
+      <h2 class="wp-title">${esc(city ? 'Partner pharmacies in ' + city : 'Partner pharmacies')}</h2>
+      <ul class="wp-list">${list
+        .map((p) => {
+          const wa = waDigits(p.whatsapp || p.phone);
+          const tel = String(p.phone || p.whatsapp || '').replace(/[^\d+]/g, '');
+          const place = [p.area, p.address].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(', ');
+          return `<li class="wp-item">
+            <div class="wp-main">
+              <b class="wp-name">${esc(p.name)}${p.verified ? ' <span class="wp-verified" title="Verified">✓ Verified</span>' : ''}</b>
+              ${place ? `<span class="muted small">${esc(place)}</span>` : ''}
+              ${p.delivery ? '<span class="tag brand wp-delivers">Delivers</span>' : ''}
+            </div>
+            <div class="wp-actions">
+              ${wa ? `<a class="btn btn-save sm" href="${esc('https://wa.me/' + wa + '?text=' + encodeURIComponent(text))}" target="_blank" rel="noopener" data-wp="wa">WhatsApp</a>` : ''}
+              ${tel ? `<a class="btn btn-ghost sm" href="${esc('tel:' + tel)}" data-wp="call">Call</a>` : ''}
+            </div>
+          </li>`;
+        })
+        .join('')}</ul>`;
+    box.hidden = false;
   }
 
   function suggest(q) {
@@ -78,6 +144,8 @@
         ${clinic.phone ? `<p class="small print-only">Questions? Call ${esc(clinic.name)}: ${esc(clinic.phone)}</p>` : ''}
       </div>`;
     $('#w-print').addEventListener('click', () => window.print());
+    if (alts.length) countSaved(m, alts[0]);
+    renderPartners(m);
   }
 
   async function start() {
@@ -106,6 +174,7 @@
     }
     $('#w-status').hidden = true;
     $('#w-app').hidden = false;
+    renderPartners(null);
 
     let t = null;
     const q = $('#w-q');

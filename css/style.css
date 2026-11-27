@@ -764,6 +764,23 @@ body.as-open .compare-tray { display: none; }
 .ph-reserve { padding-top: 6px; border-top: 1px dashed var(--line-strong); }
 .rv-form { display: grid; gap: 8px; }
 .rv-form .btn { min-height: 44px; }
+/* staff discount chip (any visitor) and the prominent line for signed-in company staff */
+.tag.offer { height: auto; min-height: 22px; padding-block: 2px; background: var(--accent-soft); color: color-mix(in srgb, var(--accent) 70%, var(--ink)); border-color: transparent; overflow-wrap: anywhere; }
+.tag.offer small { font-weight: 600; margin-inline-start: 4px; }
+.ph-offer.mine { margin: 0; display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: 10px; background: var(--save-soft); color: var(--save); border: 1px solid color-mix(in srgb, var(--save) 35%, transparent); font-size: 14px; overflow-wrap: anywhere; }
+.ph-offer.mine .ic { width: 18px; height: 18px; flex: none; margin-block-start: 1px; }
+.ph-offer.mine > span { display: grid; gap: 2px; min-width: 0; }
+.ph-offer.mine small { color: var(--ink-2); font-size: 12.5px; }
+/* clinic widget: partner pharmacies */
+.wp-card { margin-block-start: 10px; }
+.wp-title { font-size: 15px; margin: 0 0 6px; }
+.wp-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.wp-item { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 0; border-block-end: 1px solid var(--line); }
+.wp-item:last-child { border-block-end: 0; }
+.wp-main { display: grid; gap: 2px; min-width: 0; flex: 1 1 200px; overflow-wrap: anywhere; justify-items: start; }
+.wp-verified { font-size: 12px; font-weight: 800; color: var(--save); margin-inline-start: 4px; }
+.wp-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.wp-actions .btn.sm { min-height: 44px; min-width: 44px; }
 
 /* QR sticker landing banner */
 #pharmacy-banner { margin-top: 12px; }
