@@ -103,3 +103,6 @@ app/src/main/res/xml/config.xml
 # Signing keys never go in git
 *.jks
 *.keystore
+
+# Business flavor web files (scripts/build_app.js --android-flavors)
+app/src/business/assets

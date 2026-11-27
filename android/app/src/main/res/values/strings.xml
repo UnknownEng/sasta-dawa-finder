@@ -1,7 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Sasta Dawa</string>
-    <string name="title_activity_main">Sasta Dawa</string>
+    <!-- app_name and title_activity_main are set per flavor (resValue in app/build.gradle) -->
     <string name="package_name">pk.sastadawa.app</string>
     <string name="custom_url_scheme">pk.sastadawa.app</string>
 </resources>

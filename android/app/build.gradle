@@ -37,6 +37,53 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+
+    // Two apps from one project (scripts/build_app.js builds their web files):
+    //  customer: the existing app (keep its applicationId so updates install over it)
+    //  business: the pharmacy / clinic / company portal
+    // Each has its own name, deep-link scheme (login handoff from the browser, js/native.js) and
+    // web assets: `npx cap sync android` fills src/main/assets (customer only), and
+    // `node scripts/build_app.js --android-flavors` fills src/business/assets.
+    flavorDimensions "app"
+    productFlavors {
+        customer {
+            dimension "app"
+            applicationId "pk.sastadawa.app"
+            resValue "string", "app_name", "Sasta Dawa Finder"
+            resValue "string", "title_activity_main", "Sasta Dawa Finder"
+            manifestPlaceholders = [authScheme: "sastadawa"]
+        }
+        business {
+            dimension "app"
+            applicationId "pk.sastadawa.business"
+            resValue "string", "app_name", "Sasta Dawa for Pharmacies"
+            resValue "string", "title_activity_main", "Sasta Dawa for Pharmacies"
+            manifestPlaceholders = [authScheme: "sastadawabiz"]
+        }
+    }
+    sourceSets {
+        // Web assets are per flavor, never shared through main (so the apps cannot mix files).
+        main { assets.srcDirs = [] }
+        customer { assets.srcDirs = ['src/main/assets'] }
+        business { assets.srcDirs = ['src/business/assets'] }
+    }
+}
+
+// Fail early with a clear message when the web files were not copied in.
+tasks.configureEach { t ->
+    def m = (t.name =~ /^merge(Customer|Business)(Debug|Release)Assets$/)
+    if (m.matches()) {
+        def flavor = m.group(1).toLowerCase()
+        def dir = flavor == 'business' ? 'src/business/assets' : 'src/main/assets'
+        def index = file("${dir}/public/index.html")
+        def config = file("${dir}/capacitor.config.json")
+        t.doFirst {
+            if (!index.exists() || !config.exists()) {
+                throw new GradleException("Web files for the ${flavor} app are missing in android/app/${dir}. " +
+                    "Run: npm run build:app && npx cap sync android && node scripts/build_app.js --android-flavors")
+            }
+        }
+    }
 }
 
 repositories {

@@ -18,6 +18,15 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Login handoff: the website opens sastadawa://auth?code=... (business app:
+                 sastadawabiz://auth?code=...) after signing in; js/native.js swaps the code for a session.
+                 authScheme is set per flavor in app/build.gradle. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="${authScheme}" android:host="auth" />
+            </intent-filter>
         </activity>
 
         <provider
@@ -32,6 +41,8 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Voice search (@capacitor-community/speech-recognition); asked only when the mic is tapped. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- Medicine reminders don't need to fire to the exact second, and Google Play restricts
          exact-alarm permissions, so drop the one the notifications plugin asks for. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" tools:node="remove" />

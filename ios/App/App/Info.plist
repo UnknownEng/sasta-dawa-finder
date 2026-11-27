@@ -66,5 +66,20 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>pk.sastadawa.app.auth</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>sastadawa</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>The microphone is used only when you tap the mic to search for a medicine by voice.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Speech recognition turns the medicine name you say into a search.</string>
 </dict>
 </plist>
