@@ -35,6 +35,8 @@ const MIME_TYPES = {
   '.webp': 'image/webp',
   '.ico': 'image/x-icon',
   '.woff2': 'font/woff2',
+  '.wasm': 'application/wasm',
+  '.gz': 'application/gzip', // OCR model (vendor/ocr): sent as-is, Tesseract.js un-gzips it
 };
 const COMPRESSIBLE = new Set(['.html', '.css', '.js', '.json', '.xml', '.txt', '.svg', '.webmanifest']);
 const BLOCKED = /^\/(\.|node_modules|scripts|tests|lib|api|public|\.cache|\.data|vercel\.json|package(-lock)?\.json|server\.js|.*\.md$)/i;
@@ -83,12 +85,14 @@ function serveFile(req, res, filePath, stats) {
   const ext = path.extname(filePath).toLowerCase();
   const type = MIME_TYPES[ext] || 'application/octet-stream';
   const immutable = ['.png', '.webp', '.ico', '.woff2'].includes(ext);
+  const ocr = /[\\/]vendor[\\/]ocr[\\/]/.test(filePath);
   const headers = {
     'Content-Type': type,
     'Cache-Control': immutable ? 'public, max-age=31536000, immutable' : ext === '.json' ? 'public, max-age=3600' : 'public, max-age=600, stale-while-revalidate=86400',
     'Last-Modified': stats.mtime.toUTCString(),
   };
   if (filePath.endsWith('sw.js')) headers['Cache-Control'] = 'no-cache';
+  if (ocr) headers['Cache-Control'] = 'public, max-age=2592000';
   const accepts = /\bgzip\b/.test(req.headers['accept-encoding'] || '');
   if (accepts && COMPRESSIBLE.has(ext)) {
     const key = filePath + ':' + stats.mtimeMs;

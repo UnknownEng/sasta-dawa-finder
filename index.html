@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Nastaliq+Urdu:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="preload" href="data/medicines.json" as="fetch" type="application/json" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=2.7.0">
+  <link rel="stylesheet" href="css/style.css?v=2.8.0">
 
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Sasta Dawa Finder">
@@ -191,9 +191,10 @@
           <ul id="suggest" class="suggest" role="listbox" hidden></ul>
         </div>
 
-        <div class="rx" id="rx-block" hidden>
-          <button type="button" class="btn btn-ghost rx-btn" id="rx-btn"><svg class="ic" aria-hidden="true"><use href="#i-camera"/></svg><span data-i18n="rx_btn">Scan prescription</span></button>
-          <input type="file" id="rx-file" accept="image/*" capture="environment" class="sr-only" tabindex="-1" aria-label="Prescription photo">
+        <div class="rx" id="rx-block">
+          <button type="button" class="btn btn-ghost rx-btn" id="rx-btn"><svg class="ic" aria-hidden="true"><use href="#i-camera"/></svg><span data-i18n="rx_btn">Scan medicine or prescription</span></button>
+          <input type="file" id="rx-file" accept="image/*" capture="environment" class="sr-only" tabindex="-1" aria-label="Photo of a medicine or prescription">
+          <p class="rx-privacy small muted" data-i18n="rx_privacy">Your photo stays on your phone.</p>
           <div id="rx-result" class="rx-result" role="region" aria-live="polite" hidden></div>
         </div>
 
@@ -453,11 +454,12 @@
     </form>
   </aside>
 
-  <script src="js/native.js?v=2.7.0"></script>
-  <script src="js/i18n.js?v=2.7.0"></script>
-  <script src="js/data.js?v=2.7.0"></script>
-  <script src="js/search.js?v=2.7.0"></script>
-  <script src="js/assistant.js?v=2.7.0"></script>
-  <script src="js/app.js?v=2.7.0"></script>
+  <script src="js/native.js?v=2.8.0"></script>
+  <script src="js/i18n.js?v=2.8.0"></script>
+  <script src="js/data.js?v=2.8.0"></script>
+  <script src="js/search.js?v=2.8.0"></script>
+  <script src="js/ocr-match.js?v=2.8.0"></script>
+  <script src="js/assistant.js?v=2.8.0"></script>
+  <script src="js/app.js?v=2.8.0"></script>
 </body>
 </html>

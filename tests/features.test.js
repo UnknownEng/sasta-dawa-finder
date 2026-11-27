@@ -7,7 +7,7 @@ const path = require('path');
 const { JSDOM } = require('jsdom');
 const { fixtureJson, root } = require('./helpers/fixture');
 
-const SCRIPTS = ['js/i18n.js', 'js/data.js', 'js/search.js', 'js/assistant.js', 'js/app.js'];
+const SCRIPTS = ['js/i18n.js', 'js/data.js', 'js/search.js', 'js/ocr-match.js', 'js/assistant.js', 'js/app.js'];
 const PANADOL = 'panadol-500mg-tablet-000101';
 const tick = (ms) => new Promise((r) => setTimeout(r, ms || 0));
 
@@ -248,19 +248,95 @@ test('signed out: no account calls, Account / For business links present', async
   assert.ok(d.querySelector('.footer a[href="/business"]'));
 });
 
-test('prescription button only when the site has AI on, with a camera file input', async () => {
-  let w = await boot('', { site: { ai: false, overrides: {}, popular: [], contact: {}, announcement: null } });
-  assert.ok(w.document.getElementById('rx-block').hidden);
-  w = await boot('', {
-    site: { ai: true, overrides: {}, popular: [], contact: {}, announcement: null },
-    api: async (url) => (url.includes('a=rx') ? { status: 503, body: { error: 'off' } } : undefined),
-  });
+const SITE_NO_AI = { ai: false, overrides: {}, popular: [], contact: {}, announcement: null };
+const SITE_AI = { ...SITE_NO_AI, ai: true };
+/** Stand-in for Tesseract.js (the real one runs in the browser, see BUILD_LOG / verification). */
+function fakeOcr(w, text, opts) {
+  const o = opts || {};
+  w.Worker = function () {};
+  w.__ocr = { created: 0, terminated: 0, options: null };
+  w.Tesseract = {
+    createWorker: async (lang, oem, options) => {
+      w.__ocr.created++;
+      w.__ocr.options = { lang, oem, ...options };
+      options.logger({ status: 'recognizing text', progress: 0.5 });
+      return {
+        recognize: async () => { if (o.fail) throw new Error('boom'); return { data: { text } }; },
+        terminate: async () => { w.__ocr.terminated++; },
+      };
+    },
+  };
+}
+
+test('scan button always shows (free, on the phone), camera input, nothing OCR loaded up front', async () => {
+  for (const site of [SITE_NO_AI, SITE_AI]) {
+    const w = await boot('', { site });
+    const d = w.document;
+    assert.ok(!d.getElementById('rx-block').hidden);
+    const file = d.getElementById('rx-file');
+    assert.equal(file.getAttribute('accept'), 'image/*');
+    assert.equal(file.getAttribute('capture'), 'environment');
+    assert.equal(d.getElementById('rx-btn').getAttribute('type'), 'button');
+    assert.equal(d.getElementById('rx-btn').textContent.trim(), 'Scan medicine or prescription');
+    assert.match(d.querySelector('.rx-privacy').textContent, /stays on your phone/);
+    // lazy: no OCR script or file requested before the user scans
+    assert.ok(![...d.scripts].some((s) => /vendor\/ocr/.test(s.src)));
+    assert.ok(!w.__calls.some((c) => /vendor\/ocr|a=rx/.test(c.url)));
+  }
+});
+
+test('scan: on-device text -> big rows from our data, Add / Add all, no server call', async () => {
+  const w = await boot('', { site: SITE_AI, api: async (url) => (url.includes('a=rx') ? { status: 200, body: { items: [] } } : undefined) });
+  fakeOcr(w, 'Dr. Ahmed MBBS Clinic Road\nTab. Panadol 500mg 1+1+1\nRisek 20mg OD');
+  await w.SDApp.scanImage('data:image/jpeg;base64,AAAA');
   const d = w.document;
-  assert.ok(!d.getElementById('rx-block').hidden);
-  const file = d.getElementById('rx-file');
-  assert.equal(file.getAttribute('accept'), 'image/*');
-  assert.equal(file.getAttribute('capture'), 'environment');
-  assert.equal(d.getElementById('rx-btn').getAttribute('type'), 'button');
+  const box = d.getElementById('rx-result');
+  assert.ok(!box.hidden);
+  const rows = [...box.querySelectorAll('.rx-row')];
+  assert.deepEqual(rows.map((r) => r.querySelector('.rx-name').textContent), ['Panadol 500mg', 'Risek 20mg']);
+  assert.ok(rows[0].querySelector('a[href^="#/medicine/"]'));
+  assert.match(rows[0].querySelector('.rx-price').textContent, /Rs/);
+  assert.ok(!w.__calls.some((c) => c.url.includes('a=rx')), 'AI server not called when the phone found medicines');
+  // same-origin OCR files, LSTM only, gzipped model, worker not a blob
+  const o = w.__ocr.options;
+  assert.equal(o.lang, 'eng');
+  assert.equal(o.oem, 1);
+  assert.equal(o.gzip, true);
+  assert.equal(o.workerBlobURL, false);
+  for (const k of ['workerPath', 'corePath', 'langPath']) assert.match(o[k], /^http:\/\/localhost\/vendor\/ocr/, k);
+  assert.equal(w.__ocr.terminated, 1);
+  // add one, then all
+  rows[0].querySelector('[data-rx-add]').click();
+  assert.equal(JSON.parse(w.localStorage.getItem('sd_cabinet')).length, 1);
+  assert.ok(rows[0].querySelector('[data-rx-add]').disabled);
+  box.querySelector('.rx-all').click();
+  assert.equal(JSON.parse(w.localStorage.getItem('sd_cabinet')).length, 2);
+});
+
+test('scan: nothing read and AI off -> friendly message, never calls the server', async () => {
+  const w = await boot('', { site: SITE_NO_AI });
+  fakeOcr(w, 'Dr. Ahmed MBBS Clinic Road\nCell 0300-1234567');
+  await w.SDApp.scanImage('data:image/jpeg;base64,AAAA');
+  const box = w.document.getElementById('rx-result');
+  assert.match(box.textContent, /Could not read medicine names/);
+  assert.ok(!w.__calls.some((c) => c.url.includes('a=rx')));
+  box.querySelector('[data-rx-type]').click();
+  assert.ok(box.hidden);
+  assert.equal(w.document.activeElement.id, 'search-input');
+});
+
+test('scan: nothing read on the phone and AI on -> server fallback results', async () => {
+  const { fixtureEngine } = require('./helpers/fixture');
+  const id = fixtureEngine().ds.items.find((m) => m.name === 'Brufen').id;
+  const w = await boot('', { site: SITE_AI, api: async (url) => (url.includes('a=rx') ? { status: 200, body: { items: [{ read: 'brufen', match: { id } }] } } : undefined) });
+  fakeOcr(w, '', { fail: true });
+  await w.SDApp.scanImage('data:image/jpeg;base64,AAAA');
+  const call = w.__calls.find((c) => c.url.includes('a=rx'));
+  assert.ok(call);
+  assert.equal(JSON.parse(call.init.body).image, 'data:image/jpeg;base64,AAAA');
+  const box = w.document.getElementById('rx-result');
+  assert.deepEqual([...box.querySelectorAll('.rx-name')].map((n) => n.textContent.replace(/ .*/, '')), ['Brufen']);
+  assert.match(box.textContent, /read by our server/);
 });
 
 test('QR landing /?pharmacy=<id> shows that pharmacy', async () => {

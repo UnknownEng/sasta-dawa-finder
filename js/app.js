@@ -1433,61 +1433,225 @@
     });
   }
 
+  // --- On-device OCR (Tesseract.js, self-hosted in vendor/ocr; nothing loads before the first scan)
+  const OCR_DIR = 'vendor/ocr/';
+  let ocrLib = null; // Promise<window.Tesseract>
+  function ocrUrl(file) {
+    return new URL(OCR_DIR + file, document.baseURI).href;
+  }
+  function loadOcrLib() {
+    if (window.Tesseract) return Promise.resolve(window.Tesseract);
+    if (!ocrLib) {
+      ocrLib = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = ocrUrl('tesseract.min.js');
+        s.async = true;
+        s.onload = () => (window.Tesseract ? resolve(window.Tesseract) : reject(new Error('no Tesseract')));
+        s.onerror = () => reject(new Error('OCR files missing'));
+        document.head.appendChild(s);
+      }).catch((e) => { ocrLib = null; throw e; });
+    }
+    return ocrLib;
+  }
+  /** WebAssembly SIMD (almost every current phone): picks the faster core. Same test as wasm-feature-detect. */
+  function wasmSimd() {
+    try {
+      return WebAssembly.validate(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11]));
+    } catch (e) {
+      return false;
+    }
+  }
+  /**
+   * Read the text in a photo on the phone. job.cancel() stops it (rejects with 'cancelled').
+   * onProgress(0..100) covers downloading the reader (first time only) and reading.
+   */
+  function readPhotoText(image, onProgress, job) {
+    return (async () => {
+      if (typeof WebAssembly !== 'object' || typeof Worker !== 'function') throw new Error('no wasm');
+      const T = await loadOcrLib();
+      if (job.cancelled) throw new Error('cancelled');
+      const STAGES = { 'loading tesseract core': [0, 35], 'loading language traineddata': [35, 65], 'initializing api': [65, 70], 'recognizing text': [70, 100] };
+      const worker = await T.createWorker('eng', 1, {
+        workerPath: ocrUrl('worker.min.js'),
+        corePath: ocrUrl(wasmSimd() ? 'tesseract-core-simd-lstm.wasm.js' : 'tesseract-core-lstm.wasm.js'),
+        langPath: new URL(OCR_DIR, document.baseURI).href.replace(/\/$/, ''),
+        gzip: true,
+        workerBlobURL: false, // load the worker from our own origin (service worker can cache it)
+        cacheMethod: 'none', // the service worker / browser cache keeps the files, no second copy in IndexedDB
+        logger: (m) => {
+          const st = m && STAGES[m.status];
+          if (st && typeof m.progress === 'number') onProgress(Math.round(st[0] + (st[1] - st[0]) * Math.min(1, Math.max(0, m.progress))));
+        },
+      });
+      job.stop = () => worker.terminate();
+      try {
+        if (job.cancelled) throw new Error('cancelled');
+        const r = await worker.recognize(image);
+        if (job.cancelled) throw new Error('cancelled');
+        return (r && r.data && r.data.text) || '';
+      } finally {
+        job.stop = null;
+        try { await worker.terminate(); } catch (e) { /* already stopped */ }
+      }
+    })();
+  }
+
+  function rxProgress(pct, msgKey) {
+    const box = $('#rx-result');
+    box.hidden = false;
+    const p = Math.max(0, Math.min(100, pct | 0));
+    let bar = $('.rx-progress', box);
+    if (!bar) {
+      box.innerHTML = `<div class="rx-progress" role="status">
+        <p class="rx-progress-text"></p>
+        <div class="rx-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"><span></span></div>
+        <p class="small muted rx-progress-sub"></p>
+        <button type="button" class="btn btn-ghost rx-cancel" data-rx-cancel><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg><span>${esc(t('rx_cancel'))}</span></button>
+      </div>`;
+      bar = $('.rx-progress', box);
+    }
+    $('.rx-progress-text', bar).textContent = t(msgKey || 'rx_progress', { pct: p });
+    $('.rx-bar', bar).setAttribute('aria-valuenow', String(p));
+    $('.rx-bar span', bar).style.width = p + '%';
+    // "The first scan takes longer" only while the reader is being downloaded for the first time
+    $('.rx-progress-sub', bar).textContent = msgKey || !rxFirstRun ? '' : t('rx_progress_sub');
+  }
+
+  let rxJob = null;
+  let rxFirstRun = true;
+  async function scanPhoto(f) {
+    let image;
+    try {
+      image = await downscaleImage(f, 1600, 0.85);
+    } catch (e) {
+      return renderOcrResult([], false);
+    }
+    return scanImage(image);
+  }
+
+  /** image: a data: URL (already downscaled). Exposed on SDApp for tests. */
+  async function scanImage(image) {
+    if (rxJob) rxJob.cancel();
+    const job = { cancelled: false, stop: null };
+    job.cancel = () => { job.cancelled = true; if (job.stop) job.stop(); };
+    rxJob = job;
+    rxFirstRun = !window.Tesseract;
+    const btn = $('#rx-btn');
+    btn.disabled = true;
+    rxProgress(0);
+    try {
+      let found = [];
+      try {
+        const ctx = { ds: state.ds, engine: state.engine, normalize: window.SDSearch.normalize, editDistance: window.SDSearch.editDistance };
+        // the bar never goes backwards
+        let shown = 0;
+        const onProgress = (p) => { if (!job.cancelled && p > shown) { shown = Math.min(99, p); rxProgress(shown); } };
+        const text = await readPhotoText(image, onProgress, job);
+        found = window.SDOcrMatch.match(text, ctx);
+      } catch (e) {
+        if (job.cancelled) throw e;
+        found = []; // reader could not load (old phone, files missing): try the server below
+      }
+      if (job.cancelled) throw new Error('cancelled');
+      const brands = found.some((f) => !f.generic);
+      if (brands) return renderOcrResult(found, false);
+      // No brand read on the phone: the AI server, only when the site says it is on.
+      if (state.site && state.site.ai === true && canUseApi()) {
+        rxProgress(100, 'rx_trying_server');
+        const r = await apiCall('api/places?a=rx', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image }) });
+        if (job.cancelled) throw new Error('cancelled');
+        const items = r.ok && Array.isArray(r.data.items) ? r.data.items : [];
+        const seen = new Set();
+        const meds = items.map((it) => (it && it.match ? state.engine.byId(it.match.id) : null)).filter((m) => m && !seen.has(m.id) && seen.add(m.id));
+        if (meds.length || !found.length) return renderOcrResult(meds.map((med) => ({ med })), meds.length > 0);
+      }
+      // only salt names read ("Paracetamol 500mg"), or nothing
+      renderOcrResult(found, false);
+    } catch (e) {
+      if (job.cancelled) { $('#rx-result').hidden = true; toast(t('rx_cancelled')); }
+      else renderOcrResult([], false);
+    } finally {
+      if (rxJob === job) {
+        rxJob = null;
+        btn.disabled = false;
+      }
+    }
+  }
+
   function setupRx() {
     const block = $('#rx-block');
     if (!block) return;
-    block.hidden = !(state.site && state.site.ai === true && canUseApi());
-    if (block.hidden || block.dataset.ready) return;
+    block.hidden = false; // free on the phone, no API key needed
+    if (block.dataset.ready) return;
     block.dataset.ready = '1';
     const btn = $('#rx-btn');
     const file = $('#rx-file');
     btn.addEventListener('click', () => file.click());
-    file.addEventListener('change', async () => {
+    file.addEventListener('change', () => {
       const f = file.files && file.files[0];
       file.value = '';
-      if (!f) return;
-      const label = $('span', btn);
-      btn.disabled = true;
-      label.textContent = t('rx_reading');
-      try {
-        const image = await downscaleImage(f, 1600, 0.8);
-        const r = await apiCall('api/places?a=rx', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image }) });
-        if (r.status === 503) toast(t('rx_off'));
-        else if (!r.ok) toast(r.status === 429 && r.data.error ? r.data.error : t('rx_error'));
-        else renderRxResult(Array.isArray(r.data.items) ? r.data.items : []);
-      } catch (e) {
-        toast(t('rx_error'));
-      } finally {
-        btn.disabled = false;
-        label.textContent = t('rx_btn');
-      }
+      if (f) scanPhoto(f);
     });
     $('#rx-result').addEventListener('click', (e) => {
-      if (e.target.closest('[data-rx-close]')) { $('#rx-result').hidden = true; return; }
+      const box = $('#rx-result');
+      if (e.target.closest('[data-rx-cancel]')) { if (rxJob) rxJob.cancel(); return; }
+      if (e.target.closest('[data-rx-close]')) { box.hidden = true; return; }
+      if (e.target.closest('[data-rx-type]')) {
+        box.hidden = true;
+        const input = $('#search-input');
+        input.focus();
+        input.scrollIntoView({ block: 'center' });
+        return;
+      }
       const add = e.target.closest('[data-rx-add]');
       if (!add) return;
       let n = 0;
       add.dataset.rxAdd.split(',').filter(Boolean).forEach((id) => { if (state.engine.byId(id) && cabinet.add(id)) n++; });
       toast(t('rx_added', { n }));
+      $$('[data-rx-add]', box).forEach((b) => {
+        const ids = b.dataset.rxAdd.split(',').filter(Boolean);
+        if (ids.every((id) => cabinet.has(id))) { b.disabled = true; $('span', b).textContent = t('rx_in_list'); }
+      });
     });
   }
 
-  function renderRxResult(items) {
+  /** Big rows for older eyes: name, pack price, "Cheaper option: save X%", View + Add. */
+  function renderOcrResult(found, viaServer) {
     const box = $('#rx-result');
-    const matched = items.filter((it) => it && it.match && state.engine.byId(it.match.id));
     box.hidden = false;
-    box.innerHTML = `<div class="rx-head"><h2 class="hs-title">${esc(t('rx_title'))}</h2>
-        <button type="button" class="icon-btn ghost sm" data-rx-close aria-label="${esc(t('close'))}"><svg class="ic"><use href="#i-x"/></svg></button></div>
-      ${items.length ? `<ul class="rx-list">${items.filter(Boolean).map((it) => {
-        const read = String(it.read || '') + (it.strength ? ' ' + String(it.strength) : '');
-        const m = it.match && state.engine.byId(it.match.id);
-        return `<li><span class="rx-read">${esc(read)}</span>${m
-          ? `<a href="#/medicine/${encodeURIComponent(m.id)}">${esc(medTitle(m))} · ${rs(m.price)}</a>`
-          : `<a href="#/search/${encodeURIComponent(String(it.read || ''))}" class="muted">${esc(t('rx_no_match'))}</a>`}</li>`;
-      }).join('')}</ul>` : `<p class="muted small">${esc(t('rx_none'))}</p>`}
-      ${matched.length ? `<button type="button" class="btn btn-primary sm" data-rx-add="${esc(matched.map((it) => it.match.id).join(','))}"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg><span>${esc(t('rx_add_all'))}</span></button>` : ''}
-      <p class="small muted">${esc(t('rx_note'))}</p>`;
+    const head = `<div class="rx-head"><h2 class="hs-title">${esc(t('rx_title'))}</h2>
+        <button type="button" class="icon-btn ghost sm" data-rx-close aria-label="${esc(t('close'))}"><svg class="ic"><use href="#i-x"/></svg></button></div>`;
+    if (!found.length) {
+      box.innerHTML = `${head}<p class="rx-none">${esc(t('rx_nothing'))}</p>
+        <button type="button" class="btn btn-primary rx-type" data-rx-type><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg><span>${esc(t('rx_type'))}</span></button>`;
+      return;
+    }
+    const addable = found.filter((x) => !x.generic);
+    const rows = found.map(({ med, generic }) => {
+      if (generic) {
+        // only the salt was read (brand name missed): offer every brand with that salt + strength
+        const q = [med.generic, med.strength].filter(Boolean).join(' ');
+        return `<li class="rx-row">
+        <div class="rx-med"><b class="rx-name">${esc(q)}</b><span class="muted">${esc(t('rx_salt_only'))}</span></div>
+        <div class="rx-actions rx-actions-one"><a class="btn btn-primary" href="#/search/${encodeURIComponent(q)}">${esc(t('rx_see_brands'))}</a></div></li>`;
+      }
+      const s = state.engine.savings(med);
+      const inList = cabinet.has(med.id);
+      return `<li class="rx-row">
+        <div class="rx-med"><b class="rx-name">${esc(medTitle(med))}</b>
+          <span class="rx-price"><b class="num">${rs(med.price)}</b>${med.pack ? ` <span class="muted">${esc(t('pl_pack', { pack: iso(med.pack) }))}</span>` : ''}</span>
+          ${s && s.percent >= 5 ? `<span class="rx-save">${esc(t('rx_cheaper', { pct: s.percent }))}</span>` : ''}</div>
+        <div class="rx-actions">
+          <a class="btn btn-ghost" href="#/medicine/${encodeURIComponent(med.id)}">${esc(t('rx_view'))}</a>
+          <button type="button" class="btn btn-primary" data-rx-add="${esc(med.id)}"${inList ? ' disabled' : ''}><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg><span>${esc(t(inList ? 'rx_in_list' : 'rx_add'))}</span></button>
+        </div></li>`;
+    }).join('');
+    box.innerHTML = `${head}<ul class="rx-list">${rows}</ul>
+      ${addable.length > 1 ? `<button type="button" class="btn btn-primary rx-all" data-rx-add="${esc(addable.map((x) => x.med.id).join(','))}"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg><span>${esc(t('rx_add_all'))}</span></button>` : ''}
+      <p class="small muted">${esc(t('rx_note'))}</p>
+      ${viaServer ? `<p class="small muted">${esc(t('rx_server_note'))}</p>` : ''}`;
   }
+
 
   // ------------------------------------------------------------------------
   // Search box + autocomplete
@@ -1930,6 +2094,7 @@
     syncCabinetNow,
     loadAccount,
     waDigits,
+    scanImage,
   };
   window.SDApp = api;
 

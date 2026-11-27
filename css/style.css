@@ -703,6 +703,26 @@ body.as-open .compare-tray { display: none; }
 .rx-list a { display: inline-flex; align-items: center; min-height: 48px; font-weight: 700; overflow-wrap: anywhere; }
 .rx-read { font-weight: 600; color: var(--ink-2); }
 .rx-result p { margin: 0; }
+/* Round 2 scan: one big button, big rows, big Cancel (older users) */
+.rx-btn { width: 100%; min-height: 56px; font-size: 18px; }
+.rx-privacy { margin: 6px 0 0; text-align: center; }
+.rx-progress { display: grid; gap: 12px; }
+.rx-progress-text { font-size: 20px; font-weight: 700; }
+.rx-bar { height: 14px; border-radius: 4px; background: var(--sunk); border: 1px solid var(--line-strong); overflow: hidden; }
+.rx-bar span { display: block; height: 100%; width: 0; background: var(--brand); transition: width .3s ease; }
+.rx-cancel, .rx-type, .rx-all { width: 100%; min-height: 56px; }
+.rx-none { font-size: 18px; }
+.rx-list li.rx-row { display: grid; gap: 10px; padding: 14px 0; align-items: start; }
+.rx-med { display: grid; gap: 4px; min-width: 0; }
+.rx-name { font-size: 21px; font-weight: 700; overflow-wrap: anywhere; }
+.rx-price { font-size: 18px; }
+.rx-price .num { font-size: 20px; }
+.rx-save { font-size: 17px; font-weight: 600; color: var(--save); }
+.rx-actions { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; }
+.rx-list .rx-actions .btn { min-height: 52px; padding: 0 12px; justify-content: center; }
+.rx-actions-one { grid-template-columns: 1fr; }
+.rx-actions .btn[disabled] { opacity: .65; cursor: default; }
+@media (prefers-reduced-motion: reduce) { .rx-bar span { transition: none; } }
 .hs-title { margin: 0 0 12px; font-size: 19px; font-weight: 700; }
 
 /* --------------------------------------------------------------------------

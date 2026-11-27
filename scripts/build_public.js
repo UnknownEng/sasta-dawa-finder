@@ -29,6 +29,16 @@ function build() {
   const html = fs.readFileSync(indexPath, 'utf8').replace(/<span id="copyright-year">\d+<\/span>/, `<span id="copyright-year">${new Date().getFullYear()}</span>`);
   fs.writeFileSync(indexPath, html);
 
+  // On-device OCR files for the scan button (from node_modules, never committed)
+  const ocr = require('./ocr_assets').copy(OUT);
+  console.log(`OCR: ${ocr.files} files in vendor/ocr`);
+  // The service worker keeps the OCR files in their own cache: name it after the tesseract.js
+  // version, so a package update gets fresh files and ordinary releases keep the old ones.
+  if (ocr.version) {
+    const swPath = path.join(OUT, 'sw.js');
+    fs.writeFileSync(swPath, fs.readFileSync(swPath, 'utf8').replace(/'sasta-dawa-ocr-v1'/, `'sasta-dawa-ocr-${ocr.version}'`));
+  }
+
   // Pages Google can index (one per brand and per formula) + sitemap.xml
   const seo = require('./build_seo').build(OUT);
   console.log(`SEO: ${seo.brands} brand pages, ${seo.formulas} formula pages, sitemap ${seo.urls} URLs`);

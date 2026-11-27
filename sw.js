@@ -5,19 +5,25 @@
  * API calls are never cached (they carry sign-in tokens, live pharmacy stock and reservations).
  * The account / business / developer / widget pages are not precached: they always need the
  * network, and are only kept as an offline copy after a successful visit.
+ * On-device OCR files (vendor/ocr, ~7 MB) are never precached: they are saved in their own cache
+ * the first time someone scans, so the next scan works offline, and that cache survives app updates.
  */
-const CACHE_NAME = 'sasta-dawa-v2.7.0';
+const CACHE_NAME = 'sasta-dawa-v2.8.0';
+// Kept across releases. scripts/build_public.js renames it after the tesseract.js version, so a
+// package update starts a fresh OCR cache.
+const OCR_CACHE = 'sasta-dawa-ocr-v1';
 
 const PRECACHE_URLS = [
   './',
   './index.html',
   './manifest.json',
-  './css/style.css?v=2.7.0',
-  './js/i18n.js?v=2.7.0',
-  './js/data.js?v=2.7.0',
-  './js/search.js?v=2.7.0',
-  './js/assistant.js?v=2.7.0',
-  './js/app.js?v=2.7.0',
+  './css/style.css?v=2.8.0',
+  './js/i18n.js?v=2.8.0',
+  './js/data.js?v=2.8.0',
+  './js/search.js?v=2.8.0',
+  './js/ocr-match.js?v=2.8.0',
+  './js/assistant.js?v=2.8.0',
+  './js/app.js?v=2.8.0',
   './data/medicines.json',
   './icons/icon.svg',
   './icons/icon-192.png',
@@ -31,7 +37,7 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((names) => Promise.all(names.filter((n) => n !== CACHE_NAME).map((n) => caches.delete(n))))
+      .then((names) => Promise.all(names.filter((n) => n !== CACHE_NAME && n !== OCR_CACHE).map((n) => caches.delete(n))))
       .then(() => self.clients.claim())
   );
 });
@@ -56,6 +62,19 @@ self.addEventListener('fetch', (event) => {
   // Never touch the API (no cache, no offline copy) or the admin panel.
   if (isApi(url) || url.pathname.startsWith('/unonenginerrunon')) return;
   if (request.headers.get('Authorization')) return;
+
+  // OCR reader files: cache first (they never change for a given OCR_CACHE), saved on first use.
+  if (url.pathname.includes('/vendor/ocr/')) {
+    event.respondWith(
+      caches.open(OCR_CACHE).then((cache) =>
+        cache.match(request).then((hit) => hit || fetch(request).then((r) => {
+          if (r && r.status === 200 && r.type === 'basic') cache.put(request, r.clone());
+          return r;
+        }))
+      )
+    );
+    return;
+  }
 
   // Medicine data (prices + registered brands): network first so new prices arrive quickly, but on a weak connection use
   // the saved copy after 4 s (the download still finishes in the background for next time).

@@ -102,6 +102,24 @@
       ]
     },
     {
+      "source": "/vendor/ocr/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=2592000"
+        }
+      ]
+    },
+    {
+      "source": "/vendor/ocr/eng.traineddata.gz",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/gzip"
+        }
+      ]
+    },
+    {
       "source": "/data/(.*)",
       "headers": [
         {

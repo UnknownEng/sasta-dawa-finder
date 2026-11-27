@@ -34,3 +34,6 @@ www/
 # Simulation output (scripts/simulate_users.js)
 sim-output.txt
 sim-report.json
+
+# On-device OCR files, copied from node_modules (scripts/ocr_assets.js)
+vendor/

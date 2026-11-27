@@ -6,6 +6,7 @@
  *  - no admin panel, service worker, sitemap, robots.txt or 404 page (the app bundles
  *    everything, so it works offline without a service worker)
  *  - the medicine data ships inside the app, so the first launch needs no download
+ *  - the on-device OCR files (vendor/ocr, scripts/ocr_assets.js) ship inside the app
  *  - API calls (AI chat, feedback, site settings) go to the live site, see js/native.js
  *
  *   node scripts/build_app.js
@@ -36,6 +37,9 @@ function build() {
     // Web analytics is for the website; the app counts installs/active users itself (js/native.js).
     .replace(/\s*<script data-sd-analytics[^>]*>[\s\S]*?<\/script>/g, '');
   fs.writeFileSync(indexPath, html);
+
+  // On-device OCR (scan button) ships inside the app so it works offline
+  require('./ocr_assets').copy(OUT);
 
   let count = 0;
   const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).forEach((e) => (e.isDirectory() ? walk(path.join(dir, e.name)) : count++));
