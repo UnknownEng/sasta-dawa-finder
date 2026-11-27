@@ -4,7 +4,7 @@
    hairlines, 4–6px radii, mono for numbers). See DESIGN-REDESIGN.md.
    ========================================================================== */
 
-html, body { overflow-x: hidden; }
+html, body { overflow-x: hidden; overflow-x: clip; }
 
 /* ---- Simple page header / footer (no app nav) ---- */
 .acc-top .topbar-inner { gap: 8px; }
@@ -327,5 +327,5 @@ dl.kv dd { margin: 0; overflow-wrap: anywhere; }
 .native-google-btn { inline-size: 100%; min-block-size: 56px; font-size: 18px; border: 2px solid var(--ink-2); }
 .biz-app-link { margin: 0; }
 /* Big enough to tap for older users (44px target incl. the label row) */
-label.check input[type="checkbox"], .check input[type="checkbox"] { inline-size: 28px; block-size: 28px; margin: 8px; flex: none; }
+label.check input[type="checkbox"], .check input[type="checkbox"] { inline-size: 40px; block-size: 40px; margin: 2px; flex: none; }
 label.check { min-block-size: 44px; align-items: center; }

@@ -954,10 +954,27 @@
     } else if (u.plan === 'free' && u.paidPlan) {
       banner = `<div class="notice no-print">${icInfo}<p>${tr('You are on the free plan. Paid features are paused. {link}.', { link: `<a href="#/plan">${esc(tr('Choose a plan'))}</a>` })}</p></div>`;
     }
+    // Personal account inside the pharmacies app: say so, and offer to turn it into a business account.
+    const bizTypes = Object.keys(ROLE_LABEL).filter((r) => r !== 'patient');
+    const convert = u.role === 'patient' && appContext() === 'business'
+      ? `<div class="card convert-card no-print" id="convert-card">
+          <h2>${esc(tr('This is a Personal account'))}</h2>
+          <p>${esc(tr('The Sasta Dawa for Pharmacies app is for pharmacies, clinics, NGOs and companies. Make this a business account to add your pharmacy.'))}</p>
+          <form class="form" id="convert-form">
+            <label class="field">${esc(tr('Business type'))}
+              <select class="input" name="role">${bizTypes.map((r) => `<option value="${r}"${r === 'pharmacy' ? ' selected' : ''}>${esc(tr(ROLE_LABEL[r]))}</option>`).join('')}</select>
+            </label>
+            <button class="btn" type="submit">${esc(tr('Make this a business account'))}</button>
+            <p class="msg" role="status"></p>
+          </form>
+          <p class="small muted">${esc(tr('Only looking for medicine prices? Use the Sasta Dawa Finder app.'))}</p>
+        </div>`
+      : '';
     app.innerHTML = `
       <div class="dash-head no-print">
         <div><h1>${esc(tr('Hi, {name}', { name: u.name }))}</h1><div class="badges">${planBadges(u)}</div>${lastLoginHtml(u)}</div>
       </div>
+      ${convert}
       ${banner}
       <nav class="tabs no-print" aria-label="${esc(tr('Account sections'))}" style="margin-block-start:14px">
         ${tabs.map((t) => `<a href="#/${t[0]}"${t[0] === tab ? ' aria-current="page"' : ''}>${esc(tr(t[1]))}</a>`).join('')}
@@ -978,6 +995,24 @@
       profile: viewProfile,
     };
     (views[tab] || viewProfile)(el, rest || []);
+    const cf = $('#convert-form');
+    if (cf) {
+      cf.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const out = $('.msg', cf);
+        const btn = $('button', cf);
+        btn.disabled = true;
+        try {
+          const r = await api('become-business', { body: { role: new FormData(cf).get('role') } });
+          setSession(S.token, r.user);
+          toast(tr('Done. Your business account is ready.'));
+          go('#/');
+        } catch (e) {
+          if (out) out.textContent = (e && e.message) || tr('Something went wrong. Please try again.');
+          btn.disabled = false;
+        }
+      });
+    }
   }
 
   // ===========================================================================

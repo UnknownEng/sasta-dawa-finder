@@ -389,3 +389,20 @@ test('signup form: honeypot is still there and the terms checkbox is inside its 
   click(w, box.closest('label.check').querySelector('span'));
   assert.equal(box.checked, true, 'tapping the text ticks the box');
 });
+
+test('pharmacies app + Personal account: shows "Make this a business account" and converts', async () => {
+  let sent = null;
+  const w = await boot({ user: patientUser(), native: nativeStub('business'), routes: { 'become-business': (b) => { sent = b; return [200, { user: pharmacyUser({ name: 'Ali' }) }]; } } });
+  await until(() => w.document.querySelector('#convert-form'), 'convert card');
+  assert.equal(w.document.querySelector('#convert-form select').value, 'pharmacy');
+  w.document.querySelector('#convert-form').dispatchEvent(new w.Event('submit', { bubbles: true, cancelable: true }));
+  await until(() => sent && !w.document.querySelector('#convert-form'), 'converted');
+  assert.deepEqual(sent, { role: 'pharmacy' });
+  assert.equal(JSON.parse(w.localStorage.getItem('sd_user')).role, 'pharmacy');
+});
+
+test('customer app + Personal account: no convert card', async () => {
+  const w = await boot({ user: patientUser(), native: nativeStub('customer') });
+  await settle(80);
+  assert.equal(w.document.querySelector('#convert-form'), null);
+});

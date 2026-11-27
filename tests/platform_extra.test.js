@@ -197,4 +197,20 @@ test('platform extras', async (t) => {
     r = await call('/api/places?a=rx', { body: { image: 'data:image/jpeg;base64,AAAA' } });
     assert.equal(r.status, 503, 'switched off without an AI key');
   });
+
+  await t.test('a Personal account can become a business account once (pharmacies app)', async () => {
+    const pt = await signup('patient', 'convert@example.com');
+    let r = await call('/api/account?a=become-business', { body: { role: 'patient' }, headers: B(pt.token) });
+    assert.equal(r.status, 400);
+    r = await call('/api/account?a=become-business', { body: { role: 'admin' }, headers: B(pt.token) });
+    assert.equal(r.status, 400);
+    r = await call('/api/account?a=become-business', { body: { role: 'pharmacy' }, headers: B(pt.token) });
+    assert.equal(r.status, 200, r.text);
+    assert.equal(r.body.user.role, 'pharmacy');
+    assert.notEqual(r.body.user.plan, 'free', '30-day trial starts');
+    r = await call('/api/account?a=become-business', { body: { role: 'clinic' }, headers: B(pt.token) });
+    assert.equal(r.status, 400, 'only once');
+    r = await call('/api/account?a=become-business', { body: { role: 'pharmacy' } });
+    assert.equal(r.status, 401);
+  });
 });
