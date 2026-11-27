@@ -824,6 +824,8 @@
     const picked = $('#signup-form input[name="role"]:checked');
     const body = { credential };
     if (picked) body.role = picked.value;
+    // Opened from the pharmacies app (no type picked, e.g. on Sign in): a new account is a pharmacy, not Personal
+    else if (appContext() === 'business') body.role = 'pharmacy';
     if (signup) {
       const terms = $('#accept-terms');
       if (!terms || !terms.checked) {
@@ -1329,9 +1331,17 @@
         list.innerHTML = '<li>Could not load the medicine list. Check your connection.</li>';
         return;
       }
-      found = engine.search(q, { limit: 12 }).map((r) => r.med);
+      // Same typo / Urdu / Roman Urdu tolerance as the main search ("brufin" → Brufen)
+      let note = '';
+      let hits = engine.search(q, { limit: 12 });
+      if (!hits.length && typeof engine.resolve === 'function') {
+        const res = engine.resolve(q, { limit: 12 });
+        hits = res.results || [];
+        if (hits.length && res.query && res.query !== q) note = `<li class="muted">Showing results for <b>${esc(res.query)}</b></li>`;
+      }
+      found = hits.map((r) => r.med).filter(Boolean);
       list.innerHTML = found.length
-        ? found.map((m, i) => `<li><div class="pr-main"><div class="pr-name">${esc(medLabel(m))}</div><div class="pr-meta">${esc(medMeta(m))} · ${esc(rs2(m.price))}</div></div><button type="button" class="btn btn-soft sm" data-i="${i}" style="min-height:44px">${esc(o.button || 'Add')}</button></li>`).join('')
+        ? note + found.map((m, i) => `<li><div class="pr-main"><div class="pr-name">${esc(medLabel(m))}</div><div class="pr-meta">${esc(medMeta(m))} · ${esc(rs2(m.price))}</div></div><button type="button" class="btn btn-soft sm" data-i="${i}" style="min-height:44px">${esc(o.button || 'Add')}</button></li>`).join('')
         : '<li class="muted">No medicine found. Try the brand or formula name.</li>';
     };
     input.addEventListener('input', () => {

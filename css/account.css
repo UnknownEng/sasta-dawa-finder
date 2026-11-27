@@ -326,3 +326,6 @@ dl.kv dd { margin: 0; overflow-wrap: anywhere; }
 }
 .native-google-btn { inline-size: 100%; min-block-size: 56px; font-size: 18px; border: 2px solid var(--ink-2); }
 .biz-app-link { margin: 0; }
+/* Big enough to tap for older users (44px target incl. the label row) */
+label.check input[type="checkbox"], .check input[type="checkbox"] { inline-size: 28px; block-size: 28px; margin: 8px; flex: none; }
+label.check { min-block-size: 44px; align-items: center; }
